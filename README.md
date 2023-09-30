@@ -1,5 +1,6 @@
 # xfade-easing
-
+> [!NOTE]  
+> Still working on this Readme!
 ## Overview
 
 XFade is a video cross fade filter for FFmpeg, providing many transitions including a way for users to code their own custom effects.
