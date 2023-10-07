@@ -1,4 +1,5 @@
 #!/opt/local/bin/bash
+set -o posix
 
 # FFmpeg XFade easing expressions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
 # GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
@@ -10,10 +11,10 @@
 # See https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation for FFmpeg expressions
 
 export CMD=`basename $0`
-export VERSION="${CMD%.*} version 1.0"
+export VERSION=1.1
+export TMPDIR=/tmp
 
-TMP=/tmp/${CMD%.*}-$$
-#TMP=tmp/tmp;mkdir -p tmp
+TMP=$TMPDIR/${CMD%.*}-$$
 trap "rm -f $TMP-*" EXIT
 ERROR=64 # unreserved exit code
 N=$'\n'
@@ -42,6 +43,7 @@ p_white= # white value
 _main() {
     _deps || exit $ERROR # check dependencies
     _opts "$@" || exit $ERROR # get options
+    _tmp || exit $ERROR # set tmp dir
     format=${o_format-$FORMAT}
     transition=${o_transition-$TRANSITION}
     [[ $transition =~ = ]] && args=${transition#*=} && transition=${transition%=*}
@@ -57,15 +59,16 @@ _main() {
 
     [[ -n $o_list ]] && _list && exit 0
     [[ -n $o_help ]] && _help && exit 0
+    [[ -n $o_version ]] && _version && exit 0
 
     _format $format || exit $ERROR # set pix format vars
 
     [[ ! $mode =~ ^(in|out|inout)$ ]] && _error "unknown easing mode '$mode'" && exit $ERROR
 
-    easing_expr="$(_easing $easing $mode)" # get easing expr
+    easing_expr=$(_easing $easing $mode) # get easing expr
     [[ -z $easing_expr ]] && _error "unknown easing '$easing'" && exit $ERROR
 
-    transition_expr="$(_transition $transition $args)" # get transition expr
+    transition_expr=$(_transition $transition $args) # get transition expr
     [[ -z $transition_expr ]] && _error "unknown transition '$transition'" && exit $ERROR
 
     if [[ $easing == linear ]]; then
@@ -92,12 +95,22 @@ _heredoc() { # delimiter
 
 # list all transitions
 _list() {
-    _heredoc LIST | gawk -f- $0
+    _heredoc LIST | gawk -f- $0 | gawk '{
+        if (/:/ || /^$/)
+            print
+        else
+            print "\t" $1 ($2 ? sprintf(" [args: %s default: =%s]", $2, $3) : "")
+    }'
 }
 
 # emit usage text
 _help() {
     _heredoc USAGE | envsubst
+}
+
+# emit version
+_version() {
+    echo $VERSION
 }
 
 # check dependencies
@@ -114,7 +127,7 @@ _deps() {
 # process CLI options
 _opts() {
     local OPTIND OPTARG opt
-    while getopts ':f:t:e:m:x:as:p:c:v:z:l:d:r:n2:LH' opt; do
+    while getopts ':f:t:e:m:x:as:p:c:v:z:l:d:r:n2:LHVT:K' opt; do
         case $opt in
         f) o_format=$OPTARG ;;
         t) o_transition=$OPTARG ;;
@@ -134,11 +147,24 @@ _opts() {
         2) o_vstack=$OPTARG ;;
         L) o_list=true ;;
         H) o_help=true ;;
+        V) o_version=true ;;
+        T) o_tmp=$OPTARG ;;
+        K) o_keep=true ;;
         :) _error 'missing argument'; _help; return $ERROR ;;
         \?) _error 'invalid option'; _help; return $ERROR ;;
         esac
     done
-    shift $(($OPTIND - 1))
+#   shift $(($OPTIND - 1))
+    return 0
+}
+
+# set tmp dir
+_tmp() {
+    [[ -z $o_tmp ]] && return 0
+    test ! -d $o_tmp && ! mkdir $o_tmp 2>/dev/null && _error "failed to make temp dir $o_tmp" && return $ERROR
+    TMP=$o_tmp/${CMD%.*}-$$
+    trap - EXIT
+    [[ -z $o_keep ]] && trap "rm -f $TMP-* && rmdir $o_tmp 2>/dev/null" EXIT
     return 0
 }
 
@@ -156,24 +182,36 @@ _expand() { # format expr
     local e="$1"
     e=${e//%f/$format}
     e=${e//%t/$transition}
+    if [[ $e =~ %[aA] ]]; then
+        local a=$(_args $transition)
+        e=${e//%a/${args-$a}}
+        e=${e//%A/$a}
+    fi
     e=${e//%e/$easing}
     e=${e//%m/$mode}
     e=${e//%F/${format^^}}
     e=${e//%T/${transition^^}}
     e=${e//%E/${easing^^}}
     e=${e//%M/${mode^^}}
-    local x=${2-$expr} y=$easing_expr z=$transition_expr
-    e=${e/\%X/$x}
-    e=${e/\%Y/$y}
-    e=${e/\%Z/$z}
-    x=${x//%n/} && x=${x// /} # compact
-    y=${y//%n/} && y=${y// /}
-    z=${z//%n/} && z=${z// /}
-    e=${e/\%x/$x}
-    e=${e/\%y/$y}
-    e=${e/\%z/$z}
+    if [[ $e =~ %[xyzXYZ] ]]; then
+        local x=${2-$expr} y=$easing_expr z=$transition_expr
+        e=${e/\%X/$x}
+        e=${e/\%Y/$y}
+        e=${e/\%Z/$z}
+        x=${x//%n/} && x=${x// /} # compact
+        y=${y//%n/} && y=${y// /}
+        z=${z//%n/} && z=${z// /}
+        e=${e/\%x/$x}
+        e=${e/\%y/$y}
+        e=${e/\%z/$z}
+    fi
     e=${e//%n/$N}
     echo "$e"
+}
+
+# get default transition args
+_args() { # transition
+    _heredoc LIST | gawk -f- $0 | gawk -v transition=$1 '$1 == transition { if ($3) print $3 }'
 }
 
 # calculate expression using awk
@@ -851,7 +889,7 @@ _plot() { # path easing
     local ll=24 # log level warning
     local expr mode
     for mode in in out inout; do
-        expr="$(_easing $2 $mode)"
+        expr=$(_easing $2 $mode)
         expr="$expr; if(eq(PLANE,0)*eq(X,0)*eq(Y,0), print(-1,$ll); print(1-P,$ll); print(1-$P,$ll))"
         expr=$(_expand '%x' "$expr")
         local log=$TMP-plot-$mode.log
@@ -863,26 +901,30 @@ _plot() { # path easing
     done
     unset FFREPORT # prevent further logging
     local plt=$TMP-plot.plt # gnuplot script
-    _heredoc PLOT | gawk -v title=$easing -v size=$psize -v output="$path" -f- $TMP-plot-*.log > $plt
+    _heredoc PLOT | gawk -v title=$easing -v size=$psize -v h=${PLOTSIZE#*x} -v output="$path" -f- $TMP-plot-*.log > $plt
     gnuplot $plt
 }
 
 # output demo video
 _video() { # path
     local path=$(_expand "$1") enc
-    local expr=$(_expand '%n%X')
-    local script=$TMP-script.txt # filter_complex_script
-    local offset=$(_calc "($vlength - $vtduration) / 2")
-    local loop=$(_calc "int(($vlength + $vtduration) / 2 * $vfps) + 1")
+    local fps=$vfps
+    [[ $path =~ .gif && $fps -gt 50 ]] && fps=50 # max for browser support
+    local loop=$(_calc "int(($vlength + $vtduration) / 2 * $fps) + 1")
     local width=${vsize%x*}
     local height=${vsize#*x}
-    local movie=(- sheep,SaddleBrown goat,Orange)
+    local expr=$(_expand '%n%X')
+    local offset=$(_calc "($vlength - $vtduration) / 2")
+    local xfade="offset=$offset:duration=$vtduration:transition=custom:expr='$expr'"
     local b=$(_calc "int(3 / ${VIDEOSIZE#*x} * $height + 0.5)" ) # scaled border
-    local fs=$(_calc "int(16 / ${VIDEOSIZE#*x} * $height + 0.5)" ) # scaled font
-    local utext=$(_expand '%t') # uneased
-    local etext=$(_expand '%t%n%e-%m') # eased
+    local fs=$(_calc "int(15 / ${VIDEOSIZE#*x} * $height + 0.5)" ) # scaled font
     local drawtext="drawtext=x='(w-text_w)/2':y='(h-text_h)/2':box=1:boxborderw=$b:text_align=C:fontsize=$fs:text='TEXT'"
+    local text1=$transition text2=$transition
+    [[ -n $args ]] && text1+=$(_expand '=%A') && text2+=$(_expand '=%a')
+    [[ $easing != linear ]] && text2+=$(_expand '%n%e-%m')
+    local script=$TMP-script.txt # filter_complex_script
     rm -f $script
+    local movie=(- sheep,SaddleBrown goat,Orange)
     for i in 1 2; do
         local file=${movie[i]%,*}
         _heredoc ${file^^} | base64 -D -o $TMP-$file.png
@@ -891,43 +933,45 @@ movie='$TMP-$file.png',
 format=pix_fmts=$format,
 scale=width=$width:height=$height,
 loop=loop=$loop:size=1,
-fps=fps=$vfps,
+fps=fps=$fps,
 fillborders=$b:$b:$b:$b:mode=fixed:color=${movie[i]#*,}
 [v$i];
 EOT
     done
-    # alt: testsrc=size=$vsize:rate=$vfps:duration=$d:decimals=3
-    #      testsrc2=size=$vsize:rate=$vfps:duration=$d
-    if [[ -z $vstack || $easing == linear ]]; then # unstacked
+    # alt: testsrc=size=$vsize:rate=$fps:duration=$d:decimals=3
+    #      testsrc2=size=$vsize:rate=$fps:duration=$d
+    if [[ -z $vstack || ( $easing == linear && -z $args ) ]]; then # unstacked
         if [[ -n $o_vname ]]; then
-            [[ $easing == linear ]] && etext=$utext
             cat << EOT >> $script
-[v1]${drawtext/TEXT/$etext}[v1];
-[v2]${drawtext/TEXT/$etext}[v2];
+[v1]${drawtext/TEXT/$text2}[v1];
+[v2]${drawtext/TEXT/$text2}[v2];
 EOT
         fi
         cat << EOT >> $script
 [v1][v2]
-xfade=offset=$offset:duration=$vtduration:transition=custom:expr='$expr'
+xfade=$xfade
 [v];
 EOT
     else # stacked
-        local texpr=$(_expand "%n%Z")
         local stack=v
         [[ $transition =~ (up|down|vu|vd|squeezeh|horz) ]] && stack=h
         [[ $vstack != a ]] && stack=$vstack
         local trans=$transition # xfade transition
-        [[ $transition =~ _ ]] && trans="custom:expr='$texpr'" # need custom if not xfade
+        if [[ $transition =~ _ ]]; then # custom transition
+            expr=$(_expand "%n%Z")
+            [[ -n $args ]] && expr=$(_transition $transition) && expr=$(_expand "%n%X" "$expr") # default args
+            trans="custom:expr='$expr'"
+        fi
         cat << EOT >> $script
 [v1]split[v1a][v1b];
 [v2]split[v2a][v2b];
 EOT
         if [[ -n $o_vname ]]; then
             cat << EOT >> $script
-[v1a]${drawtext/TEXT/$utext}[v1a];
-[v2a]${drawtext/TEXT/$utext}[v2a];
-[v1b]${drawtext/TEXT/$etext}[v1b];
-[v2b]${drawtext/TEXT/$etext}[v2b];
+[v1a]${drawtext/TEXT/$text1}[v1a];
+[v2a]${drawtext/TEXT/$text1}[v2a];
+[v1b]${drawtext/TEXT/$text2}[v1b];
+[v2b]${drawtext/TEXT/$text2}[v2b];
 EOT
         fi
         cat << EOT >> $script
@@ -935,7 +979,7 @@ EOT
 xfade=offset=$offset:duration=$vtduration:transition=$trans
 [va];
 [v1b][v2b]
-xfade=offset=$offset:duration=$vtduration:transition=custom:expr='$expr'
+xfade=$xfade
 [vb];
 [va][vb]${stack}stack[v];
 EOT
@@ -943,7 +987,7 @@ EOT
     if [[ $path =~ .gif ]]; then
         echo '[v]split[s0][s1]; [s0]palettegen[s0]; [s1][s0]paletteuse[v]' >> $script
     else
-        enc="-c:v libx264 -pix_fmt yuv420p -r $vfps"
+        enc="-c:v libx264 -pix_fmt yuv420p -r $fps"
     fi
     ffmpeg $FFOPTS -filter_complex_threads 1 -filter_complex_script $script -map [v]:v -an -t $vlength $enc "$path"
 }
@@ -984,12 +1028,18 @@ BEGIN {
     split(title, a, " ")
     a[1] = toupper(substr(a[1], 1, 1)) substr(a[1], 2)
     a[2] = toupper(substr(a[2], 1, 1)) substr(a[2], 2)
-    title = a[1] " " a[2]
+    title = a[2] ? (a[1] " " a[2]) : a[1]
     split(size, a, "x")
+    fs = 12 * a[1] / h
+    blw = lw = 1.5 * a[1] / h
     ext = tolower(output)
-    if (ext ~ /\.eps$/) { # inches! (default 5x3.5")
-        a[1] /= 72
-        a[2] /= 72
+    if (ext ~ /\.pdf$/ || ext ~ /\.eps$/) { # inches! (default 5x3.5")
+        a[1] /= 96
+        a[2] /= 96
+        fs *= 1.5
+        lw *= 2.5 / 1.5
+        if (ext ~ /\.eps$/)
+            lw *= 2
     }
     size = a[1] "," a[2]
 }
@@ -1017,31 +1067,33 @@ END {
     else if (ext ~ /\.jpe?g$/)
         terminal = "jpeg"
     else if (ext ~ /\.png$/)
-        terminal = "png"
+        terminal = "pngcairo"
     else if (ext ~ /\.svg$/)
         terminal = "svg"
+    else if (ext ~ /\.pdf$/)
+        terminal = "pdfcairo"
     else if (ext ~ /\.eps$/)
-        terminal = "postscript eps colour enhanced level3"
+        terminal = "epscairo"
     else if (ext ~ /\.x?html?$/)
         terminal = "canvas"
     else
         terminal = "unknown"
-    print "set terminal", terminal, "size", size
-    print "set termoption enhanced"
-    print "set termoption font 'Helvetica,12'"
-    print "set output '" output "'"
-    print "set title '{/Helvetica-Bold*1.4 " title "}'"
-    print "set xlabel '{/Helvetica-Bold*1.2 progress}'"
-    print "set ylabel '{/Helvetica-Bold*1.2 easing}'"
-    print "set grid"
-    print "set border 3"
-    print "set tics nomirror out"
-    print "set object 1 rectangle from screen 0,0 to screen 1,1 fillcolor rgb'#FCFCFC' behind"
-    print "set object 2 rect from graph 0, graph 0 to graph 1, graph 1 fillcolor rgb '#E8FFE8' behind"
-    print "set key left top"
-    print "set style line 1 linewidth 2 linecolor rgb 'red'"
-    print "set style line 2 linewidth 2 linecolor rgb 'green'"
-    print "set style line 3 linewidth 2 linecolor rgb 'blue'"
+    printf("set terminal %s size %s\n", terminal, size)
+    printf("set termoption enhanced\n")
+    printf("set termoption font 'Helvetica,%g'\n", fs)
+    printf("set output '%s'\n", output)
+    printf("set title '{/Helvetica-Bold*1.4 %s}'\n", title)
+    printf("set xlabel '{/Helvetica*1.2 progress}'\n")
+    printf("set ylabel '{/Helvetica*1.2 easing}'\n")
+    printf("set grid\n")
+    printf("set border 3 linewidth %g\n", blw)
+    printf("set tics nomirror out\n")
+    printf("set object 1 rectangle from screen -1.1,-1.1 to screen 1.1,1.1 fillcolor rgb'#FCFCFC' behind\n")
+    printf("set object 2 rect from graph 0, graph 0 to graph 1, graph 1 fillcolor rgb '#E8FFE8' behind\n")
+    printf("set key left top\n")
+    printf("set style line 1 linewidth %g linecolor rgb 'red'\n", lw)
+    printf("set style line 2 linewidth %g linecolor rgb 'green'\n", lw)
+    printf("set style line 3 linewidth %g linecolor rgb 'blue'\n", lw)
     print ""
     print "$data << EOD"
     print "progress", "in", "out", "inout"
@@ -1075,7 +1127,7 @@ match($1, /^_(..)_(transition|easing)\(\)/, a) { # transition/easing func
 
 match($1, /^([A-Za-z_|]+)\)$/, a) && go { # case
     cases = a[1]
-    params = args = defs = c = ""
+    args = defs = c = ""
     do {
         getline
         if (match($0, /\$\{a\[[0-9]\]-([^}]+)\}.*# *(.*)/, a)) { # bash substitution
@@ -1084,11 +1136,9 @@ match($1, /^([A-Za-z_|]+)\)$/, a) && go { # case
             c = ","
         }
     } while ($1 != ";;")
-    if (c)
-        params = sprintf(" [args: %s default: =%s]", args, defs)
     n = split(cases, a, "|")
     for (i = 1; i <= n; i++)
-        print "\t" a[i] params
+        print a[i], args, defs
 }
 
 $1 ~ /^\}/ { go = 0 }
@@ -1192,8 +1242,8 @@ Pv+d7yL5sX6sH+uE63/XMMyrd+gCtQAAAABJRU5ErkJggg==
 !GOAT
 
 @USAGE # CLI usage for -H option
-FFmpeg XFade Easing script ($VERSION) by Raymond Luckhurst, scriptit.uk
-Generates custom xfade expressions for the xfade filter for transitions with easing.
+FFmpeg XFade Easing script ($CMD version $VERSION) by Raymond Luckhurst, scriptit.uk
+Generates custom xfade filter expressions for rendering transitions with easing.
 See https://ffmpeg.org/ffmpeg-filters.html#xfade & https://trac.ffmpeg.org/wiki/Xfade
 Usage: $CMD [options]
 Options:
@@ -1207,6 +1257,7 @@ Options:
     -s expr output format string (default: $EXPRFORMAT)
        %t expands to the transition name; %e easing name; %m easing mode
        %T, %E, %M upper case expansions of above
+       %a expands to the transition arguments; %A to the default arguments (if any)
        %x expands to the generated expr, compact, best for inline filterchains
        %X does too but is more legible, good for filter_complex_script files
        %y expands to the easing expression, compact; %Y legible
@@ -1214,7 +1265,7 @@ Options:
        %n inserts a newline
     -p easing plot output filename (default: no plot)
        accepts expansions but %m/%M is pointless as plots show all easing modes
-       formats: gif, jpg, png, svg, eps, html <canvas>, determined from file extension
+       formats: gif, jpg, png, svg, pdf, eps, html <canvas>, determined from file extension
     -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for EPS)
        format: WxH; omitting W or H scales to ratio 4:3, e.g -z x300 scales W
     -v video output filename (default: no video), accepts expansions
@@ -1230,6 +1281,9 @@ Options:
        stacking nly works for non-linear easings (default: no stack)
     -L list all transitions and easings
     -H show this usage text
+    -V show the script version
+    -T temporary file directory (default: $TMPDIR)
+    -K keep temporary files if temporary directory is not $TMPDIR
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
     2. this script requires Bash 4 (2009), gawk, gsed, envsubst, ffmpeg, gnuplot, base64
