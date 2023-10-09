@@ -25,7 +25,7 @@ The `expr` is shown on three lines. The first line is the easing expression $e(P
 > the example appears overly complicated because xfade progress `P` goes from 1..0 but the easing equations expect 0..1
 
 > [!WARNING] 
-> the ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory)
+> the ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing can be very slow!
 
 ## Expressions
 ### Compact, for -filter_complex
@@ -51,17 +51,18 @@ This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel
 	bounce
 
 ### Other easings
-The `squareroot` & `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` & `cubic` respectively:  
-![quadratic vs squareroot](assets/quadratic-squareroot.png)
 
 	squareroot  
 	cuberoot
+
+The `squareroot` & `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` & `cubic` respectively:  
+![quadratic vs squareroot](assets/quadratic-squareroot.png)
 
 ## Transition expressions
 
 ### XFade transitions
 These are ports of the C-code transitions in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c).
-Omitted transitions are `distance`, `hblur` & `fadegrays` which perform aggregation, so cannot be computed on a plane-pixel basis.
+Omitted transitions are `distance`, `hblur`, `fadegrays` which perform aggregation, so cannot be computed on a per plane-pixel basis.
 
 	fade fadefast fadeslow fadeblack fadewhite  
 	wipeleft wiperight wipeup wipedown  
@@ -83,24 +84,50 @@ Omitted transitions are `distance`, `hblur` & `fadegrays` which perform aggregat
 	revealup revealdown
 
 ### GL Transitions
-These are ports of some of the simpler GLSL-code transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions).
+These are ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions).
 
 	gl_crosswarp  
-	gl_directionalwarp [args: smoothness,direction.x,direction.y default: =0.1,-1,1]  
+	gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1]  
 	gl_multiply_blend  
-	gl_pinwheel [args: speed default: =2]  
-	gl_polar_function [args: segments default: =5]  
-	gl_PolkaDotsCurtain [args: dots,centre.x,centre.y default: =20,0,0]  
-	gl_ripple [args: amplitude,speed default: =100,50]  
+	gl_pinwheel [args: speed; default: =2]  
+	gl_polar_function [args: segments; default: =5]  
+	gl_PolkaDotsCurtain [args: dots,centre.x,centre.y; default: =20,0,0]  
+	gl_ripple [args: amplitude,speed; default: =100,50]  
 	gl_Swirl  
-	gl_WaterDrop [args: amplitude,speed default: =30,30]
+	gl_WaterDrop [args: amplitude,speed; default: =30,30]
 
 #### Parameters
-Certain GL Transitions accept parameters which are appended to the transition name as CSV.
+Certain GL Transitions accept parameters which can be appended to the transition name as CSV to generate the xfade custom expr using [xfade-easing.sh](#expression-generator-cli-script).
 The parameters and default values are shown above.
 
-**Example**: 2 pinwheel speeds using `-t gl_pinwheel=0.5` and `-t gl_pinwheel=10`  
-![gl_pinwheel](assets/gl_pinwheel-10.gif)
+**Example**: two pinwheel speeds: `-t gl_pinwheel=0.5` and `-t gl_pinwheel=10`  
+![gl_pinwheel](assets/gl_pinwheel_10.gif)
+
+Alternatively just hack the [expressions](expr) directly.
+The parameters are specified first, using store functions `st(p,v)`
+where `p` is the parameter number and `v` its value.
+So for gl_pinwheel, for a speed value of 10 change the first line of its expr below to `st(1, 10);`.
+```
+st(1, 2);
+st(1, atan2(0.5 - Y / H, X / W - 0.5) + (1 - P) * ld(1));
+st(1, mod(ld(1), PI / 4));
+st(1, sgn(1 - P - ld(1)));
+st(1, if(lt(0.5, ld(1)), 0, 1));
+A * ld(1) + B * (1 - ld(1))
+```
+Similarly, gl_directionalwarp has 3 parameters: smoothness, direction.x, direction.y (from `xfade-easing.sh -L`)
+and its expr starts with 3 `st()` (store) functions which may be changed from their default values:
+```
+st(1, 0.1);
+st(2, -1);
+st(3, 1);
+st(4, hypot(ld(2), ld(3)));
+etc.
+```
+
+#### Gallery
+Here are the xfade-ported GL Transitions with default parameters and no easing:  
+![gl_crosswarp](assets/gl_gallery.gif)
 
 ### Other transitions
 Transition `x_screen_blend` is the opposite of `gl_multiply_blend`; they lighten and darken the transition respectively.
@@ -110,7 +137,7 @@ Transition `x_screen_blend` is the opposite of `gl_multiply_blend`; they lighten
 	x_overlay_blend
 
 ## Expression generator CLI script
-xfade-easing.sh is a Bash 4 script that generates the custom easing and transition expressions for the xfade `expr` parameter.
+[xfade-easing.sh](xfade-easing.sh) is a Bash 4 script that generates the custom easing and transition expressions for the xfade `expr` parameter.
 It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
@@ -142,13 +169,15 @@ Options:
     -c canvas size for easing plot (default: 640x480, scaled to inches for EPS)
        format: WxH; omitting W or H scales to ratio 4:3, e.g -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: gif, mp4 (x264 yuv420p), determined from file extension
-    -z video size (default: 250x200)
+       formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
+    -i video inputs CSV (default: sheep,goat - inline pngs 250x200)
+    -z video size (default: input 1 size)
        format: WxH; omitting W or H scales to ratio 5:4, e.g -z 300x scales H
     -l video length (default: 5)
     -d video transition duration (default: 3)
     -r video framerate (default: 25)
     -n show effect name on video as text
+    -u video text font size multiplier (default: 1.0)
     -2 stack uneased and eased videos horizontally (h), vertically (v) or auto (a)
        auto selects the orientation that displays the easing to best effect
        stacking nly works for non-linear easings (default: no stack)
