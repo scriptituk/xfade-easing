@@ -11,7 +11,7 @@ set -o posix
 # See https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation for FFmpeg expressions
 
 export CMD=`basename $0`
-export VERSION=1.1
+export VERSION=1.11
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -29,10 +29,11 @@ export EASING=linear
 export MODE=inout
 export EXPRFORMAT="'%x'"
 export PLOTSIZE=640x480 # default for gnuplot (4:3)
-export VIDEOSIZE=250x200 # (5:4)
+export VIDEOSIZE=250x200 # sheep/goad png (5:4)
 export VIDEOLENGTH=5
 export VIDEOTRANSITIONDURATION=3
 export VIDEOFPS=25
+export VIDEOFSMULT=1.0
 
 # pixel format
 p_max= # maximum value of component
@@ -50,11 +51,6 @@ _main() {
     easing=${o_easing-$EASING}
     mode=${o_mode-$MODE}
     xformat=${o_xformat-$EXPRFORMAT}
-    psize=$(_size ${o_psize-$PLOTSIZE} $PLOTSIZE)
-    vsize=$(_size ${o_vsize-$VIDEOSIZE} $VIDEOSIZE 1) # even
-    vlength=${o_vlength-$VIDEOLENGTH}
-    vtduration=${o_vtduration-$VIDEOTRANSITIONDURATION}
-    vfps=${o_vfps-$VIDEOFPS}
     [[ -n $o_vstack ]] && vstack=$o_vstack
 
     [[ -n $o_list ]] && _list && exit 0
@@ -80,7 +76,7 @@ _main() {
 
     [[ -n $o_expr ]] && _expr "$o_expr" "$xformat" # output custom expression
     [[ -n $o_plot ]] && _plot "$o_plot" $easing    # output easing plot
-    [[ -n $o_video ]] && _video "$o_video" # output demo video
+    [[ -n $o_video ]] && _video "$o_video" "$o_vinputs" # output demo video
 }
 
 # emit error message to stderr
@@ -99,7 +95,7 @@ _list() {
         if (/:/ || /^$/)
             print
         else
-            print "\t" $1 ($2 ? sprintf(" [args: %s default: =%s]", $2, $3) : "")
+            print "\t" $1 ($2 ? sprintf(" [args: %s; default: =%s]", $2, $3) : "")
     }'
 }
 
@@ -127,7 +123,7 @@ _deps() {
 # process CLI options
 _opts() {
     local OPTIND OPTARG opt
-    while getopts ':f:t:e:m:x:as:p:c:v:z:l:d:r:n2:LHVT:K' opt; do
+    while getopts ':f:t:e:m:x:as:p:c:v:i:z:l:d:r:nu:2:LHVT:K' opt; do
         case $opt in
         f) o_format=$OPTARG ;;
         t) o_transition=$OPTARG ;;
@@ -139,11 +135,13 @@ _opts() {
         p) o_plot=$OPTARG ;;
         c) o_psize=$OPTARG ;;
         v) o_video=$OPTARG ;;
+        i) o_vinputs=$OPTARG ;;
         z) o_vsize=$OPTARG ;;
         l) o_vlength=$OPTARG ;;
         d) o_vtduration=$OPTARG ;;
         r) o_vfps=$OPTARG ;;
         n) o_vname=true ;;
+        u) o_vfsmult=$OPTARG ;;
         2) o_vstack=$OPTARG ;;
         L) o_list=true ;;
         H) o_help=true ;;
@@ -168,8 +166,13 @@ _tmp() {
     return 0
 }
 
+# probe dimension
+_dims() { # file
+    echo $(ffprobe -v error -i "$1" -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0)
+}
+
 # parse size
-_size() { # WxH default even
+_size() { # WxH original even
     local w=${1%x*} h=${1#*x} W=${2%x*} H=${2#*x}
     [[ -z $w ]] && w=$(_calc "int($W * $h / $H + 0.5)")
     [[ -z $h ]] && h=$(_calc "int($H * $w / $W + 0.5)")
@@ -900,46 +903,60 @@ _plot() { # path easing
             -filter_complex "[0][1]xfade=duration=1:offset=1:transition=custom:expr='$expr'" -f null -
     done
     unset FFREPORT # prevent further logging
+    local size=$(_size ${o_psize-$PLOTSIZE} $PLOTSIZE)
     local plt=$TMP-plot.plt # gnuplot script
-    _heredoc PLOT | gawk -v title=$easing -v size=$psize -v h=${PLOTSIZE#*x} -v output="$path" -f- $TMP-plot-*.log > $plt
+    _heredoc PLOT | gawk -v title=$2 -v size=$size -v h=${PLOTSIZE#*x} -v output="$path" -f- $TMP-plot-*.log > $plt
     gnuplot $plt
 }
 
 # output demo video
 _video() { # path
-    local path=$(_expand "$1") enc
-    local fps=$vfps
-    [[ $path =~ .gif && $fps -gt 50 ]] && fps=50 # max for browser support
-    local loop=$(_calc "int(($vlength + $vtduration) / 2 * $fps) + 1")
-    local width=${vsize%x*}
-    local height=${vsize#*x}
+    local path=$(_expand "$1") file enc
+    local inputs=(- ${2/,/ })
+    if [[ -z $2 ]]; then
+        inputs=(- sheep goat)
+        for i in 1 2; do
+            file=$TMP-${inputs[i]}.png
+            _heredoc ${inputs[i]^^} | base64 -D -o $file
+            inputs[$i]=$file
+        done
+    fi
+    local length=${o_vlength-$VIDEOLENGTH}
+    local duration=${o_vtduration-$VIDEOTRANSITIONDURATION}
+    local offset=$(_calc "($length - $duration) / 2")
     local expr=$(_expand '%n%X')
-    local offset=$(_calc "($vlength - $vtduration) / 2")
-    local xfade="offset=$offset:duration=$vtduration:transition=custom:expr='$expr'"
-    local b=$(_calc "int(3 / ${VIDEOSIZE#*x} * $height + 0.5)" ) # scaled border
-    local fs=$(_calc "int(15 / ${VIDEOSIZE#*x} * $height + 0.5)" ) # scaled font
+    local xfade="offset=$offset:duration=$duration:transition=custom:expr='$expr'"
+    local fps=${o_vfps-$VIDEOFPS}
+    local fsmult=${o_vfsmult-$VIDEOFSMULT}
+    [[ $path =~ .gif && $fps -gt 50 ]] && fps=50 # max for browser support
+    local loop=$(_calc "int(($length + $duration) / 2 * $fps) + 1")
+    local dims=$(_dims ${inputs[1]})
+    local size=$(_size ${o_vsize-$dims} $dims 1) # even
+    local width=${size%x*}
+    local height=${size#*x}
+    local b=$(_calc "int(3 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled border
+    local fs=$(_calc "int(16 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled font
     local drawtext="drawtext=x='(w-text_w)/2':y='(h-text_h)/2':box=1:boxborderw=$b:text_align=C:fontsize=$fs:text='TEXT'"
     local text1=$transition text2=$transition
     [[ -n $args ]] && text1+=$(_expand '=%A') && text2+=$(_expand '=%a')
-    [[ $easing != linear ]] && text2+=$(_expand '%n%e-%m')
+    [[ $easing != linear ]] && text1+=$(_expand '%nno easing') && text2+=$(_expand '%n%e-%m')
+    local borders=(- SaddleBrown Orange)
+    [[ -n $2 ]] && b=0 # no fillborders
     local script=$TMP-script.txt # filter_complex_script
     rm -f $script
-    local movie=(- sheep,SaddleBrown goat,Orange)
     for i in 1 2; do
-        local file=${movie[i]%,*}
-        _heredoc ${file^^} | base64 -D -o $TMP-$file.png
         cat << EOT >> $script
-movie='$TMP-$file.png',
+movie='${inputs[i]}',
 format=pix_fmts=$format,
 scale=width=$width:height=$height,
 loop=loop=$loop:size=1,
 fps=fps=$fps,
-fillborders=$b:$b:$b:$b:mode=fixed:color=${movie[i]#*,}
+fillborders=$b:$b:$b:$b:mode=fixed:color=${borders[i]}
 [v$i];
 EOT
     done
-    # alt: testsrc=size=$vsize:rate=$fps:duration=$d:decimals=3
-    #      testsrc2=size=$vsize:rate=$fps:duration=$d
+    # alt: testsrc=size=$size:rate=$fps:duration=$d:decimals=3
+    #      testsrc2=size=$size:rate=$fps:duration=$d
     if [[ -z $vstack || ( $easing == linear && -z $args ) ]]; then # unstacked
         if [[ -n $o_vname ]]; then
             cat << EOT >> $script
@@ -976,7 +993,7 @@ EOT
         fi
         cat << EOT >> $script
 [v1a][v2a]
-xfade=offset=$offset:duration=$vtduration:transition=$trans
+xfade=offset=$offset:duration=$duration:transition=$trans
 [va];
 [v1b][v2b]
 xfade=$xfade
@@ -984,12 +1001,14 @@ xfade=$xfade
 [va][vb]${stack}stack[v];
 EOT
     fi
-    if [[ $path =~ .gif ]]; then
+    if [[ $path =~ .gif ]]; then # animated for .md
         echo '[v]split[s0][s1]; [s0]palettegen[s0]; [s1][s0]paletteuse[v]' >> $script
-    else
+    elif [[ $path =~ .mkv ]]; then # lossless - see https://trac.ffmpeg.org/wiki/Encode/FFV1
+        enc="-c:v ffv1 -level 3 -coder 1 -context 1 -g 1 -pix_fmt yuv420p -r $fps"
+    else # x264 - see https://trac.ffmpeg.org/wiki/Encode/H.264
         enc="-c:v libx264 -pix_fmt yuv420p -r $fps"
     fi
-    ffmpeg $FFOPTS -filter_complex_threads 1 -filter_complex_script $script -map [v]:v -an -t $vlength $enc "$path"
+    ffmpeg $FFOPTS -filter_complex_threads 1 -filter_complex_script $script -map [v]:v -an -t $length $enc "$path"
 }
 
 _main "$@" # run
@@ -1025,10 +1044,6 @@ BEGIN {
 @PLOT # gnuplot script
 # this assumes 1s transition duration at 100 fps
 BEGIN {
-    split(title, a, " ")
-    a[1] = toupper(substr(a[1], 1, 1)) substr(a[1], 2)
-    a[2] = toupper(substr(a[2], 1, 1)) substr(a[2], 2)
-    title = a[2] ? (a[1] " " a[2]) : a[1]
     split(size, a, "x")
     fs = 12 * a[1] / h
     blw = lw = 1.5 * a[1] / h
@@ -1269,13 +1284,15 @@ Options:
     -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for EPS)
        format: WxH; omitting W or H scales to ratio 4:3, e.g -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: gif, mp4 (x264 yuv420p), determined from file extension
-    -z video size (default: $VIDEOSIZE)
+       formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
+    -i video inputs CSV (default: sheep,goat - inline pngs $VIDEOSIZE)
+    -z video size (default: input 1 size)
        format: WxH; omitting W or H scales to ratio 5:4, e.g -z 300x scales H
     -l video length (default: $VIDEOLENGTH)
     -d video transition duration (default: $VIDEOTRANSITIONDURATION)
     -r video framerate (default: $VIDEOFPS)
     -n show effect name on video as text
+    -u video text font size multiplier (default: $VIDEOFSMULT)
     -2 stack uneased and eased videos horizontally (h), vertically (v) or auto (a)
        auto selects the orientation that displays the easing to best effect
        stacking nly works for non-linear easings (default: no stack)
