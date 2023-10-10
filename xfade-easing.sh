@@ -1,5 +1,4 @@
 #!/opt/local/bin/bash
-set -o posix
 
 # FFmpeg Xfade easing expressions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
 # GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
@@ -10,8 +9,10 @@ set -o posix
 # See https://github.com/scriptituk/xfade-easing for documentation or use the -H option
 # See https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation for FFmpeg expressions
 
+set -o posix
+
 export CMD=`basename $0`
-export VERSION=1.1b
+export VERSION=1.1c
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -33,7 +34,7 @@ export VIDEOSIZE=250x200 # sheep/goat png (5:4)
 export VIDEOLENGTH=5
 export VIDEOTRANSITIONDURATION=3
 export VIDEOFPS=25
-export VIDEOGAP=0,white
+export VIDEOSTACK=,0,white
 export VIDEOFSMULT=1.0
 
 # pixel format
@@ -52,7 +53,6 @@ _main() {
     easing=${o_easing-$EASING}
     mode=${o_mode-$MODE}
     xformat=${o_xformat-$EXPRFORMAT}
-    [[ -n $o_vstack ]] && vstack=$o_vstack
 
     [[ -n $o_list ]] && _list && exit 0
     [[ -n $o_help ]] && _help && exit 0
@@ -68,8 +68,13 @@ _main() {
     transition_expr=$(_transition $transition $args) # get transition expr
     [[ -z $transition_expr ]] && _error "unknown transition '$transition'" && exit $ERROR
 
-    expr=$(gsed -e "s/\<P\>/$P/g" <<<$transition_expr) # eased progress in ld(0)
-    [[ $easing != linear ]] && expr="$easing_expr%n;%n$expr" # chained easing & transition
+    expr=$transition_expr # uneased (linear)
+    transition_expr=$(gsed -e "s/\<P\>/$P/g" <<<$transition_expr) # expects eased progress in ld(0)
+    if [[ $easing == linear ]]; then
+        easing_expr='st(0, P)' # no easing
+    else
+        expr="$easing_expr%n;%n$transition_expr" # chained easing & transition
+    fi
 
     [[ -n $o_expr ]] && _expr "$o_expr" "$xformat" # output custom expression
     [[ -n $o_plot ]] && _plot "$o_plot" $easing    # output easing plot
@@ -120,7 +125,7 @@ _deps() {
 # process CLI options
 _opts() {
     local OPTIND OPTARG opt
-    while getopts ':f:t:e:m:x:as:p:c:v:i:z:l:d:r:nu:2:g:LHVT:K' opt; do
+    while getopts ':f:t:e:m:x:as:p:c:v:i:z:l:d:r:nu:2:LHVT:K' opt; do
         case $opt in
         f) o_format=$OPTARG ;;
         t) o_transition=$OPTARG ;;
@@ -140,7 +145,6 @@ _opts() {
         n) o_vname=true ;;
         u) o_vfsmult=$OPTARG ;;
         2) o_vstack=$OPTARG ;;
-        g) o_vgap=$OPTARG ;;
         L) o_list=true ;;
         H) o_help=true ;;
         V) o_version=true ;;
@@ -925,23 +929,23 @@ _video() { # path
     local expr=$(_expand '%n%X')
     local xfade="offset=$offset:duration=$duration:transition=custom:expr='$expr'"
     local fps=${o_vfps-$VIDEOFPS}
-    local fsmult=${o_vfsmult-$VIDEOFSMULT}
     [[ $path =~ .gif && $fps -gt 50 ]] && fps=50 # max for browser support
     local loop=$(_calc "int(($length + $duration) / 2 * $fps) + 1")
     local dims=$(_dims ${inputs[1]})
     local size=$(_size ${o_vsize-$dims} $dims 1) # even
     local width=${size%x*}
     local height=${size#*x}
-    local b=$(_calc "int(3 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled border
-    local fs=$(_calc "int(16 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled font
-    local drawtext="drawtext=x='(w-text_w)/2':y='(h-text_h)/2':box=1:boxborderw=$b:text_align=C:fontsize=$fs:text='TEXT'"
+    local fsmult=${o_vfsmult-$VIDEOFSMULT}
+    local bb=$(_calc "int(3 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled boxborder
+    local fs=$(_calc "int(16 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled fontsize
+    local drawtext="drawtext=x='(w-text_w)/2':y='(h-text_h)/2':box=1:boxborderw=$bb:text_align=C:fontsize=$fs:text='TEXT'"
     local text1=$transition text2=$transition
     [[ -n $args ]] && text1+=$(_expand '=%A') && text2+=$(_expand '=%a')
     [[ $easing != linear ]] && text1+=$(_expand '%nno easing') && text2+=$(_expand '%n%e-%m')
-    local gap=${o_vgap-$VIDEOGAP}
-    local fill=${gap#*,}
-    [[ ! $gap =~ , ]] && fill=${VIDEOGAP#*,}
-    gap=${gap%,*}
+    readarray -d , -n 3 -t a <<<$VIDEOSTACK,
+    local stack=${a[0]} gap=${a[1]} fill=${a[2]}
+    readarray -d , -n 3 -t a <<<$o_vstack,,,
+    [[ -n ${a[0]} ]] && stack=${a[0]} ; [[ -n ${a[1]} ]] && gap=${a[1]} ; [[ -n ${a[2]} ]] && fill=${a[2]}
     local script=$TMP-script.txt # filter_complex_script
     rm -f $script
     for i in 1 2; do
@@ -956,7 +960,7 @@ EOT
     done
     # alt: testsrc=size=$size:rate=$fps:duration=$d:decimals=3
     #      testsrc2=size=$size:rate=$fps:duration=$d
-    if [[ -z $vstack || ( $easing == linear && -z $args ) ]]; then # unstacked
+    if [[ -z $stack || ( $easing == linear && -z $args ) ]]; then # unstacked
         if [[ -n $o_vname ]]; then
             cat << EOT >> $script
 [v1]${drawtext/TEXT/$text2}[v1];
@@ -969,11 +973,9 @@ xfade=$xfade
 [v];
 EOT
     else # stacked
-        local stack=v
-        [[ $transition =~ (up|down|vu|vd|squeezeh|horz) ]] && stack=h
-        [[ $vstack != a ]] && stack=$vstack
+        [[ -z $stack || $stack == a ]] && stack=v && [[ $transition =~ (up|down|vu|vd|squeezeh|horz) ]] && stack=h
         local cell2="$gap+w0_0"
-        [[ $vstack == v ]] && cell2="0_h0+$gap"
+        [[ $stack == v ]] && cell2="0_h0+$gap"
         local trans=$transition # xfade transition
         if [[ $transition =~ _ ]]; then # custom transition
             expr=$(_expand "%n%Z")
@@ -1265,7 +1267,7 @@ Options:
     -t transition name (default: $TRANSITION); use -L for list
     -e easing function (default: $EASING); see -L for list
     -m easing mode (default: $MODE): in out inout
-    -x expr output filename (default: no expr), accepts expansions
+    -x expr output filename (default: no expr), accepts expansions, - for stdout
     -a append to expr output file
     -s expr output format string (default: $EXPRFORMAT)
        %t expands to the transition name; %e easing name; %m easing mode
@@ -1274,28 +1276,29 @@ Options:
        %x expands to the generated expr, compact, best for inline filterchains
        %X does too but is more legible, good for filter_complex_script files
        %y expands to the easing expression only, compact; %Y legible
-       %z expands to the uneased transition expression only, compact; %Z legible
-          for the eased transition expression only, use -e linear (default) and %x or %X
+       %z expands to the eased transition expression only, compact; %Z legible
+          for the uneased transition expression only, use -e linear (default) and %x or %X
        %n inserts a newline
     -p easing plot output filename (default: no plot)
-       accepts expansions but %m/%M is pointless as plots show all easing modes
+       accepts expansions but %m/%M are pointless as plots show all easing modes
        formats: gif, jpg, png, svg, pdf, eps, html <canvas>, determined from file extension
-    -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for EPS)
-       format: WxH; omitting W or H scales to ratio 4:3, e.g -z x300 scales W
+    -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for PDF/EPS)
+       format: WxH; omitting W or H keeps aspect ratio, e.g -z x300 scales W
     -v video output filename (default: no video), accepts expansions
        formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
     -i video inputs CSV (default: sheep,goat - inline pngs $VIDEOSIZE)
     -z video size (default: input 1 size)
-       format: WxH; omitting W or H scales to ratio 5:4, e.g -z 300x scales H
-    -l video length (default: $VIDEOLENGTH)
-    -d video transition duration (default: $VIDEOTRANSITIONDURATION)
-    -r video framerate (default: $VIDEOFPS)
+       format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
+    -l video length (default: ${VIDEOLENGTH}s)
+    -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s)
+    -r video framerate (default: ${VIDEOFPS}fps)
     -n show effect name on video as text
     -u video text font size multiplier (default: $VIDEOFSMULT)
-    -2 stack uneased and eased videos horizontally (h), vertically (v) or auto (a)
-       auto selects the orientation that displays the easing to best effect
-       stacking only works for non-linear easings (default: no stack)
-    -g video stack gap,colour (default: $VIDEOGAP)
+    -2 video stack orientation,gap,colour (default: $VIDEOSTACK), e.g. h,2,red
+       stacks uneased and eased videos horizontally (h), vertically (v) or auto (a)
+       auto (a) selects the orientation that displays easing to best effect
+       also stacks transitions with default and custom parameters, eased or not
+       videos are not stacked unless they are different (nonlinear or customised)
     -L list all transitions and easings
     -H show this usage text
     -V show the script version
