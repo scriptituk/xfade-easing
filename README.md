@@ -3,9 +3,9 @@
 > Still working on this Readme!
 ## Summary
 
-Xfade is a FFmpeg video transition filter which facilitates custom effects using an expression evaluator.
+Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects.
 
-This is a port of Robert Penner’s easing equations coded as custom xfade expressions.
+This is a port of Robert Penner’s standard easing equations coded as custom xfade expressions.
 It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with the easing expressions to ease the transition effect.
 
 Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concaternation of an easing expression and a transition expression.
@@ -17,7 +17,7 @@ Pre-generated [expressions](expr) can be copied verbatim but an [expression gene
 ```shell
 ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex "
     xfade=duration=3:offset=1:transition=custom:expr='
-        st(0,1-P);st(1,if(gt(P,0.5),4*ld(0)^3,1-4*P^3));st(0,1-ld(1)) ;
+        st(0,1-P); st(1,if(gt(P,0.5),4*ld(0)^3,1-4*P^3)); st(0,1-ld(1)) ;
         if(gt(Y,H*(1-ld(0))),A,B)
     '" output.mp4
 ```
@@ -30,28 +30,29 @@ The semicolon token combines expressions.
 > the example appears overly complicated because xfade progress `P` goes from 1..0 but the easing equations expect 0..1
 
 > [!IMPORTANT] 
-> the ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing can be very slow!
+> the ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing is slower
 
 ## Expressions
-Pre-generated easing and transition expressions are in the [expr](expr) subdirectory for mix and match use.
+Pre-generated easing and transition expressions are in the [expr/](expr) subdirectory for mix and match use.
 The [expression generator](#expression-generator-cli-script) can produce combined expressions in any syntax using expansion specifiers (like `printf`).
 
 ### Pixel format
-Transitions that affect colour components work differently for RGB-type formats than non-RGB and for different bit depths.
+Transitions that affect colour components work differently for RGB-type formats than non-RGB colour spaces and for different bit depths.
 The generator emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing `AV_PIX_FMT_FLAG_RGB` from the format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and bit depth from `ffmpeg -pix_fmts` data.
+It can then set the black, white and mid plane values correctly.
 
 ### Compact, for -filter_complex
 This format is crammed into a single line stripped of whitespace.
 
-*Example*: smoothup, eased (progress in `ld(0)`)
+*Example*: elastic out easing (leaves progress in `st(0)`)
 ```
-st(1,1+Y/H-ld(0)*2);st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1)));B*ld(1)+A*(1-ld(1))
+st(0,1-P);st(1,1-cos(20*ld(0)*PI/3)/2^(10*ld(0)));st(0,1-ld(1))
 ```
 
 ### Verbose, for -filter_complex_script
 This format is best for expressions that are too unwieldy for inline ffmpeg commands.
 
-*Example*: gl_WaterDrop, uneased (progress in `P`)
+*Example*: gl_WaterDrop transition (expects progress in `ld(0)`)
 ```
 st(1, 30);
 st(2, 30);
@@ -59,21 +60,21 @@ st(3, X / W - 0.5);
 st(4, 0.5 - Y / H);
 st(5, hypot(ld(3), ld(4)));
 st(6, A);
-if(lte(ld(5), 1 - P),
- st(1, sin(ld(5) * ld(1) - (1 - P) * ld(2)));
+if(lte(ld(5), 1 - ld(0)),
+ st(1, sin(ld(5) * ld(1) - (1 - ld(0)) * ld(2)));
  st(3, ld(3) * ld(1));
  st(4, ld(4) * ld(1));
  st(3, X + ld(3) * W);
  st(4, Y - ld(4) * H);
  st(6, if(eq(PLANE,0), a0(ld(3),ld(4)), if(eq(PLANE,1), a1(ld(3),ld(4)), if(eq(PLANE,2), a2(ld(3),ld(4)), a3(ld(3),ld(4))))))
 );
-ld(6) * P + B * (1 - P)
+ld(6) * ld(0) + B * (1 - ld(0))
 ```
 
 ## Easing expressions
 
 ### Standard easings (Robert Penner)
-This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel007/easing) single argument version of [Robert Penner’s](http://robertpenner.com/easing/) easing functions, further optimised by me.
+This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single argument version of [Robert Penner’s](http://robertpenner.com/easing/) easing functions, further optimised by me.
 
 	linear  
 	quadratic  
@@ -143,6 +144,7 @@ Certain GL Transitions accept parameters which can be appended to the transition
 The parameters and default values are shown above.
 
 *Example*: two pinwheel speeds: `-t gl_pinwheel=0.5` and `-t gl_pinwheel=10`  
+
 ![gl_pinwheel](assets/gl_pinwheel_10.gif)
 
 Alternatively just hack the [expressions](expr) directly.
@@ -171,6 +173,7 @@ etc.
 GL Transitions can also be eased, with or without parameters:
 
 *Example*: Swirl: `-t gl_Swirl -e bounce`  
+
 ![gl_crosswarp](assets/gl_Swirl-bounce.gif)
 
 #### Gallery
@@ -192,7 +195,7 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script (xfade-easing.sh version 1.1b) by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script (xfade-easing.sh version 1.1c) by Raymond Luckhurst, scriptit.uk
 Generates custom xfade filter expressions for rendering transitions with easing.
 See https://ffmpeg.org/ffmpeg-filters.html#xfade & https://trac.ffmpeg.org/wiki/Xfade
 Usage: xfade-easing.sh [options]
@@ -201,7 +204,7 @@ Options:
     -t transition name (default: fade); use -L for list
     -e easing function (default: linear); see -L for list
     -m easing mode (default: inout): in out inout
-    -x expr output filename (default: no expr), accepts expansions
+    -x expr output filename (default: no expr), accepts expansions, - for stdout
     -a append to expr output file
     -s expr output format string (default: '%x')
        %t expands to the transition name; %e easing name; %m easing mode
@@ -210,28 +213,29 @@ Options:
        %x expands to the generated expr, compact, best for inline filterchains
        %X does too but is more legible, good for filter_complex_script files
        %y expands to the easing expression only, compact; %Y legible
-       %z expands to the uneased transition expression only, compact; %Z legible
-          for the eased transition expression only, use -e linear (default) and %x or %X
+       %z expands to the eased transition expression only, compact; %Z legible
+          for the uneased transition expression only, use -e linear (default) and %x or %X
        %n inserts a newline
     -p easing plot output filename (default: no plot)
-       accepts expansions but %m/%M is pointless as plots show all easing modes
+       accepts expansions but %m/%M are pointless as plots show all easing modes
        formats: gif, jpg, png, svg, pdf, eps, html <canvas>, determined from file extension
-    -c canvas size for easing plot (default: 640x480, scaled to inches for EPS)
-       format: WxH; omitting W or H scales to ratio 4:3, e.g -z x300 scales W
+    -c canvas size for easing plot (default: 640x480, scaled to inches for PDF/EPS)
+       format: WxH; omitting W or H keeps aspect ratio, e.g -z x300 scales W
     -v video output filename (default: no video), accepts expansions
        formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
     -i video inputs CSV (default: sheep,goat - inline pngs 250x200)
     -z video size (default: input 1 size)
-       format: WxH; omitting W or H scales to ratio 5:4, e.g -z 300x scales H
-    -l video length (default: 5)
-    -d video transition duration (default: 3)
-    -r video framerate (default: 25)
+       format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
+    -l video length (default: 5s)
+    -d video transition duration (default: 3s)
+    -r video framerate (default: 25fps)
     -n show effect name on video as text
     -u video text font size multiplier (default: 1.0)
-    -2 stack uneased and eased videos horizontally (h), vertically (v) or auto (a)
-       auto selects the orientation that displays the easing to best effect
-       stacking only works for non-linear easings (default: no stack)
-    -g video stack gap,colour (default: 0,white)
+    -2 video stack orientation,gap,colour (default: ,0,white), e.g. h,2,red
+       stacks uneased and eased videos horizontally (h), vertically (v) or auto (a)
+       auto (a) selects the orientation that displays easing to best effect
+       also stacks transitions with default and custom parameters, eased or not
+       videos are not stacked unless they are different (nonlinear or customised)
     -L list all transitions and easings
     -H show this usage text
     -V show the script version
