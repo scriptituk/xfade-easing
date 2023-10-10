@@ -1,15 +1,14 @@
-# xfade-easing
-> [!NOTE]  
-> Still working on this Readme!
+# Xfade custom easing and transition expressions
+
 ## Summary
 
-Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects.
+FFmpeg Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects.
 
 This is a port of Robert Penner’s standard easing equations coded as custom xfade expressions.
 It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with the easing expressions to ease the transition effect.
 
 Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concaternation of an easing expression and a transition expression.
-Pre-generated [expressions](expr) can be copied verbatim but an [expression generator](#expression-generator-cli-script) is provided.
+Pre-generated [expressions](expr) can be copied verbatim but an [expression generator](#expression-generator-cli-script) is also provided.
 
 *Example*: wipedown with cubic easing:
 
@@ -159,8 +158,8 @@ st(1, sgn(1 - P - ld(1)));
 st(1, if(lt(0.5, ld(1)), 0, 1));
 A * ld(1) + B * (1 - ld(1))
 ```
-Similarly, `gl_directionalwarp` has 3 parameters: `smoothness`, `direction.x`, `direction.y` (from `xfade-easing.sh -L`)
-and its expr starts with 3 `st()` (store) functions which may be changed from their default values:
+Similarly, `gl_directionalwarp` takes 3 parameters: `smoothness`, `direction.x`, `direction.y` (from `xfade-easing.sh -L`)
+and its expr starts with 3 corresponding `st()` (store) functions which may be changed from their default values:
 ```
 st(1, 0.1);
 st(2, -1);
@@ -259,3 +258,4 @@ Notes:
 ### Generating test plots
 ### Generating demo videos
 ### Examples
+
