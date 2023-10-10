@@ -1,7 +1,7 @@
 #!/opt/local/bin/bash
 set -o posix
 
-# FFmpeg XFade easing expressions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
+# FFmpeg Xfade easing expressions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
 # GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
 #
 # This is a port of Robert Penner's easing equations for the FFmpeg expression evaluator
@@ -11,7 +11,7 @@ set -o posix
 # See https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation for FFmpeg expressions
 
 export CMD=`basename $0`
-export VERSION=1.11
+export VERSION=1.1b
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -29,10 +29,11 @@ export EASING=linear
 export MODE=inout
 export EXPRFORMAT="'%x'"
 export PLOTSIZE=640x480 # default for gnuplot (4:3)
-export VIDEOSIZE=250x200 # sheep/goad png (5:4)
+export VIDEOSIZE=250x200 # sheep/goat png (5:4)
 export VIDEOLENGTH=5
 export VIDEOTRANSITIONDURATION=3
 export VIDEOFPS=25
+export VIDEOGAP=0,white
 export VIDEOFSMULT=1.0
 
 # pixel format
@@ -67,12 +68,8 @@ _main() {
     transition_expr=$(_transition $transition $args) # get transition expr
     [[ -z $transition_expr ]] && _error "unknown transition '$transition'" && exit $ERROR
 
-    if [[ $easing == linear ]]; then
-        expr="$transition_expr" # no easing needed
-    else
-        expr=$(gsed -e "s/\<P\>/$P/g" <<<$transition_expr) # eased progress in ld(0)
-        expr="$easing_expr%n;%n$expr" # chained easing & transition
-    fi
+    expr=$(gsed -e "s/\<P\>/$P/g" <<<$transition_expr) # eased progress in ld(0)
+    [[ $easing != linear ]] && expr="$easing_expr%n;%n$expr" # chained easing & transition
 
     [[ -n $o_expr ]] && _expr "$o_expr" "$xformat" # output custom expression
     [[ -n $o_plot ]] && _plot "$o_plot" $easing    # output easing plot
@@ -123,7 +120,7 @@ _deps() {
 # process CLI options
 _opts() {
     local OPTIND OPTARG opt
-    while getopts ':f:t:e:m:x:as:p:c:v:i:z:l:d:r:nu:2:LHVT:K' opt; do
+    while getopts ':f:t:e:m:x:as:p:c:v:i:z:l:d:r:nu:2:g:LHVT:K' opt; do
         case $opt in
         f) o_format=$OPTARG ;;
         t) o_transition=$OPTARG ;;
@@ -143,6 +140,7 @@ _opts() {
         n) o_vname=true ;;
         u) o_vfsmult=$OPTARG ;;
         2) o_vstack=$OPTARG ;;
+        g) o_vgap=$OPTARG ;;
         L) o_list=true ;;
         H) o_help=true ;;
         V) o_version=true ;;
@@ -436,7 +434,7 @@ _easing() { # easing mode
     exit 0
 }
 
-# custom expressions for XFade transitions
+# custom expressions for Xfade transitions
 # see https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c
 _xf_transition() { # transition
     local x # expr
@@ -832,7 +830,7 @@ _st_transition() { # transition
 
 # get transition expression
 _transition() { # transition
-    local x=$(_xf_transition $1) # try XFade
+    local x=$(_xf_transition $1) # try Xfade
     [[ -z $x ]] && x=$(_gl_transition $1 $2) # try GL
     [[ -z $x ]] && x=$(_st_transition $1) # try supplementary
     [[ -z $x ]] && exit $ERROR # unknown transition name
@@ -940,8 +938,10 @@ _video() { # path
     local text1=$transition text2=$transition
     [[ -n $args ]] && text1+=$(_expand '=%A') && text2+=$(_expand '=%a')
     [[ $easing != linear ]] && text1+=$(_expand '%nno easing') && text2+=$(_expand '%n%e-%m')
-    local borders=(- SaddleBrown Orange)
-    [[ -n $2 ]] && b=0 # no fillborders
+    local gap=${o_vgap-$VIDEOGAP}
+    local fill=${gap#*,}
+    [[ ! $gap =~ , ]] && fill=${VIDEOGAP#*,}
+    gap=${gap%,*}
     local script=$TMP-script.txt # filter_complex_script
     rm -f $script
     for i in 1 2; do
@@ -950,8 +950,7 @@ movie='${inputs[i]}',
 format=pix_fmts=$format,
 scale=width=$width:height=$height,
 loop=loop=$loop:size=1,
-fps=fps=$fps,
-fillborders=$b:$b:$b:$b:mode=fixed:color=${borders[i]}
+fps=fps=$fps
 [v$i];
 EOT
     done
@@ -973,6 +972,8 @@ EOT
         local stack=v
         [[ $transition =~ (up|down|vu|vd|squeezeh|horz) ]] && stack=h
         [[ $vstack != a ]] && stack=$vstack
+        local cell2="$gap+w0_0"
+        [[ $vstack == v ]] && cell2="0_h0+$gap"
         local trans=$transition # xfade transition
         if [[ $transition =~ _ ]]; then # custom transition
             expr=$(_expand "%n%Z")
@@ -998,17 +999,18 @@ xfade=offset=$offset:duration=$duration:transition=$trans
 [v1b][v2b]
 xfade=$xfade
 [vb];
-[va][vb]${stack}stack[v];
+[va][vb]xstack=inputs=2:fill=$fill:layout=0_0|$cell2[v];
 EOT
     fi
     if [[ $path =~ .gif ]]; then # animated for .md
-        echo '[v]split[s0][s1]; [s0]palettegen[s0]; [s1][s0]paletteuse[v]' >> $script
+        echo '[v]split[s0][s1]; [s0]palettegen[s0]; [s1][s0]paletteuse=dither=none[v]' >> $script
     elif [[ $path =~ .mkv ]]; then # lossless - see https://trac.ffmpeg.org/wiki/Encode/FFV1
         enc="-c:v ffv1 -level 3 -coder 1 -context 1 -g 1 -pix_fmt yuv420p -r $fps"
     else # x264 - see https://trac.ffmpeg.org/wiki/Encode/H.264
         enc="-c:v libx264 -pix_fmt yuv420p -r $fps"
     fi
     ffmpeg $FFOPTS -filter_complex_threads 1 -filter_complex_script $script -map [v]:v -an -t $length $enc "$path"
+    [[ $path =~ .gif ]] && which -s gifsicle && mv "$path" $TMP-video.gif && gifsicle -O3 -o "$path" $TMP-video.gif
 }
 
 _main "$@" # run
@@ -1126,7 +1128,7 @@ END {
 BEGIN {
     title["rp"] = "Easing Functions (Robert Penner):"
     title["se"] = "Supplementary Easings:"
-    title["xf"] = "XFade Transitions:"
+    title["xf"] = "Xfade Transitions:"
     title["gl"] = "GL Transitions:"
     title["st"] = "Supplementary Transitions:"
 }
@@ -1161,111 +1163,107 @@ $1 ~ /^\}/ { go = 0 }
 
 @SHEEP # sheep PNG
 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
-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
-lFTkSuQmCC
+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
 !SHEEP
 
 @GOAT # goat PNG
 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
-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
+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
 !GOAT
 
 @USAGE # CLI usage for -H option
-FFmpeg XFade Easing script ($CMD version $VERSION) by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script ($CMD version $VERSION) by Raymond Luckhurst, scriptit.uk
 Generates custom xfade filter expressions for rendering transitions with easing.
 See https://ffmpeg.org/ffmpeg-filters.html#xfade & https://trac.ffmpeg.org/wiki/Xfade
 Usage: $CMD [options]
 Options:
     -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
-    -t transition name (default: $TRANSITION): use -L for list
-    -e easing function (default: $EASING; standard Robert Penner easing functions):
-       see -L for list
+    -t transition name (default: $TRANSITION); use -L for list
+    -e easing function (default: $EASING); see -L for list
     -m easing mode (default: $MODE): in out inout
     -x expr output filename (default: no expr), accepts expansions
     -a append to expr output file
@@ -1275,8 +1273,9 @@ Options:
        %a expands to the transition arguments; %A to the default arguments (if any)
        %x expands to the generated expr, compact, best for inline filterchains
        %X does too but is more legible, good for filter_complex_script files
-       %y expands to the easing expression, compact; %Y legible
-       %z expands to the transition expression, compact; %Z legible
+       %y expands to the easing expression only, compact; %Y legible
+       %z expands to the uneased transition expression only, compact; %Z legible
+          for the eased transition expression only, use -e linear (default) and %x or %X
        %n inserts a newline
     -p easing plot output filename (default: no plot)
        accepts expansions but %m/%M is pointless as plots show all easing modes
@@ -1295,7 +1294,8 @@ Options:
     -u video text font size multiplier (default: $VIDEOFSMULT)
     -2 stack uneased and eased videos horizontally (h), vertically (v) or auto (a)
        auto selects the orientation that displays the easing to best effect
-       stacking nly works for non-linear easings (default: no stack)
+       stacking only works for non-linear easings (default: no stack)
+    -g video stack gap,colour (default: $VIDEOGAP)
     -L list all transitions and easings
     -H show this usage text
     -V show the script version
