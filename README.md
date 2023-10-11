@@ -5,7 +5,7 @@
 Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects.
 
 This is a port of Robert Penner’s standard easing equations coded as custom xfade expressions.
-It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with the easing expressions to ease the transition effect.
+It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with the easing expressions.
 
 Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concaternation of an easing expression and a transition expression.
 Pre-generated [expressions](expr) can be copied verbatim but an [expression generator](#expression-generator-cli-script) is also provided.
@@ -29,7 +29,7 @@ The semicolon token combines expressions.
 > the example appears overly complicated because xfade progress `P` goes from 1..0 but the easing equations expect 0..1
 
 > [!IMPORTANT]
-> the ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing is slower
+> ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing is slower
 
 ## Expressions
 
@@ -304,7 +304,7 @@ if(gt(P, 0.5), ld(1) * ld(2) + A * (1 - ld(2)), st(2, ld(2) - 1); B * ld(2) + ld
 Plot data is generated using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
 It is therefore real-time data.
 
-The test plots above in [Standard easings](#standard-easings-robert-penner) show the test plots for all easings and all 3 modes (in, out and in-out).
+The plots above in [Standard easings](#standard-easings-robert-penner) show the test plots for all easings and all 3 modes (in, out and in-out).
 
 - `xfade-easing.sh -e elastic -p plot-%e.pdf`  
 creates a PDF file plot-elastic.pdf of the elastic easing
@@ -335,5 +335,5 @@ creates a 10s video, horizontally stacked with 8px white gap, with a slow 8s tra
 ![windy!](assets/home-away.gif)
 
 - `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -i balloons.png,fruits.png -v living-life.mp4 -d 4 -z 500x -r 30 -f yuv420p`  
-a final GL transition with arguments, and a gentle quadratic easing, running at 30fps, processing in YUV (Y'CbCr) colour space throughout.  
+a GL transition with arguments and gentle quadratic easing, running at 30fps, processing in YUV (Y'CbCr) colour space throughout.  
 ![windy!](assets/living-life.gif)
