@@ -275,7 +275,7 @@ prints expr for slideright transition with quadratic-out easing to stdout
 - `xfade-easing.sh -t coverup -e quartic -m in -x coverup-quartic_in.txt`  
 prints expr for coverup transition with quartic-in easing to file coverup-quartic_in.txt
 - `xfade-easing.sh -t coverup -e quartic -m in -x %t-%e_%m.txt`  
-ditto, using expansion specifiers
+ditto, using expansion specifiers in file name
 - `xfade-easing.sh -t rectcrop -e exponential -m inout -s "\$expr['%t_%e_%m'] = '%n%X';" -x exprs.php -a`  
 appends the following to file exprs.php:
 ```php
@@ -334,6 +334,6 @@ creates a lossless (FFV1) video for further processing of a customised GL transi
 creates a 10s video, horizontally stacked with 8px white gap, with a slow 8s transition demonstrating quintic easing  
 ![windy!](assets/home-away.gif)
 
-- `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -i balloons.png,fruits.png -v living-life.mp4 -d 4 -z 500x`  
-a final customised GL transition with gentle quadratic easing running at 30fps  
+- `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -i balloons.png,fruits.png -v living-life.mp4 -d 4 -z 500x -r 30 -f yuv420p`  
+a final GL transition with arguments, and a gentle quadratic easing, running at 30fps, processing in YUV (Y'CbCr) colour space throughout.  
 ![windy!](assets/living-life.gif)
