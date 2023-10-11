@@ -1,8 +1,8 @@
-# Xfade custom easing and transition expressions
+# FFmpeg Xfade custom easing and transition expressions
 
 ## Summary
 
-FFmpeg Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects.
+Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects.
 
 This is a port of Robert Penner’s standard easing equations coded as custom xfade expressions.
 It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with the easing expressions to ease the transition effect.
@@ -13,7 +13,7 @@ Pre-generated [expressions](expr) can be copied verbatim but an [expression gene
 *Example*: wipedown with cubic easing:
 
 ![wipedown-cubic](assets/wipedown-cubic.gif)
-```shell
+```bash
 ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex "
     xfade=duration=3:offset=1:transition=custom:expr='
         st(0,1-P); st(1,if(gt(P,0.5),4*ld(0)^3,1-4*P^3)); st(0,1-ld(1)) ;
@@ -25,22 +25,25 @@ The first line is the easing expression $e(P)$ (cubic in-out) which stores its c
 The second line is the  transition expression $t(e(P))$ (wipedown) which loads its eased progress value from `ld(0)` instead of $P$.
 The semicolon token combines expressions.
 
-> [!NOTE]  
+> [!NOTE]
 > the example appears overly complicated because xfade progress `P` goes from 1..0 but the easing equations expect 0..1
 
-> [!IMPORTANT] 
+> [!IMPORTANT]
 > the ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing is slower
 
 ## Expressions
+
 Pre-generated easing and transition expressions are in the [expr/](expr) subdirectory for mix and match use.
 The [expression generator](#expression-generator-cli-script) can produce combined expressions in any syntax using expansion specifiers (like `printf`).
 
 ### Pixel format
+
 Transitions that affect colour components work differently for RGB-type formats than non-RGB colour spaces and for different bit depths.
 The generator emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing `AV_PIX_FMT_FLAG_RGB` from the format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and bit depth from `ffmpeg -pix_fmts` data.
 It can then set the black, white and mid plane values correctly.
 
 ### Compact, for -filter_complex
+
 This format is crammed into a single line stripped of whitespace.
 
 *Example*: elastic out easing (leaves progress in `st(0)`)
@@ -49,6 +52,7 @@ st(0,1-P);st(1,1-cos(20*ld(0)*PI/3)/2^(10*ld(0)));st(0,1-ld(1))
 ```
 
 ### Verbose, for -filter_complex_script
+
 This format is best for expressions that are too unwieldy for inline ffmpeg commands.
 
 *Example*: gl_WaterDrop transition (expects progress in `ld(0)`)
@@ -73,6 +77,7 @@ ld(6) * ld(0) + B * (1 - ld(0))
 ## Easing expressions
 
 ### Standard easings (Robert Penner)
+
 This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single argument version of [Robert Penner’s](http://robertpenner.com/easing/) easing functions, further optimised by me.
 
 	linear  
@@ -94,12 +99,14 @@ This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel
 	squareroot  
 	cuberoot
 
-The `squareroot` & `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` & `cubic` respectively:  
+The `squareroot` & `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` & `cubic` respectively:
+
 ![quadratic vs squareroot](assets/quadratic-squareroot.png)
 
 ## Transition expressions
 
 ### Xfade transitions
+
 These are ports of the C-code transitions in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c).
 Omitted transitions are `distance`, `hblur`, `fadegrays` which perform aggregation, so cannot be computed on a per plane-pixel basis.
 
@@ -123,9 +130,11 @@ Omitted transitions are `distance`, `hblur`, `fadegrays` which perform aggregati
 	revealup revealdown
 
 #### Gallery
+
 See the FFmpeg Wiki [Xfade page](https://trac.ffmpeg.org/wiki/Xfade#Gallery).
 
 ### GL Transitions
+
 These are ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions).
 
 	gl_crosswarp  
@@ -139,10 +148,11 @@ These are ports of some of the simpler GLSL transitions at [GL Transitions](http
 	gl_WaterDrop [args: amplitude,speed; default: =30,30]
 
 #### Parameters
+
 Certain GL Transitions accept parameters which can be appended to the transition name as CSV to generate the xfade custom expr using [xfade-easing.sh](#expression-generator-cli-script).
 The parameters and default values are shown above.
 
-*Example*: two pinwheel speeds: `-t gl_pinwheel=0.5` and `-t gl_pinwheel=10`  
+*Example*: two pinwheel speeds: `-t gl_pinwheel=0.5` and `-t gl_pinwheel=10`
 
 ![gl_pinwheel](assets/gl_pinwheel_10.gif)
 
@@ -169,19 +179,22 @@ etc.
 ```
 
 #### With easing
+
 GL Transitions can also be eased, with or without parameters:
 
-*Example*: Swirl: `-t gl_Swirl -e bounce`  
+*Example*: Swirl: `-t gl_Swirl -e bounce`
 
 ![gl_crosswarp](assets/gl_Swirl-bounce.gif)
 
 #### Gallery
+
 Here are the xfade-ported GL Transitions with default parameters and no easing.
 See also the [GL Transitions Gallery](https://gl-transitions.com/gallery).
 
 ![gl_crosswarp](assets/gl_gallery.gif)
 
 ### Other transitions
+
 Transition `x_screen_blend` is the opposite of `gl_multiply_blend`; they lighten and darken the transition respectively.
 Use `x_overlay_blend` to boost contrast by combining multiply and screen blends.
 
@@ -189,6 +202,7 @@ Use `x_overlay_blend` to boost contrast by combining multiply and screen blends.
 	x_overlay_blend
 
 ## Expression generator CLI script
+
 [xfade-easing.sh](xfade-easing.sh) is a Bash 4 script that generates custom easing and transition expressions for the xfade `expr` parameter.
 It can also generate easing graphs via gnuplot and demo videos for testing.
 
@@ -255,7 +269,71 @@ Notes:
        (back & elastic) may cause weird effects!
 ```
 ### Generating expr code
-### Generating test plots
-### Generating demo videos
-### Examples
 
+- `xfade-easing.sh -t slideright -e quadratic -m out -x -`  
+prints expr for slideright transition with quadratic-out easing to stdout
+- `xfade-easing.sh -t coverup -e quartic -m in -x coverup-quartic_in.txt`  
+prints expr for coverup transition with quartic-in easing to file coverup-quartic_in.txt
+- `xfade-easing.sh -t coverup -e quartic -m in -x %t-%e_%m.txt`  
+ditto, using expansion specifiers
+- `xfade-easing.sh -t rectcrop -e exponential -m inout -s "\$expr['%t_%e_%m'] = '%n%X';" -x exprs.php -a`  
+appends the following to file exprs.php:
+```php
+$expr['rectcrop_exponential_inout'] = '
+st(0, 1 - P);
+st(1, if(gt(P, 0.5), if(eq(P, 1), 0, 2^(9 - 20 * P)), if(eq(P, 0), 1, 1 - 2^(20 * P - 11))));
+st(0, 1 - ld(1))
+;
+st(1, abs(ld(0) - 0.5) * W);
+st(2, abs(ld(0) - 0.5) * H);
+st(3, lt(abs(X - W / 2), ld(1) * lt(abs(Y - H / 2), ld(2))));
+st(4, if(lt(ld(0), 0.5), B, A));
+if(not(ld(3)), if(lt(PLANE,3), 0, 255), ld(4))';
+```
+- `xfade-easing.sh -t gl_multiply_blend -s "expr='%n%X'" -x fc-script.txt -a`  
+This is not eased, therefore the expr appended to fc-script.txt uses progress `P` directly:
+```shell
+expr='
+st(1, A * B / 255);
+st(2, 2 * (1 - P));
+if(gt(P, 0.5), ld(1) * ld(2) + A * (1 - ld(2)), st(2, ld(2) - 1); B * ld(2) + ld(1) * (1 - ld(2)))'
+```
+
+### Generating test plots
+
+Plot data is generated using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
+It is therefore real-time data.
+
+The test plots above in [Standard easings](#standard-easings-robert-penner) show the test plots for all easings and all 3 modes (in, out and in-out).
+
+- `xfade-easing.sh -e elastic -p plot-%e.pdf`  
+creates a PDF file plot-elastic.pdf of the elastic easing
+- `xfade-easing.sh -e bounce -p %e.png -c 500x`  
+creates image file bounce.png of the bounce easing scaled to 500px wide
+
+![standard easings](assets/bounce.png)
+
+### Generating demo videos
+
+> [!NOTE]
+> The examples shown here are animated GIFs
+
+- `xfade-easing.sh -t hlwind -e quartic -m in -v windy.gif`  
+creates a demo video of the hlwind transition with quartic-in easing  
+![windy!](assets/windy.gif)
+
+- `xfade-easing.sh -t radial -e squareroot -m inout -v %t-%e.mp4 -n -u 1.5`  
+creates a video annotated in larger text using expansion specifiers for the file name  
+![windy!](assets/radial-squareroot.gif)
+
+- `xfade-easing.sh -t gl_polar_function=25 -i islands.png,rainbow.png -v paradise.mkv`  
+creates a lossless (FFV1) video for further processing of a customised GL transition with specified inputs
+![windy!](assets/paradise.gif)
+
+- `xfade-easing.sh -t circlecrop -e quintic -i phone.png,beach.png -v home-away.mp4 -l 10 -d 8 -z 246x -2 h,8,white -n`  
+creates a 10s video, horizontally stacked with 8px white gap, with a slow 8s transition demonstrating quintic easing  
+![windy!](assets/home-away.gif)
+
+- `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -i balloons.png,fruits.png -v living-life.mp4 -d 4 -z 500x`  
+a final customised GL transition with gentle quadratic easing running at 30fps  
+![windy!](assets/living-life.gif)
