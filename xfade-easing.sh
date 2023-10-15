@@ -11,8 +11,8 @@
 
 set -o posix
 
-export CMD=`basename $0`
-export VERSION=1.1c
+export CMD=$(basename $0)
+export VERSION=1.1d
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -115,7 +115,7 @@ _version() {
 _deps() {
     local deps
     [[ ${BASH_VERSINFO[0]} -ge 4 ]] || deps=' bash-v4'
-    for s in gawk gsed envsubst gnuplot ffmpeg base64; do
+    for s in gawk gsed envsubst gnuplot ffmpeg seq base64; do
         which -s $s || deps+=" $s"
     done
     [[ -n $deps ]] && _error "missing dependencies:$deps" && return $ERROR
@@ -241,13 +241,6 @@ _rem() { # a b
     echo "($1 - trunc($1 / $2) * $2)"
 }
 
-# vf_xfade.c mix(a,b,mix)
-# (not subexpression safe: group first)
-# for non-xfade transitions swap a & b because P goes 0..1
-_mix() { # a b mix
-    echo "$1 * $3 + $2 * (1 - $3)"
-}
-
 # vf_xfade.c fract(a)
 # (not subexpression safe: group first)
 _fract() { # a
@@ -285,14 +278,25 @@ _b() { # X Y
     echo "if(eq(PLANE,0), b0($1,$2), if(eq(PLANE,1), b1($1,$2), if(eq(PLANE,2), b2($1,$2), b3($1,$2))))"
 }
 
+# mix linear interpolation
+# (not subexpression safe: group first)
+_mix() { # a b mix xf
+    if [[ -n $4 ]]; then
+        echo "$1 * $3 + $2 * (1 - $3)" # xfade mix fn
+    else
+        echo "$1 * (1 - $3) + $2 * $3"
+    fi
+}
+
 # dot product
+# (not subexpression safe: group first)
 _dot() { # x1 y1 x2 y2
     echo "$1 * $3 + $2 * $4"
 }
 
 # OpenGL step(edge,x)
 _step() { # edge x
-    echo "if(lt($2, $1), 0, 1)"
+    echo "gte($2, $1)"
 }
 
 # easing functions by Robert Penner (single arg version by Michael Pohoreski, optimised by me)
@@ -671,6 +675,38 @@ _gl_transition() { # transition args
     local a=(${2//,/ }) # args
     _make
     case $1 in
+    gl_angular)
+        _make "st(1, ${a[0]-90});" # startingAngle
+        _make 'st(2, 1 - P);'
+        _make 'st(1, ld(1) * PI / 180);' # offset
+        _make 'st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(1));' # angle
+        _make 'st(1, (ld(1) + PI) / (2 * PI));' # normalizedAngle
+        _make 'st(1, ld(1) - floor(ld(1)));'
+        _make 'st(1, step(ld(1), ld(2)));'
+        _make 'mix(A, B, ld(1))'
+        ;;
+    gl_CrazyParametricFun)
+        _make "st(1, ${a[0]-4});" # a
+        _make "st(2, ${a[0]-1});" # b
+        _make "st(3, ${a[0]-120});" # amplitude
+        _make "st(4, ${a[0]-0.1});" # smoothness
+        _make 'st(5, 1 - P);'
+        _make 'st(6, ld(1) - ld(2));'
+        _make 'st(7, ld(1) / ld(2) - 1);'
+        _make 'st(1, ld(6) * cos(ld(5)) + ld(2) * cos(ld(5) * ld(7)));' # x
+        _make 'st(2, ld(6) * sin(ld(5)) - ld(2) * sin(ld(5) * ld(7)));' # y
+        _make 'st(6, X / W - 0.5);' # dir.x
+        _make 'st(7, 0.5 - Y / H);' # dir.y
+        _make 'st(8, hypot(ld(6), ld(7)));' # dist
+        _make 'st(8, ld(5) * ld(8) * ld(3));'
+        _make 'st(1, ld(6) * sin(ld(8) * ld(1)) / ld(4));' # offset.x
+        _make 'st(2, ld(7) * sin(ld(8) * ld(2)) / ld(4));' # offset.y
+        _make 'st(1, (X / W + ld(1)) * W);'
+        _make 'st(2, (1 - ((1 - Y / H) + ld(2))) * H);'
+        _make 'st(1, a(ld(1), ld(2)));';
+        _make 'st(2, smoothstep(0.2, 1, ld(5), 2));'
+        _make 'mix(ld(1), B, ld(2))'
+        ;;
     gl_crosswarp)
         _make 'st(1, 1 - P);' # x
         _make 'st(1, ld(1) * 2 + X / W - 1);'
@@ -683,7 +719,7 @@ _gl_transition() { # transition args
         _make 'st(4, (ld(2) * ld(1) + 0.5) * W);'
         _make 'st(5, (0.5 - (ld(3) * ld(1))) * H);'
         _make 'st(7, b(ld(4), ld(5)));'
-        _make 'mix(ld(7), ld(6), ld(1))'
+        _make 'mix(ld(6), ld(7), ld(1))'
         ;;
     gl_directionalwarp)
         _make "st(1, ${a[0]-0.1});" # smoothness
@@ -706,12 +742,39 @@ _gl_transition() { # transition args
         _make 'st(4, (ld(2) * ld(1) + 0.5) * W);'
         _make 'st(5, (0.5 - ld(3) * ld(1)) * H);'
         _make 'st(7, b(ld(4), ld(5)));'
-        _make 'mix(ld(7), ld(6), ld(1))'
+        _make 'mix(ld(6), ld(7), ld(1))'
+        ;;
+    gl_kaleidoscope)
+        _make "st(1, ${a[0]-1});" # speed
+        _make "st(2, ${a[0]-1});" # angle
+        _make "st(3, ${a[0]-1.5});" # power
+        _make 'st(4, 1 - P);'
+        _make 'st(5, X / W - 0.5);' # p.x
+        _make 'st(6, 0.5 - Y / H);' # p.y
+        _make 'st(1, pow(ld(4), ld(3)) * ld(1));' # t
+        _make 'st(3, 0);' # i
+        _make 'while(lt(ld(3), 7),'
+        _make ' st(7, sin(ld(1)) * ld(5) + cos(ld(1)) * ld(6));'
+        _make ' st(6, sin(ld(1)) * ld(6) - cos(ld(1)) * ld(5));'
+        _make ' st(5, ld(7));'
+        _make ' st(1, ld(1) + ld(2));'
+        _make ' st(5, abs(mod(ld(5), 2) - 1));'
+        _make ' st(6, abs(mod(ld(6), 2) - 1));'
+        _make ' st(3, ld(3) + 1)'
+        _make ');'
+        _make 'st(5, ld(5) * W);'
+        _make 'st(6, (1 - ld(6)) * H);'
+        _make 'st(7, a(ld(5), ld(6)));'
+        _make 'st(8, b(ld(5), ld(6)));'
+        _make 'st(1, mix(A, B, ld(4)));'
+        _make 'st(2, mix(ld(7), ld(8), ld(4)));'
+        _make 'st(3, 1 - 2 * abs(P - 0.5));' # (P ok)
+        _make 'mix(ld(1), ld(2), ld(3))'
         ;;
     gl_multiply_blend)
         _make 'st(1, A * B / max);'
         _make 'st(2, 2 * (1 - P));'
-        _make 'if(gt(P, 0.5), mix(ld(1), A, ld(2)), st(2, ld(2) - 1); mix(B, ld(1), ld(2)))'
+        _make 'if(gt(P, 0.5), mix(A, ld(1), ld(2)), st(2, ld(2) - 1); mix(ld(1), B, ld(2)))'
         ;;
     gl_pinwheel)
         _make "st(1, ${a[0]-2});" # speed
@@ -719,7 +782,7 @@ _gl_transition() { # transition args
         _make 'st(1, mod(ld(1), PI / 4));' # modPos
         _make 'st(1, sgn(1 - P - ld(1)));' # signed
         _make 'st(1, step(ld(1), 0.5));'
-        _make 'mix(A, B, ld(1))'
+        _make 'mix(B, A, ld(1))'
         ;;
     gl_polar_function)
         _make "st(1, ${a[0]-5});" # segments
@@ -756,7 +819,7 @@ _gl_transition() { # transition args
         _make 'st(4, (1 - ((1 - Y / H) + ld(4))) * H);'
         _make 'st(1, a(ld(3), ld(4)));'
         _make 'st(2, smoothstep(0.2, 1, ld(6), 2));'
-        _make 'mix(B, ld(1), ld(2))'
+        _make 'mix(ld(1), B, ld(2))'
         ;;
     gl_Swirl)
         _make 'st(1, 1);' # Radius
@@ -767,7 +830,7 @@ _gl_transition() { # transition args
         _make 'if(lt(ld(5), ld(1)),'
         _make ' st(1, (ld(1) - ld(5)) / ld(1));' # Percent
         _make ' st(5, ld(2) * 2);'
-        _make ' st(5, if(lte(ld(2), 0.5), mix(1, 0, ld(5)), st(5, ld(5) - 1); mix(0, 1, ld(5))));' # A
+        _make ' st(5, if(lte(ld(2), 0.5), mix(0, 1, ld(5)), st(5, ld(5) - 1); mix(1, 0, ld(5))));' # A
         _make ' st(1, ld(1) * ld(1) * ld(5) * 8 * PI);' # Theta
         _make ' st(5, sin(ld(1)));' # S
         _make ' st(6, cos(ld(1)));' # C
@@ -779,7 +842,7 @@ _gl_transition() { # transition args
         _make 'st(4, (0.5 - ld(4)) * H);' # UV.y
         _make 'st(5, a(ld(3), ld(4)));' # C0
         _make 'st(6, b(ld(3), ld(4)));' # C1
-        _make 'mix(ld(6), ld(5), ld(2))'
+        _make 'mix(ld(5), ld(6), ld(2))'
         ;;
     gl_WaterDrop)
         _make "st(1, ${a[0]-30});" # amplitude
@@ -796,7 +859,7 @@ _gl_transition() { # transition args
         _make ' st(4, Y - ld(4) * H);'
         _make ' st(6, a(ld(3), ld(4)))'
         _make ');'
-        _make 'mix(ld(6), B, P)'
+        _make 'mix(B, ld(6), P)'
         ;;
     esac
     x=$made
@@ -812,16 +875,16 @@ _st_transition() { # transition
         _make 'st(1, (1 - (1 - A / max) * (1 - B / max)) * max);'
         _make 'st(2, 2 * (1 - P));'
         _make 'if(gt(P, 0.5),'
-        _make ' mix(ld(1), A, ld(2)),'
-        _make ' st(2, ld(2) - 1); mix(B, ld(1), ld(2))'
+        _make ' mix(A, ld(1), ld(2)),'
+        _make ' st(2, ld(2) - 1); mix(ld(1), B, ld(2))'
         _make ')'
         ;;
     x_overlay_blend) # modelled on gl_multiply_blend
         _make 'st(1, if(lte(A, mid), 2 * A * B / max, (1 - 2 * (1 - A / max) * (1 - B / max)) * max));'
         _make 'st(2, 2 * (1 - P));'
         _make 'if(gt(P, 0.5),'
-        _make ' mix(ld(1), A, ld(2)),'
-        _make ' st(2, ld(2) - 1); mix(B, ld(1), ld(2))'
+        _make ' mix(A, ld(1), ld(2)),'
+        _make ' st(2, ld(2) - 1); mix(ld(1), B, ld(2))'
         _make ')'
         ;;
 #   x_step) # no transition, steps at halfway point
@@ -835,6 +898,7 @@ _st_transition() { # transition
 # get transition expression
 _transition() { # transition
     local x=$(_xf_transition $1) # try Xfade
+    [[ -n $x ]] && is_xf=true
     [[ -z $x ]] && x=$(_gl_transition $1 $2) # try GL
     [[ -z $x ]] && x=$(_st_transition $1) # try supplementary
     [[ -z $x ]] && exit $ERROR # unknown transition name
@@ -844,6 +908,7 @@ _transition() { # transition
             r=$(_heredoc FUNC | gawk -v e="$x" -v f=$s -f-)
             x=${r%%|*} # search
             r=${r#*|} # args
+            [[ $s == mix && -n $is_xf ]] && r+=' xf' # xfade mix args are different
             r=$(_$s $r) # replace
             x=${x/@/$r} # expand
         done
@@ -914,24 +979,25 @@ _plot() { # path easing
 # output demo video
 _video() { # path
     local path=$(_expand "$1") file enc
-    local inputs=(- ${2/,/ })
-    if [[ -z $2 ]]; then
-        inputs=(- sheep goat)
-        for i in 1 2; do
+    local inputs=(${2//,/ })
+    local n=${#inputs[@]} i j
+    if [[ $n -lt 2 ]]; then
+        n=2
+        inputs=(sheep goat)
+        for i in 0 1; do
             file=$TMP-${inputs[i]}.png
             _heredoc ${inputs[i]^^} | base64 -D -o $file
             inputs[$i]=$file
         done
     fi
+    local m=$((n-1))
     local length=${o_vlength-$VIDEOLENGTH}
     local duration=${o_vtduration-$VIDEOTRANSITIONDURATION}
-    local offset=$(_calc "($length - $duration) / 2")
+    local offset=$(_calc "($length / $m - $duration) / 2")
     local expr=$(_expand '%n%X')
-    local xfade="offset=$offset:duration=$duration:transition=custom:expr='$expr'"
     local fps=${o_vfps-$VIDEOFPS}
     [[ $path =~ .gif && $fps -gt 50 ]] && fps=50 # max for browser support
-    local loop=$(_calc "int(($length + $duration) / 2 * $fps) + 1")
-    local dims=$(_dims ${inputs[1]})
+    local dims=$(_dims ${inputs[0]})
     local size=$(_size ${o_vsize-$dims} $dims 1) # even
     local width=${size%x*}
     local height=${size#*x}
@@ -948,7 +1014,9 @@ _video() { # path
     [[ -n ${a[0]} ]] && stack=${a[0]} ; [[ -n ${a[1]} ]] && gap=${a[1]} ; [[ -n ${a[2]} ]] && fill=${a[2]}
     local script=$TMP-script.txt # filter_complex_script
     rm -f $script
-    for i in 1 2; do
+    for i in $(seq 0 1 $m); do
+        local loop=$(_calc "int(($length / $m + $duration) / 2 * $fps) + 1")
+        [[ $i -gt 0 && $i -lt $m ]] && loop=$(_calc "$loop * 2")
         cat << EOT >> $script
 movie='${inputs[i]}',
 format=pix_fmts=$format,
@@ -962,16 +1030,16 @@ EOT
     #      testsrc2=size=$size:rate=$fps:duration=$d
     if [[ -z $stack || ( $easing == linear && -z $args ) ]]; then # unstacked
         if [[ -n $o_vname ]]; then
-            cat << EOT >> $script
-[v1]${drawtext/TEXT/$text2}[v1];
-[v2]${drawtext/TEXT/$text2}[v2];
-EOT
+            for i in $(seq 0 1 $m); do
+                echo "[v$i]${drawtext/TEXT/$text2}[v$i];" >> $script
+            done
         fi
-        cat << EOT >> $script
-[v1][v2]
-xfade=$xfade
-[v];
-EOT
+        echo "[v0]null[v];" >> $script
+        for j in $(seq $m); do
+            i=$((j-1))
+            echo "[v][v$j]xfade=offset=$offset:duration=$duration:transition=custom:expr='$expr'[v];" >> $script
+            offset=$(_calc "$offset + $length / $m")
+        done
     else # stacked
         [[ -z $stack || $stack == a ]] && stack=v && [[ $transition =~ (up|down|vu|vd|squeezeh|horz) ]] && stack=h
         local cell2="$gap+w0_0"
@@ -982,27 +1050,24 @@ EOT
             [[ -n $args ]] && expr=$(_transition $transition) && expr=$(_expand "%n%X" "$expr") # default args
             trans="custom:expr='$expr'"
         fi
-        cat << EOT >> $script
-[v1]split[v1a][v1b];
-[v2]split[v2a][v2b];
-EOT
+        for i in $(seq 0 1 $m); do
+            echo "[v$i]split[v${i}a][v${i}b];" >> $script
+        done
         if [[ -n $o_vname ]]; then
-            cat << EOT >> $script
-[v1a]${drawtext/TEXT/$text1}[v1a];
-[v2a]${drawtext/TEXT/$text1}[v2a];
-[v1b]${drawtext/TEXT/$text2}[v1b];
-[v2b]${drawtext/TEXT/$text2}[v2b];
-EOT
+            for i in $(seq 0 1 $m); do
+                echo "[v${i}a]${drawtext/TEXT/$text1}[v${i}a];" >> $script
+                echo "[v${i}b]${drawtext/TEXT/$text2}[v${i}b];" >> $script
+            done
         fi
-        cat << EOT >> $script
-[v1a][v2a]
-xfade=offset=$offset:duration=$duration:transition=$trans
-[va];
-[v1b][v2b]
-xfade=$xfade
-[vb];
-[va][vb]xstack=inputs=2:fill=$fill:layout=0_0|$cell2[v];
-EOT
+        echo "[v0a]null[va];" >> $script
+        echo "[v0b]null[vb];" >> $script
+        for j in $(seq $m); do
+            i=$((j-1))
+            echo "[va][v${j}a]xfade=offset=$offset:duration=$duration:transition=$trans[va];" >> $script
+            echo "[vb][v${j}b]xfade=offset=$offset:duration=$duration:transition=custom:expr='$expr'[vb];" >> $script
+            offset=$(_calc "$offset + $length / $m")
+        done
+        echo "[va][vb]xstack=inputs=2:fill=$fill:layout=0_0|$cell2[v];" >> $script
     fi
     if [[ $path =~ .gif ]]; then # animated for .md
         echo '[v]split[s0][s1]; [s0]palettegen[s0]; [s1][s0]paletteuse=dither=none[v]' >> $script
@@ -1286,7 +1351,7 @@ Options:
        format: WxH; omitting W or H keeps aspect ratio, e.g -z x300 scales W
     -v video output filename (default: no video), accepts expansions
        formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
-    -i video inputs CSV (default: sheep,goat - inline pngs $VIDEOSIZE)
+    -i video inputs CSV (2 or more needed, default: sheep,goat - inline pngs $VIDEOSIZE)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
     -l video length (default: ${VIDEOLENGTH}s)
