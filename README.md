@@ -5,7 +5,7 @@
 Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects.
 
 This is a port of Robert Penner’s standard easing equations coded as custom xfade expressions.
-It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with the easing expressions.
+It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with the easing expressions or alone.
 
 Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concaternation of an easing expression and a transition expression.
 Pre-generated [expressions](expr) can be copied verbatim but an [expression generator](#expression-generator-cli-script) is also provided.
@@ -20,7 +20,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex "
         if(gt(Y,H*(1-ld(0))),A,B)
     '" output.mp4
 ```
-The `expr` parameter is shown on two lines for clarity.
+Here, the `expr` parameter is shown on two lines for clarity.
 The first line is the easing expression $e(P)$ (cubic in-out) which stores its calculated progress value in `st(0)`.
 The second line is the  transition expression $t(e(P))$ (wipedown) which loads its eased progress value from `ld(0)` instead of $P$.
 The semicolon token combines expressions.
@@ -137,8 +137,12 @@ See the FFmpeg Wiki [Xfade page](https://trac.ffmpeg.org/wiki/Xfade#Gallery).
 
 These are ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions).
 
+    
+	gl_angular
+	gl_CrazyParametricFun
 	gl_crosswarp  
 	gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1]  
+	gl_gl_kaleidoscope
 	gl_multiply_blend  
 	gl_pinwheel [args: speed; default: =2]  
 	gl_polar_function [args: segments; default: =5]  
@@ -188,6 +192,8 @@ GL Transitions can also be eased, with or without parameters:
 
 #### Gallery
 
+<!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
+
 Here are the xfade-ported GL Transitions with default parameters and no easing.
 See also the [GL Transitions Gallery](https://gl-transitions.com/gallery).
 
@@ -208,7 +214,7 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script (xfade-easing.sh version 1.1c) by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script (xfade-easing.sh version 1.1d) by Raymond Luckhurst, scriptit.uk
 Generates custom xfade filter expressions for rendering transitions with easing.
 See https://ffmpeg.org/ffmpeg-filters.html#xfade & https://trac.ffmpeg.org/wiki/Xfade
 Usage: xfade-easing.sh [options]
@@ -236,7 +242,7 @@ Options:
        format: WxH; omitting W or H keeps aspect ratio, e.g -z x300 scales W
     -v video output filename (default: no video), accepts expansions
        formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
-    -i video inputs CSV (default: sheep,goat - inline pngs 250x200)
+    -i video inputs CSV (2 or more needed, default: sheep,goat - inline pngs 250x200)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
     -l video length (default: 5s)
@@ -334,6 +340,16 @@ creates a lossless (FFV1) video for further processing of a customised GL transi
 creates a 10s video, horizontally stacked with 8px white gap, with a slow 8s transition demonstrating quintic easing  
 ![windy!](assets/home-away.gif)
 
-- `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -i balloons.png,fruits.png -v living-life.mp4 -d 4 -z 500x -r 30 -f yuv420p`  
-a GL transition with arguments and gentle quadratic easing, running at 30fps, processing in YUV (Y'CbCr) colour space throughout.  
+- `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -i balloons.png,fruits.png -v living-life.mp4 -l 7 -d 5 -z 500x -r 30 -f yuv420p`  
+a 5 second GL transition with arguments and gentle quadratic easing, running at 30fps for 7 seconds, processing in YUV (Y'CbCr) colour space throughout.  
 ![windy!](assets/living-life.gif)
+
+## See also
+
+- [https://ffmpeg.org/ffmpeg-filters.html#xfade](https://ffmpeg.org/ffmpeg-filters.html#xfade)
+- [https://trac.ffmpeg.org/wiki/Xfade](https://trac.ffmpeg.org/wiki/Xfade)
+- [https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation](https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation)
+- [http://robertpenner.com/easing/](http://robertpenner.com/easing/)
+- [https://github.com/Michaelangel007/easing](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code)
+- [https://github.com/gl-transitions/gl-transitions](https://github.com/gl-transitions/gl-transitions)
+- [https://gl-transitions.com/gallery](https://gl-transitions.com/gallery)
