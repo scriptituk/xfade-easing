@@ -4,7 +4,7 @@
 
 Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects.
 
-This is a port of Robert Penner’s standard easing equations coded as custom xfade expressions.
+This is a port of standard easing equations coded as custom xfade expressions.
 It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with the easing expressions or alone.
 
 Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concaternation of an easing expression and a transition expression.
@@ -94,6 +94,8 @@ This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel
 
 ![standard easings](assets/easings.png)
 
+![standard easings](assets/desmos-easings.png)
+
 ### Other easings
 
 	squareroot  
@@ -137,18 +139,20 @@ See the FFmpeg Wiki [Xfade page](https://trac.ffmpeg.org/wiki/Xfade#Gallery).
 
 These are ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions).
 
-    
-	gl_angular
-	gl_CrazyParametricFun
-	gl_crosswarp  
-	gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1]  
-	gl_gl_kaleidoscope
-	gl_multiply_blend  
-	gl_pinwheel [args: speed; default: =2]  
-	gl_polar_function [args: segments; default: =5]  
-	gl_PolkaDotsCurtain [args: dots,centre.x,centre.y; default: =20,0,0]  
-	gl_ripple [args: amplitude,speed; default: =100,50]  
-	gl_Swirl  
+	gl_angular [args: startingAngle; default: =90]
+	gl_CrazyParametricFun [args: a,b,amplitude,smoothness; default: =4,1,120,0.1]
+	gl_crosswarp
+	gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1]
+	gl_kaleidoscope [args: speed,angle,power; default: =1,1,1.5]
+	gl_multiply_blend
+	gl_pinwheel [args: speed; default: =2]
+	gl_polar_function [args: segments; default: =5]
+	gl_PolkaDotsCurtain [args: dots,centre.x,centre.y; default: =20,0,0]
+	gl_randomsquares [args: size.x,size.y,smoothness; default: =10,10,0.5]
+	gl_ripple [args: amplitude,speed; default: =100,50]
+	gl_rotate_scale_fade [args: centre.x,centre.y,rotations,scale,backColor(0=black;!0=white); default: =0.5,0.5,1,8,0]
+	gl_squareswire [args: squares.h,squares.v,direction.x,direction.y,smoothness; default: =10,10,1.0,-0.5,1.6]
+	gl_Swirl
 	gl_WaterDrop [args: amplitude,speed; default: =30,30]
 
 #### Parameters
@@ -214,7 +218,7 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script (xfade-easing.sh version 1.1d) by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script (xfade-easing.sh version 1.1e) by Raymond Luckhurst, scriptit.uk
 Generates custom xfade filter expressions for rendering transitions with easing.
 See https://ffmpeg.org/ffmpeg-filters.html#xfade & https://trac.ffmpeg.org/wiki/Xfade
 Usage: xfade-easing.sh [options]
@@ -245,7 +249,8 @@ Options:
     -i video inputs CSV (2 or more needed, default: sheep,goat - inline pngs 250x200)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
-    -l video length (default: 5s)
+    -l video length per transition (default: 5s)
+       total length is this length times (number of inputs - 1)
     -d video transition duration (default: 3s)
     -r video framerate (default: 25fps)
     -n show effect name on video as text
