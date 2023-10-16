@@ -12,7 +12,7 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.1d
+export VERSION=1.1e
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -247,12 +247,12 @@ _fract() { # a
     echo "$1 - floor($1)"
 }
 
+
 # vf_xfade.c smoothstep(edge0,edge1,x)
 # (not subexpression safe: group first)
 _smoothstep() { # edge0 edge1 x st
     local e n="($3 - $1)" d="($2 - $1)"
     [[ $1 == 0 ]] && n="$3" && d="$2"
-    [[ $2 == 0 ]] && d="- $1"
     [[ "$2-$1" =~ ^[0-9.-]+$ ]] && d=$(_calc "$d")
     e="$n / $d"
     [[ $d == 1 ]] && e="$n"
@@ -294,7 +294,7 @@ _dot() { # x1 y1 x2 y2
     echo "$1 * $3 + $2 * $4"
 }
 
-# OpenGL step(edge,x)
+# step function
 _step() { # edge x
     echo "gte($2, $1)"
 }
@@ -673,6 +673,7 @@ _xf_transition() { # transition
 _gl_transition() { # transition args
     local x # expr
     local a=(${2//,/ }) # args
+    local s
     _make
     case $1 in
     gl_angular)
@@ -687,9 +688,9 @@ _gl_transition() { # transition args
         ;;
     gl_CrazyParametricFun)
         _make "st(1, ${a[0]-4});" # a
-        _make "st(2, ${a[0]-1});" # b
-        _make "st(3, ${a[0]-120});" # amplitude
-        _make "st(4, ${a[0]-0.1});" # smoothness
+        _make "st(2, ${a[1]-1});" # b
+        _make "st(3, ${a[2]-120});" # amplitude
+        _make "st(4, ${a[3]-0.1});" # smoothness
         _make 'st(5, 1 - P);'
         _make 'st(6, ld(1) - ld(2));'
         _make 'st(7, ld(1) / ld(2) - 1);'
@@ -746,17 +747,16 @@ _gl_transition() { # transition args
         ;;
     gl_kaleidoscope)
         _make "st(1, ${a[0]-1});" # speed
-        _make "st(2, ${a[0]-1});" # angle
-        _make "st(3, ${a[0]-1.5});" # power
+        _make "st(2, ${a[1]-1});" # angle
+        _make "st(3, ${a[2]-1.5});" # power
         _make 'st(4, 1 - P);'
         _make 'st(5, X / W - 0.5);' # p.x
         _make 'st(6, 0.5 - Y / H);' # p.y
         _make 'st(1, pow(ld(4), ld(3)) * ld(1));' # t
         _make 'st(3, 0);' # i
         _make 'while(lt(ld(3), 7),'
-        _make ' st(7, sin(ld(1)) * ld(5) + cos(ld(1)) * ld(6));'
-        _make ' st(6, sin(ld(1)) * ld(6) - cos(ld(1)) * ld(5));'
-        _make ' st(5, ld(7));'
+        _make ' st(5, sin(ld(1)) * st(7, ld(5)) + cos(ld(1)) * ld(6));'
+        _make ' st(6, sin(ld(1)) * ld(6) - cos(ld(1)) * ld(7));'
         _make ' st(1, ld(1) + ld(2));'
         _make ' st(5, abs(mod(ld(5), 2) - 1));'
         _make ' st(6, abs(mod(ld(6), 2) - 1));'
@@ -768,7 +768,7 @@ _gl_transition() { # transition args
         _make 'st(8, b(ld(5), ld(6)));'
         _make 'st(1, mix(A, B, ld(4)));'
         _make 'st(2, mix(ld(7), ld(8), ld(4)));'
-        _make 'st(3, 1 - 2 * abs(P - 0.5));' # (P ok)
+        _make 'st(3, 1 - 2 * abs(P - 0.5));'
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
     gl_multiply_blend)
@@ -805,6 +805,18 @@ _gl_transition() { # transition args
         _make 'st(2, (1 - P) / hypot(X / W - ld(2), 1 - Y / H - ld(3)));'
         _make 'if(lt(ld(1), ld(2)), B, A)'
         ;;
+    gl_randomsquares)
+        _make "st(1, ${a[0]-10});" # size.x
+        _make "st(2, ${a[1]-10});" # size.y
+        _make "st(3, ${a[2]-0.5});" # smoothness
+        _make 'st(1, floor(ld(1) * X / W));'
+        _make 'st(2, floor(ld(2) * (1 - Y / H)));'
+        _make 'st(4, sin(dot(ld(1), ld(2), 12.9898, 78.233)));'
+        _make 'st(4, fract(ld(4) * 43758.5453));' # r
+        _make 'st(4, ld(4) - ((1 - P) * (1 + ld(3))));'
+        _make 'st(4, smoothstep(0, -ld(3), ld(4), 4));' # m
+        _make 'mix(A, B, ld(4))'
+        ;;
     gl_ripple)
         _make "st(1, ${a[0]-100});" # amplitude
         _make "st(2, ${a[1]-50});" # speed
@@ -820,6 +832,58 @@ _gl_transition() { # transition args
         _make 'st(1, a(ld(3), ld(4)));'
         _make 'st(2, smoothstep(0.2, 1, ld(6), 2));'
         _make 'mix(ld(1), B, ld(2))'
+        ;;
+    gl_rotate_scale_fade)
+        _make "st(1, ${a[0]-0.5});" # centre.x
+        _make "st(2, ${a[1]-0.5});" # centre.y
+        _make "st(3, ${a[2]-1});" # rotations
+        _make "st(4, ${a[3]-8});" # scale
+        s=black; [[ ${a[4]-0} != 0 ]] && s=white # backColor(0=black;!0=white)
+        _make 'st(5, 1 - P);'
+        _make 'st(6, X / W - ld(1));' # difference.x
+        _make 'st(7, (1 - Y / H) - ld(2));' # difference.y
+        _make 'st(8, hypot(ld(6), ld(7)));' # dist
+        _make 'st(6, ld(6) / ld(8));' # dir.x
+        _make 'st(7, ld(7) / ld(8));' # dir.y
+        _make 'st(3, 2 * PI * ld(3) * ld(5));' # angle
+        _make 'st(9, 2 * abs(P - 0.5));'
+        _make 'st(4, mix(ld(4), 1, ld(9)));' # currentScale
+        _make 'st(6, st(9, ld(6)) * cos(ld(3)) - ld(7) * sin(ld(3)));' # rotatedDir.x
+        _make 'st(7, ld(9) * sin(ld(3)) + ld(7) * cos(ld(3)));' # rotatedDir.y
+        _make 'st(1, ld(1) + ld(6) * ld(8) / ld(4));' # rotatedUv.x
+        _make 'st(2, ld(2) + ld(7) * ld(8) / ld(4));' # rotatedUv.y
+        _make 'if(between(ld(1), 0, 1) * between(ld(2), 0, 1),'
+        _make ' st(1, ld(1) * W);'
+        _make ' st(2, (1 - ld(2)) * H);'
+        _make ' st(1, a(ld(1), ld(2)));'
+        _make ' st(2, b(ld(1), ld(2)));'
+        _make ' mix(ld(1), ld(2), ld(5)),'
+        _make " $s"
+        _make ')'
+        ;;
+    gl_squareswire)
+        _make "st(1, ${a[0]-10});" # squares.h
+        _make "st(2, ${a[1]-10});" # squares.v
+        _make "st(3, ${a[2]-1.0});" # direction.x
+        _make "st(4, ${a[3]--0.5});" # direction.y
+        _make "st(5, ${a[4]-1.6});" # smoothness
+        _make 'st(6, hypot(ld(3), ld(4)));'
+        _make 'st(3, ld(3) / ld(6));' # v.x
+        _make 'st(4, ld(4) / ld(6));' # v.y
+        _make 'st(6, abs(ld(3) + abs(ld(4))));'
+        _make 'st(3, ld(3) / ld(6));'
+        _make 'st(4, ld(4) / ld(6));'
+        _make 'st(6, ld(3) / 2 + ld(4) / 2);' # d
+        _make 'st(6, ld(3) * X / W + ld(4) * (1 - Y / H) - (ld(6) - 0.5 + (1 - P) * (1 + ld(5))));'
+        _make 'st(6, smoothstep(-ld(5), 0, ld(6), 6));' # pr
+        _make 'st(1, X / W * ld(1));'
+        _make 'st(2, (1 - Y / H) * ld(2));'
+        _make 'st(1, fract(ld(1)));' # squarep.x
+        _make 'st(2, fract(ld(2)));' # squarep.y
+        _make 'st(5, ld(6) / 2);' # squaremin
+        _make 'st(6, 1 - ld(5));' # squaremax
+        _make 'st(5, lt(P, 1) * step(ld(5), ld(1)) * step(ld(5), ld(2)) * step(ld(1), ld(6)) * step(ld(2), ld(6)));' # a
+        _make 'mix(A, B, ld(5))'
         ;;
     gl_Swirl)
         _make 'st(1, 1);' # Radius
@@ -993,7 +1057,7 @@ _video() { # path
     local m=$((n-1))
     local length=${o_vlength-$VIDEOLENGTH}
     local duration=${o_vtduration-$VIDEOTRANSITIONDURATION}
-    local offset=$(_calc "($length / $m - $duration) / 2")
+    local offset=$(_calc "($length - $duration) / 2")
     local expr=$(_expand '%n%X')
     local fps=${o_vfps-$VIDEOFPS}
     [[ $path =~ .gif && $fps -gt 50 ]] && fps=50 # max for browser support
@@ -1015,7 +1079,7 @@ _video() { # path
     local script=$TMP-script.txt # filter_complex_script
     rm -f $script
     for i in $(seq 0 1 $m); do
-        local loop=$(_calc "int(($length / $m + $duration) / 2 * $fps) + 1")
+        local loop=$(_calc "int(($length + $duration) / 2 * $fps) + 1")
         [[ $i -gt 0 && $i -lt $m ]] && loop=$(_calc "$loop * 2")
         cat << EOT >> $script
 movie='${inputs[i]}',
@@ -1038,7 +1102,7 @@ EOT
         for j in $(seq $m); do
             i=$((j-1))
             echo "[v][v$j]xfade=offset=$offset:duration=$duration:transition=custom:expr='$expr'[v];" >> $script
-            offset=$(_calc "$offset + $length / $m")
+            offset=$(_calc "$offset + $length")
         done
     else # stacked
         [[ -z $stack || $stack == a ]] && stack=v && [[ $transition =~ (up|down|vu|vd|squeezeh|horz) ]] && stack=h
@@ -1065,7 +1129,7 @@ EOT
             i=$((j-1))
             echo "[va][v${j}a]xfade=offset=$offset:duration=$duration:transition=$trans[va];" >> $script
             echo "[vb][v${j}b]xfade=offset=$offset:duration=$duration:transition=custom:expr='$expr'[vb];" >> $script
-            offset=$(_calc "$offset + $length / $m")
+            offset=$(_calc "$offset + $length")
         done
         echo "[va][vb]xstack=inputs=2:fill=$fill:layout=0_0|$cell2[v];" >> $script
     fi
@@ -1076,6 +1140,7 @@ EOT
     else # x264 - see https://trac.ffmpeg.org/wiki/Encode/H.264
         enc="-c:v libx264 -pix_fmt yuv420p -r $fps"
     fi
+    length=$(_calc "$length * $m")
     ffmpeg $FFOPTS -filter_complex_threads 1 -filter_complex_script $script -map [v]:v -an -t $length $enc "$path"
     [[ $path =~ .gif ]] && which -s gifsicle && mv "$path" $TMP-video.gif && gifsicle -O3 -o "$path" $TMP-video.gif
 }
@@ -1354,7 +1419,8 @@ Options:
     -i video inputs CSV (2 or more needed, default: sheep,goat - inline pngs $VIDEOSIZE)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
-    -l video length (default: ${VIDEOLENGTH}s)
+    -l video length per transition (default: ${VIDEOLENGTH}s)
+       total length is this length times (number of inputs - 1)
     -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s)
     -r video framerate (default: ${VIDEOFPS}fps)
     -n show effect name on video as text
