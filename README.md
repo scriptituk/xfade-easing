@@ -27,9 +27,11 @@ The first line is the easing expression $e(P)$ (cubic in-out) which stores its c
 The second line is the  transition expression $t(e(P))$ (wipedown) which loads its eased progress value from `ld(0)` instead of $P$.
 The semicolon token combines expressions.
 
-> [!NOTE] the example appears overly complicated because xfade progress `P` moves from 1 to 0 but the easing equations expect progress from 0 to 1
+> [!NOTE]
+> the example appears overly complicated because xfade progress `P` moves from 1 to 0 but the easing equations expect progress from 0 to 1
 
-> [!IMPORTANT] ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing is slower
+> [!IMPORTANT]
+> ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing is slower
 
 ## Expressions
 
@@ -81,26 +83,28 @@ ld(6) * ld(0) + B * (1 - ld(0))
 
 This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single argument version of [Robert Penner’s](http://robertpenner.com/easing/) easing functions, further optimised by me.
 
-	linear  
-	quadratic  
-	cubic  
-	quartic  
-	quintic  
-	sinusoidal  
-	exponential  
-	circular  
-	elastic  
-	back  
-	bounce
+- linear  
+- quadratic  
+- cubic  
+- quartic  
+- quintic  
+- sinusoidal  
+- exponential  
+- circular  
+- elastic  
+- back  
+- bounce
 
 ![standard easings](assets/all-easings.png)
+
+Here are all the standard easings superimposed by the [Desmos Graphing Calculator](https://www.desmos.com/calculator):
 
 ![standard easings](assets/desmos-easings.png)
 
 ### Other easings
 
-	squareroot  
-	cuberoot
+- squareroot  
+- cuberoot
 
 The `squareroot` & `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` & `cubic` respectively:
 
@@ -110,27 +114,27 @@ The `squareroot` & `cuberoot` easings focus more on the middle regions and less 
 
 ### Xfade transitions
 
-These are ports of the C-code transitions in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c).
-Omitted transitions are `distance`, `hblur`, `fadegrays` which perform aggregation, so cannot be computed on a per plane-pixel basis.
+These are ports of the C-code transitions in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) for use with easing.
+Omitted transitions are `distance`, `hblur`, `fadegrays` which perform aggregation, so cannot be computed efficiently on a per plane-pixel basis.
 
-	fade fadefast fadeslow fadeblack fadewhite  
-	wipeleft wiperight wipeup wipedown  
-	wipetl wipetr wipebl wipebr  
-	slideleft slideright slideup slidedown  
-	smoothleft smoothright smoothup smoothdown  
-	circlecrop rectcrop  
-	circleopen circleclose  
-	vertopen vertclose horzopen horzclose  
-	dissolve pixelize  
-	diagtl diagtr diagbl diagbr  
-	hlslice hrslice vuslice vdslice  
-	radial zoomin  
-	squeezeh squeezev  
-	hlwind hrwind vuwind vdwind  
-	coverleft coverright  
-	coverup coverdown  
-	revealleft revealright  
-	revealup revealdown
+- fade fadefast fadeslow fadeblack fadewhite  
+- wipeleft wiperight wipeup wipedown  
+- wipetl wipetr wipebl wipebr  
+- slideleft slideright slideup slidedown  
+- smoothleft smoothright smoothup smoothdown  
+- circlecrop rectcrop  
+- circleopen circleclose  
+- vertopen vertclose horzopen horzclose  
+- dissolve pixelize  
+- diagtl diagtr diagbl diagbr  
+- hlslice hrslice vuslice vdslice  
+- radial zoomin  
+- squeezeh squeezev  
+- hlwind hrwind vuwind vdwind  
+- coverleft coverright  
+- coverup coverdown  
+- revealleft revealright  
+- revealup revealdown
 
 #### Gallery
 
@@ -138,27 +142,29 @@ See the FFmpeg Wiki [Xfade page](https://trac.ffmpeg.org/wiki/Xfade#Gallery).
 
 ### GL Transitions
 
-Below are xfade ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions):
+Below are xfade ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions) for use with or without easing.
 
-	gl_angular [args: startingAngle; default: =90]
-	gl_CrazyParametricFun [args: a,b,amplitude,smoothness; default: =4,1,120,0.1]
-	gl_crosswarp
-	gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1]
-	gl_kaleidoscope [args: speed,angle,power; default: =1,1,1.5]
-	gl_multiply_blend
-	gl_pinwheel [args: speed; default: =2]
-	gl_polar_function [args: segments; default: =5]
-	gl_PolkaDotsCurtain [args: dots,centre.x,centre.y; default: =20,0,0]
-	gl_randomsquares [args: size.x,size.y,smoothness; default: =10,10,0.5]
-	gl_ripple [args: amplitude,speed; default: =100,50]
-	gl_rotate_scale_fade [args: centre.x,centre.y,rotations,scale,backColor(0=black;!0=white); default: =0.5,0.5,1,8,0]
-	gl_squareswire [args: squares.h,squares.v,direction.x,direction.y,smoothness; default: =10,10,1.0,-0.5,1.6]
-	gl_Swirl
-	gl_WaterDrop [args: amplitude,speed; default: =30,30]
+- gl_angular [args: startingAngle; default: =90]
+- gl_CrazyParametricFun [args: a,b,amplitude,smoothness; default: =4,1,120,0.1]
+- gl_crosswarp
+- gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1]
+- gl_kaleidoscope [args: speed,angle,power; default: =1,1,1.5]
+- gl_multiply_blend
+- gl_pinwheel [args: speed; default: =2]
+- gl_polar_function [args: segments; default: =5]
+- gl_PolkaDotsCurtain [args: dots,centre.x,centre.y; default: =20,0,0]
+- gl_randomsquares [args: size.x,size.y,smoothness; default: =10,10,0.5]
+- gl_ripple [args: amplitude,speed; default: =100,50]
+- gl_rotate_scale_fade [args: centre.x,centre.y,rotations,scale,backColor(0=black;!0=white); default: =0.5,0.5,1,8,0]
+- gl_squareswire [args: squares.h,squares.v,direction.x,direction.y,smoothness; default: =10,10,1.0,-0.5,1.6]
+- gl_Swirl
+- gl_WaterDrop [args: amplitude,speed; default: =30,30]
 
-> [!NOTE] there are faster and better ways to use the complete set of GL Transitions with FFmpeg:  
+> [!NOTE]
+> there are faster and better ways to use the complete set of GL Transitions with FFmpeg:  
 > [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) is a native FFmpeg filter which requires building ffmpeg from source  
-> [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which may require installation
+> [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which may require installation  
+> [xfade_opencl](https://ffmpeg.org/ffmpeg-filters.html#xfade_005fopencl) FFmpeg filter can run custom transition effects from OpenCL source (not OpenGL) but enablement is quite involved
 
 #### Parameters
 
@@ -226,8 +232,8 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade c
 Transition `x_screen_blend` is the opposite of `gl_multiply_blend`; they lighten and darken the transition respectively.
 Use `x_overlay_blend` to boost contrast by combining multiply and screen blends.
 
-	x_screen_blend  
-	x_overlay_blend
+- x_screen_blend  
+- x_overlay_blend
 
 ## Expression generator CLI script
 
@@ -373,10 +379,15 @@ a 5 second GL transition with arguments and gentle quadratic easing, running at 
 
 ## See also
 
-- [https://ffmpeg.org/ffmpeg-filters.html#xfade](https://ffmpeg.org/ffmpeg-filters.html#xfade)
-- [https://trac.ffmpeg.org/wiki/Xfade](https://trac.ffmpeg.org/wiki/Xfade)
-- [https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation](https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation)
-- [http://robertpenner.com/easing/](http://robertpenner.com/easing/)
-- [https://github.com/Michaelangel007/easing](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code)
-- [https://gl-transitions.com](https://gl-transitions.com)
-- [https://github.com/gl-transitions/gl-transitions](https://github.com/gl-transitions/gl-transitions)
+- [FFmpeg Xfade filter](https://ffmpeg.org/ffmpeg-filters.html#xfade) reference documentation
+- [FFmpeg Wiki Xfade page](https://trac.ffmpeg.org/wiki/Xfade) with gallery
+- [FFmpeg Expression Evaluation](https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation) reference documentation
+- [Robert Penner’s Easing Functions](http://robertpenner.com/easing/) the original, from 2001
+- [Michael Pohoreski’s Easing Functions](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single oarameter versions of Penner’s Functions
+- [GL Transitions homepage](https://gl-transitions.com) and [Gallery](https://gl-transitions.com/gallery) and [Editor](https://gl-transitions.com/editor)
+- [GL Transitions repository](https://github.com/gl-transitions/gl-transitions) on GitHub
+- [OpenGL Reference Pages](https://registry.khronos.org/OpenGL-Refpages/gl4/)
+- [libavfilter/vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) xfade C code
+- [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c) expr C code
+- [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) native FFmpeg GL Transitions filter
+- [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) Node.js package concats videos with GL Transitions
