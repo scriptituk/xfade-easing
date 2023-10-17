@@ -12,7 +12,7 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.1e
+export VERSION=1.1f
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -299,7 +299,8 @@ _step() { # edge x
     echo "gte($2, $1)"
 }
 
-# easing functions by Robert Penner (single arg version by Michael Pohoreski, optimised by me)
+# custom expressions for standard easings
+# (by Robert Penner; single arg version by Michael Pohoreski, optimised by me)
 # see http://robertpenner.com/easing/
 # see https://github.com/Michaelangel007/easing
 _rp_easing() { # easing mode
@@ -668,7 +669,7 @@ _xf_transition() { # transition
     echo "$x"
 }
 
-# custom expressions for GLTransitions
+# custom expressions for GL Transitions
 # # see https://github.com/gl-transitions/gl-transitions/tree/master/transitions
 _gl_transition() { # transition args
     local x # expr
@@ -1079,14 +1080,15 @@ _video() { # path
     local script=$TMP-script.txt # filter_complex_script
     rm -f $script
     for i in $(seq 0 1 $m); do
-        local loop=$(_calc "int(($length + $duration) / 2 * $fps) + 1")
-        [[ $i -gt 0 && $i -lt $m ]] && loop=$(_calc "$loop * 2")
+        local sd=$(_calc "($length + $duration) / 2 + 1")
+        [[ $i -gt 0 && $i -lt $m ]] && sd=$(_calc "($sd - 1) * 2 + 1")
         cat << EOT >> $script
 movie='${inputs[i]}',
 format=pix_fmts=$format,
 scale=width=$width:height=$height,
-loop=loop=$loop:size=1,
-fps=fps=$fps
+loop=loop=1:size=1,
+fps=fps=$fps,
+tpad=stop_mode=clone:stop_duration=$sd
 [v$i];
 EOT
     done
@@ -1108,11 +1110,11 @@ EOT
         [[ -z $stack || $stack == a ]] && stack=v && [[ $transition =~ (up|down|vu|vd|squeezeh|horz) ]] && stack=h
         local cell2="$gap+w0_0"
         [[ $stack == v ]] && cell2="0_h0+$gap"
-        local trans=$transition # xfade transition
+        local expr0=$transition # xfade transition
         if [[ $transition =~ _ ]]; then # custom transition
-            expr=$(_expand "%n%Z")
-            [[ -n $args ]] && expr=$(_transition $transition) && expr=$(_expand "%n%X" "$expr") # default args
-            trans="custom:expr='$expr'"
+            expr0=$(_transition $transition)
+            expr0=$(_expand "%n%X" "$expr0")
+            expr0="custom:expr='$expr0'" # default args
         fi
         for i in $(seq 0 1 $m); do
             echo "[v$i]split[v${i}a][v${i}b];" >> $script
@@ -1127,7 +1129,7 @@ EOT
         echo "[v0b]null[vb];" >> $script
         for j in $(seq $m); do
             i=$((j-1))
-            echo "[va][v${j}a]xfade=offset=$offset:duration=$duration:transition=$trans[va];" >> $script
+            echo "[va][v${j}a]xfade=offset=$offset:duration=$duration:transition=$expr0[va];" >> $script
             echo "[vb][v${j}b]xfade=offset=$offset:duration=$duration:transition=custom:expr='$expr'[vb];" >> $script
             offset=$(_calc "$offset + $length")
         done
@@ -1247,7 +1249,7 @@ END {
     print "$data << EOD"
     print "progress", "in", "out", "inout"
     for (p = 0; p <= 100; p++)
-        print p, val["in",p], val["out",p], val["inout",p]
+        print p / 100, val["in",p], val["out",p], val["inout",p]
     print "EOD"
     print ""
     print "plot $data using 'progress':'in' with lines linestyle 1 title 'in', \\"
@@ -1258,7 +1260,7 @@ END {
 
 @LIST # list transitions & easings filtered from this script for -L option
 BEGIN {
-    title["rp"] = "Easing Functions (Robert Penner):"
+    title["rp"] = "Standard Easings (Robert Penner):"
     title["se"] = "Supplementary Easings:"
     title["xf"] = "Xfade Transitions:"
     title["gl"] = "GL Transitions:"
@@ -1416,6 +1418,7 @@ Options:
        format: WxH; omitting W or H keeps aspect ratio, e.g -z x300 scales W
     -v video output filename (default: no video), accepts expansions
        formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
+       if gifsicle is available then gifs will be optimised
     -i video inputs CSV (2 or more needed, default: sheep,goat - inline pngs $VIDEOSIZE)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
