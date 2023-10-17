@@ -1,0 +1,252 @@
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 1.1f
+# by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
+
+# Legible uneased GL transition expressions (yuv420p), good for filter_complex_script filterchains
+
+GL_ANGULAR='
+st(1, 90);
+st(2, 1 - P);
+st(1, ld(1) * PI / 180);
+st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(1));
+st(1, (ld(1) + PI) / (2 * PI));
+st(1, ld(1) - floor(ld(1)));
+st(1, gte(ld(2), ld(1)));
+A * (1 - ld(1)) + B * ld(1)'
+
+GL_CRAZYPARAMETRICFUN='
+st(1, 4);
+st(2, 1);
+st(3, 120);
+st(4, 0.1);
+st(5, 1 - P);
+st(6, ld(1) - ld(2));
+st(7, ld(1) / ld(2) - 1);
+st(1, ld(6) * cos(ld(5)) + ld(2) * cos(ld(5) * ld(7)));
+st(2, ld(6) * sin(ld(5)) - ld(2) * sin(ld(5) * ld(7)));
+st(6, X / W - 0.5);
+st(7, 0.5 - Y / H);
+st(8, hypot(ld(6), ld(7)));
+st(8, ld(5) * ld(8) * ld(3));
+st(1, ld(6) * sin(ld(8) * ld(1)) / ld(4));
+st(2, ld(7) * sin(ld(8) * ld(2)) / ld(4));
+st(1, (X / W + ld(1)) * W);
+st(2, (1 - ((1 - Y / H) + ld(2))) * H);
+st(1, if(eq(PLANE,0), a0(ld(1),ld(2)), if(eq(PLANE,1), a1(ld(1),ld(2)), if(eq(PLANE,2), a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
+st(2, st(2, clip((ld(5) - 0.2) / 0.8, 0, 1)) * ld(2) * (3 - 2 * ld(2)));
+ld(1) * (1 - ld(2)) + B * ld(2)'
+
+GL_CROSSWARP='
+st(1, 1 - P);
+st(1, ld(1) * 2 + X / W - 1);
+st(1, st(1, clip(ld(1), 0, 1)) * ld(1) * (3 - 2 * ld(1)));
+st(2, X / W - 0.5);
+st(3, 0.5 - Y / H);
+st(4, (ld(2) * (1 - ld(1)) + 0.5) * W);
+st(5, (0.5 - (ld(3) * (1 - ld(1)))) * H);
+st(6, if(eq(PLANE,0), a0(ld(4),ld(5)), if(eq(PLANE,1), a1(ld(4),ld(5)), if(eq(PLANE,2), a2(ld(4),ld(5)), a3(ld(4),ld(5))))));
+st(4, (ld(2) * ld(1) + 0.5) * W);
+st(5, (0.5 - (ld(3) * ld(1))) * H);
+st(7, if(eq(PLANE,0), b0(ld(4),ld(5)), if(eq(PLANE,1), b1(ld(4),ld(5)), if(eq(PLANE,2), b2(ld(4),ld(5)), b3(ld(4),ld(5))))));
+ld(6) * (1 - ld(1)) + ld(7) * ld(1)'
+
+GL_DIRECTIONALWARP='
+st(1, 0.1);
+st(2, -1);
+st(3, 1);
+st(4, hypot(ld(2), ld(3)));
+st(2, ld(2) / ld(4));
+st(3, ld(3) / ld(4));
+st(4, abs(ld(2)) + abs(ld(3)));
+st(2, ld(2) / ld(4));
+st(3, ld(3) / ld(4));
+st(4, (ld(2) + ld(3)) / 2);
+st(4, ld(2) * X / W + ld(3) * (1 - Y / H) - (ld(4) - 0.5 + (1 - P) * (1 + ld(1))));
+st(1, 1 - st(1, clip((ld(4) + ld(1)) / (0 + ld(1)), 0, 1)) * ld(1) * (3 - 2 * ld(1)));
+st(2, X / W - 0.5);
+st(3, 0.5 - Y / H);
+st(4, (ld(2) * (1 - ld(1)) + 0.5) * W);
+st(5, (0.5 - ld(3) * (1 - ld(1))) * H);
+st(6, if(eq(PLANE,0), a0(ld(4),ld(5)), if(eq(PLANE,1), a1(ld(4),ld(5)), if(eq(PLANE,2), a2(ld(4),ld(5)), a3(ld(4),ld(5))))));
+st(4, (ld(2) * ld(1) + 0.5) * W);
+st(5, (0.5 - ld(3) * ld(1)) * H);
+st(7, if(eq(PLANE,0), b0(ld(4),ld(5)), if(eq(PLANE,1), b1(ld(4),ld(5)), if(eq(PLANE,2), b2(ld(4),ld(5)), b3(ld(4),ld(5))))));
+ld(6) * (1 - ld(1)) + ld(7) * ld(1)'
+
+GL_KALEIDOSCOPE='
+st(1, 1);
+st(2, 1);
+st(3, 1.5);
+st(4, 1 - P);
+st(5, X / W - 0.5);
+st(6, 0.5 - Y / H);
+st(1, pow(ld(4), ld(3)) * ld(1));
+st(3, 0);
+while(lt(ld(3), 7),
+ st(5, sin(ld(1)) * st(7, ld(5)) + cos(ld(1)) * ld(6));
+ st(6, sin(ld(1)) * ld(6) - cos(ld(1)) * ld(7));
+ st(1, ld(1) + ld(2));
+ st(5, abs(mod(ld(5), 2) - 1));
+ st(6, abs(mod(ld(6), 2) - 1));
+ st(3, ld(3) + 1)
+);
+st(5, ld(5) * W);
+st(6, (1 - ld(6)) * H);
+st(7, if(eq(PLANE,0), a0(ld(5),ld(6)), if(eq(PLANE,1), a1(ld(5),ld(6)), if(eq(PLANE,2), a2(ld(5),ld(6)), a3(ld(5),ld(6))))));
+st(8, if(eq(PLANE,0), b0(ld(5),ld(6)), if(eq(PLANE,1), b1(ld(5),ld(6)), if(eq(PLANE,2), b2(ld(5),ld(6)), b3(ld(5),ld(6))))));
+st(1, A * (1 - ld(4)) + B * ld(4));
+st(2, ld(7) * (1 - ld(4)) + ld(8) * ld(4));
+st(3, 1 - 2 * abs(P - 0.5));
+ld(1) * (1 - ld(3)) + ld(2) * ld(3)'
+
+GL_MULTIPLY_BLEND='
+st(1, A * B / 255);
+st(2, 2 * (1 - P));
+if(gt(P, 0.5), A * (1 - ld(2)) + ld(1) * ld(2), st(2, ld(2) - 1); ld(1) * (1 - ld(2)) + B * ld(2))'
+
+GL_PINWHEEL='
+st(1, 2);
+st(1, atan2(0.5 - Y / H, X / W - 0.5) + (1 - P) * ld(1));
+st(1, mod(ld(1), PI / 4));
+st(1, sgn(1 - P - ld(1)));
+st(1, gte(0.5, ld(1)));
+B * (1 - ld(1)) + A * ld(1)'
+
+GL_POLAR_FUNCTION='
+st(1, 5);
+st(2, X / W - 0.5);
+st(3, 0.5 - Y / H);
+st(4, atan2(ld(3), ld(2)) - PI / 2);
+st(4, cos(ld(1) * ld(4)) / 4 + 1);
+st(1, hypot(ld(2), ld(3)));
+if(gt(ld(1), ld(4) * (1 - P)), A, B)'
+
+GL_POLKADOTSCURTAIN='
+st(1, 20);
+st(2, 0);
+st(3, 0);
+st(4, X / W * ld(1));
+st(4, ld(4) - floor(ld(4)));
+st(5, (1 - Y / H) * ld(1));
+st(5, ld(5) - floor(ld(5)));
+st(1, hypot(ld(4) - 0.5, ld(5) - 0.5));
+st(2, (1 - P) / hypot(X / W - ld(2), 1 - Y / H - ld(3)));
+if(lt(ld(1), ld(2)), B, A)'
+
+GL_RANDOMSQUARES='
+st(1, 10);
+st(2, 10);
+st(3, 0.5);
+st(1, floor(ld(1) * X / W));
+st(2, floor(ld(2) * (1 - Y / H)));
+st(4, sin(ld(1) * 12.9898 + ld(2) * 78.233));
+st(4, ld(4) - floor(ld(4)));
+st(4, ld(4) - ((1 - P) * (1 + ld(3))));
+st(4, st(4, clip(ld(4) / -ld(3), 0, 1)) * ld(4) * (3 - 2 * ld(4)));
+A * (1 - ld(4)) + B * ld(4)'
+
+GL_RIPPLE='
+st(1, 100);
+st(2, 50);
+st(3, X / W - 0.5);
+st(4, 0.5 - Y / H);
+st(5, hypot(ld(3), ld(4)));
+st(6, 1 - P);
+st(5, (sin(ld(6) * (ld(5) * ld(1) - ld(2))) + 0.5) / 30);
+st(3, ld(3) * ld(5));
+st(4, ld(4) * ld(5));
+st(3, (X / W + ld(3)) * W);
+st(4, (1 - ((1 - Y / H) + ld(4))) * H);
+st(1, if(eq(PLANE,0), a0(ld(3),ld(4)), if(eq(PLANE,1), a1(ld(3),ld(4)), if(eq(PLANE,2), a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
+st(2, st(2, clip((ld(6) - 0.2) / 0.8, 0, 1)) * ld(2) * (3 - 2 * ld(2)));
+ld(1) * (1 - ld(2)) + B * ld(2)'
+
+GL_ROTATE_SCALE_FADE='
+st(1, 0.5);
+st(2, 0.5);
+st(3, 1);
+st(4, 8);
+st(5, 1 - P);
+st(6, X / W - ld(1));
+st(7, (1 - Y / H) - ld(2));
+st(8, hypot(ld(6), ld(7)));
+st(6, ld(6) / ld(8));
+st(7, ld(7) / ld(8));
+st(3, 2 * PI * ld(3) * ld(5));
+st(9, 2 * abs(P - 0.5));
+st(4, ld(4) * (1 - ld(9)) + 1 * ld(9));
+st(6, st(9, ld(6)) * cos(ld(3)) - ld(7) * sin(ld(3)));
+st(7, ld(9) * sin(ld(3)) + ld(7) * cos(ld(3)));
+st(1, ld(1) + ld(6) * ld(8) / ld(4));
+st(2, ld(2) + ld(7) * ld(8) / ld(4));
+if(between(ld(1), 0, 1) * between(ld(2), 0, 1),
+ st(1, ld(1) * W);
+ st(2, (1 - ld(2)) * H);
+ st(1, if(eq(PLANE,0), a0(ld(1),ld(2)), if(eq(PLANE,1), a1(ld(1),ld(2)), if(eq(PLANE,2), a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
+ st(2, if(eq(PLANE,0), b0(ld(1),ld(2)), if(eq(PLANE,1), b1(ld(1),ld(2)), if(eq(PLANE,2), b2(ld(1),ld(2)), b3(ld(1),ld(2))))));
+ ld(1) * (1 - ld(5)) + ld(2) * ld(5),
+ if(lt(PLANE,3), 0, 255)
+)'
+
+GL_SQUARESWIRE='
+st(1, 10);
+st(2, 10);
+st(3, 1.0);
+st(4, -0.5);
+st(5, 1.6);
+st(6, hypot(ld(3), ld(4)));
+st(3, ld(3) / ld(6));
+st(4, ld(4) / ld(6));
+st(6, abs(ld(3) + abs(ld(4))));
+st(3, ld(3) / ld(6));
+st(4, ld(4) / ld(6));
+st(6, ld(3) / 2 + ld(4) / 2);
+st(6, ld(3) * X / W + ld(4) * (1 - Y / H) - (ld(6) - 0.5 + (1 - P) * (1 + ld(5))));
+st(6, st(6, clip((ld(6) + ld(5)) / (0 + ld(5)), 0, 1)) * ld(6) * (3 - 2 * ld(6)));
+st(1, X / W * ld(1));
+st(2, (1 - Y / H) * ld(2));
+st(1, ld(1) - floor(ld(1)));
+st(2, ld(2) - floor(ld(2)));
+st(5, ld(6) / 2);
+st(6, 1 - ld(5));
+st(5, lt(P, 1) * gte(ld(1), ld(5)) * gte(ld(2), ld(5)) * gte(ld(6), ld(1)) * gte(ld(6), ld(2)));
+A * (1 - ld(5)) + B * ld(5)'
+
+GL_SWIRL='
+st(1, 1);
+st(2, 1 - P);
+st(3, X / W - 0.5);
+st(4, 0.5 - Y / H);
+st(5, hypot(ld(3), ld(4)));
+if(lt(ld(5), ld(1)),
+ st(1, (ld(1) - ld(5)) / ld(1));
+ st(5, ld(2) * 2);
+ st(5, if(lte(ld(2), 0.5), 0 * (1 - ld(5)) + 1 * ld(5), st(5, ld(5) - 1); 1 * (1 - ld(5)) + 0 * ld(5)));
+ st(1, ld(1) * ld(1) * ld(5) * 8 * PI);
+ st(5, sin(ld(1)));
+ st(6, cos(ld(1)));
+ st(1, ld(3) * ld(6) + ld(4) * -ld(5));
+ st(4, ld(3) * ld(5) + ld(4) * ld(6));
+ st(3, ld(1))
+);
+st(3, (ld(3) + 0.5) * W);
+st(4, (0.5 - ld(4)) * H);
+st(5, if(eq(PLANE,0), a0(ld(3),ld(4)), if(eq(PLANE,1), a1(ld(3),ld(4)), if(eq(PLANE,2), a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
+st(6, if(eq(PLANE,0), b0(ld(3),ld(4)), if(eq(PLANE,1), b1(ld(3),ld(4)), if(eq(PLANE,2), b2(ld(3),ld(4)), b3(ld(3),ld(4))))));
+ld(5) * (1 - ld(2)) + ld(6) * ld(2)'
+
+GL_WATERDROP='
+st(1, 30);
+st(2, 30);
+st(3, X / W - 0.5);
+st(4, 0.5 - Y / H);
+st(5, hypot(ld(3), ld(4)));
+st(6, A);
+if(lte(ld(5), 1 - P),
+ st(1, sin(ld(5) * ld(1) - (1 - P) * ld(2)));
+ st(3, ld(3) * ld(1));
+ st(4, ld(4) * ld(1));
+ st(3, X + ld(3) * W);
+ st(4, Y - ld(4) * H);
+ st(6, if(eq(PLANE,0), a0(ld(3),ld(4)), if(eq(PLANE,1), a1(ld(3),ld(4)), if(eq(PLANE,2), a2(ld(3),ld(4)), a3(ld(3),ld(4))))))
+);
+B * (1 - P) + ld(6) * P'
