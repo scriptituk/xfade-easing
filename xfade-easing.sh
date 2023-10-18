@@ -12,7 +12,7 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.1f
+export VERSION=1.2
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -203,7 +203,7 @@ _expand() { # format expr
         e=${e/\%X/$x}
         e=${e/\%Y/$y}
         e=${e/\%Z/$z}
-        x=${x//%n/} && x=${x// /} # compact
+        x=${x//%n/} && x=${x// /} # inline
         y=${y//%n/} && y=${y// /}
         z=${z//%n/} && z=${z// /}
         e=${e/\%x/$x}
@@ -216,7 +216,7 @@ _expand() { # format expr
 
 # get default transition args
 _args() { # transition
-    _heredoc LIST | gawk -f- $0 | gawk -v transition=$1 '$1 == transition { if ($3) print $3 }'
+    _heredoc LIST | gawk -f- $0 | gawk -v transition=$1 '$1 == transition { if ($3 != "") print $3 }'
 }
 
 # calculate expression using awk
@@ -238,19 +238,21 @@ _make() { # expr
 # C99 % (remainder) operator: a % b = a - (a / b * b) (/ rounds towards 0)
 # (not subexpression safe: group first)
 _rem() { # a b
+    [[ $# -ne 2 ]] && _error "_rem expects 2 args, got $#"
     echo "($1 - trunc($1 / $2) * $2)"
 }
 
 # vf_xfade.c fract(a)
 # (not subexpression safe: group first)
 _fract() { # a
+    [[ $# -ne 1 ]] && _error "_fract expects 1 arg, got $#"
     echo "$1 - floor($1)"
 }
-
 
 # vf_xfade.c smoothstep(edge0,edge1,x)
 # (not subexpression safe: group first)
 _smoothstep() { # edge0 edge1 x st
+    [[ $# -ne 4 ]] && _error "_smoothstep expects 4 args, got $#"
     local e n="($3 - $1)" d="($2 - $1)"
     [[ $1 == 0 ]] && n="$3" && d="$2"
     [[ "$2-$1" =~ ^[0-9.-]+$ ]] && d=$(_calc "$d")
@@ -264,23 +266,27 @@ _smoothstep() { # edge0 edge1 x st
 # vf_xfade.c frand(x,y)
 # (not subexpression safe: group first)
 _frand() { # x y st
+    [[ $# -ne 3 ]] && _error "_frand expects 3 args, got $#"
     local e="st($3, sin($1 * 12.9898 + $2 * 78.233) * 43758.545)"
     echo "$e - floor(ld($3))"
 }
 
 # get first input value
 _a() { # X Y
+    [[ $# -ne 2 ]] && _error "_a expects 2 args, got $#"
     echo "if(eq(PLANE,0), a0($1,$2), if(eq(PLANE,1), a1($1,$2), if(eq(PLANE,2), a2($1,$2), a3($1,$2))))"
 }
 
 # get second input value
 _b() { # X Y
+    [[ $# -ne 2 ]] && _error "_b expects 2 args, got $#"
     echo "if(eq(PLANE,0), b0($1,$2), if(eq(PLANE,1), b1($1,$2), if(eq(PLANE,2), b2($1,$2), b3($1,$2))))"
 }
 
 # mix linear interpolation
 # (not subexpression safe: group first)
 _mix() { # a b mix xf
+    [[ $# -lt 3 ]] && _error "_mix expects 4 args, got $#"
     if [[ -n $4 ]]; then
         echo "$1 * $3 + $2 * (1 - $3)" # xfade mix fn
     else
@@ -291,11 +297,13 @@ _mix() { # a b mix xf
 # dot product
 # (not subexpression safe: group first)
 _dot() { # x1 y1 x2 y2
+    [[ $# -ne 4 ]] && _error "_dot expects 4 args, got $#"
     echo "$1 * $3 + $2 * $4"
 }
 
 # step function
 _step() { # edge x
+    [[ $# -ne 2 ]] && _error "_step expects 2 args, got $#"
     echo "gte($2, $1)"
 }
 
@@ -445,8 +453,9 @@ _easing() { # easing mode
 
 # custom expressions for Xfade transitions
 # see https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c
-_xf_transition() { # transition
+_xf_transition() { # transition args
     local x # expr
+    local a=(${2//,/ }) # args
     local s r
     _make
     case $1 in
@@ -524,17 +533,19 @@ _xf_transition() { # transition
         _make 'mix(B, A, ld(1))'
         ;;
     circlecrop)
+        s=black; [[ ${a[0]-0} != 0 ]] && s=white # backColor(0=black;!0=white)
         _make 'st(1, (2 * abs(P - 0.5))^3 * hypot(W / 2, H / 2));' # z
         _make 'st(2, hypot(X - W / 2, Y - H / 2));' # dist
         _make 'st(3, if(lt(P, 0.5), B, A));' # val
-        _make 'if(lt(ld(1), ld(2)), black, ld(3))'
+        _make "if(lt(ld(1), ld(2)), $s, ld(3))"
         ;;
     rectcrop)
+        s=black; [[ ${a[0]-0} != 0 ]] && s=white # backColor(0=black;!0=white)
         _make 'st(1, abs(P - 0.5) * W);' # zw
         _make 'st(2, abs(P - 0.5) * H);' # zh
         _make 'st(3, lt(abs(X - W / 2), ld(1) * lt(abs(Y - H / 2), ld(2))));' # dist
         _make 'st(4, if(lt(P, 0.5), B, A));' # val
-        _make 'if(not(ld(3)), black, ld(4))'
+        _make "if(not(ld(3)), $s, ld(4))"
         ;;
     circleopen|circleclose)
         _make 'st(1, hypot(W / 2, H / 2));' # z
@@ -679,12 +690,14 @@ _gl_transition() { # transition args
     case $1 in
     gl_angular)
         _make "st(1, ${a[0]-90});" # startingAngle
-        _make 'st(2, 1 - P);'
+        _make "st(2, ${a[1]-0});" # direction(!0=clockwise)
+        _make 'st(3, 1 - P);'
         _make 'st(1, ld(1) * PI / 180);' # offset
         _make 'st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(1));' # angle
         _make 'st(1, (ld(1) + PI) / (2 * PI));' # normalizedAngle
+        _make 'if(ld(2), st(1, -ld(1)));' # go clockwise
         _make 'st(1, ld(1) - floor(ld(1)));'
-        _make 'st(1, step(ld(1), ld(2)));'
+        _make 'st(1, step(ld(1), ld(3)));'
         _make 'mix(A, B, ld(1))'
         ;;
     gl_CrazyParametricFun)
@@ -812,8 +825,7 @@ _gl_transition() { # transition args
         _make "st(3, ${a[2]-0.5});" # smoothness
         _make 'st(1, floor(ld(1) * X / W));'
         _make 'st(2, floor(ld(2) * (1 - Y / H)));'
-        _make 'st(4, sin(dot(ld(1), ld(2), 12.9898, 78.233)));'
-        _make 'st(4, fract(ld(4) * 43758.5453));' # r
+        _make 'st(4, frand(ld(1), ld(2), 4));' # r (frand(...) == fract(sin(dot(... algorithm)
         _make 'st(4, ld(4) - ((1 - P) * (1 + ld(3))));'
         _make 'st(4, smoothstep(0, -ld(3), ld(4), 4));' # m
         _make 'mix(A, B, ld(4))'
@@ -883,7 +895,7 @@ _gl_transition() { # transition args
         _make 'st(2, fract(ld(2)));' # squarep.y
         _make 'st(5, ld(6) / 2);' # squaremin
         _make 'st(6, 1 - ld(5));' # squaremax
-        _make 'st(5, lt(P, 1) * step(ld(5), ld(1)) * step(ld(5), ld(2)) * step(ld(1), ld(6)) * step(ld(2), ld(6)));' # a
+        _make 'st(5, step(ld(5), ld(1)) * step(ld(5), ld(2)) * step(ld(1), ld(6)) * step(ld(2), ld(6)));' # a
         _make 'mix(A, B, ld(5))'
         ;;
     gl_Swirl)
@@ -915,15 +927,15 @@ _gl_transition() { # transition args
         _make 'st(3, X / W - 0.5);' # dir.x
         _make 'st(4, 0.5 - Y / H);' # dir.y
         _make 'st(5, hypot(ld(3), ld(4)));' # dist
-        _make 'st(6, A);'
-        _make 'if(lte(ld(5), 1 - P),'
+        _make 'st(6, if(lte(ld(5), 1 - P),'
         _make ' st(1, sin(ld(5) * ld(1) - (1 - P) * ld(2)));'
         _make ' st(3, ld(3) * ld(1));' # offset.x
         _make ' st(4, ld(4) * ld(1));' # offset.y
         _make ' st(3, X + ld(3) * W);'
         _make ' st(4, Y - ld(4) * H);'
-        _make ' st(6, a(ld(3), ld(4)))'
-        _make ');'
+        _make ' a(ld(3), ld(4)),'
+        _make ' A'
+        _make '));'
         _make 'mix(B, ld(6), P)'
         ;;
     esac
@@ -932,8 +944,9 @@ _gl_transition() { # transition args
 }
 
 # custom expressions for supplementary transitions
-_st_transition() { # transition
+_st_transition() { # transition args
     local x # expr
+    local a=(${2//,/ }) # args
     _make
     case $1 in
     x_screen_blend) # modelled on gl_multiply_blend
@@ -962,10 +975,10 @@ _st_transition() { # transition
 
 # get transition expression
 _transition() { # transition
-    local x=$(_xf_transition $1) # try Xfade
+    local x=$(_xf_transition $1 $2) # try Xfade
     [[ -n $x ]] && is_xf=true
     [[ -z $x ]] && x=$(_gl_transition $1 $2) # try GL
-    [[ -z $x ]] && x=$(_st_transition $1) # try supplementary
+    [[ -z $x ]] && x=$(_st_transition $1 $2) # try supplementary
     [[ -z $x ]] && exit $ERROR # unknown transition name
     local s r
     for s in rem mix fract smoothstep frand a b dot step; do # expand pseudo functions
@@ -1085,7 +1098,7 @@ _video() { # path
         cat << EOT >> $script
 movie='${inputs[i]}',
 format=pix_fmts=$format,
-scale=width=$width:height=$height,
+scale=width=$width:height=$height:flags=lanczos,
 loop=loop=1:size=1,
 fps=fps=$fps,
 tpad=stop_mode=clone:stop_duration=$sd
@@ -1405,10 +1418,10 @@ Options:
        %t expands to the transition name; %e easing name; %m easing mode
        %T, %E, %M upper case expansions of above
        %a expands to the transition arguments; %A to the default arguments (if any)
-       %x expands to the generated expr, compact, best for inline filterchains
-       %X does too but is more legible, good for filter_complex_script files
-       %y expands to the easing expression only, compact; %Y legible
-       %z expands to the eased transition expression only, compact; %Z legible
+       %x expands to the generated expr, condensed, intended for inline filterchains
+       %X does too but is not condensed, intended for -filter_complex_script files
+       %y expands to the easing expression only, inline; %Y script
+       %z expands to the eased transition expression only, inline; %Z script
           for the uneased transition expression only, use -e linear (default) and %x or %X
        %n inserts a newline
     -p easing plot output filename (default: no plot)
@@ -1426,7 +1439,7 @@ Options:
        total length is this length times (number of inputs - 1)
     -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s)
     -r video framerate (default: ${VIDEOFPS}fps)
-    -n show effect name on video as text
+    -n show effect name on video as text (requires the libfreetype library)
     -u video text font size multiplier (default: $VIDEOFSMULT)
     -2 video stack orientation,gap,colour (default: $VIDEOSTACK), e.g. h,2,red
        stacks uneased and eased videos horizontally (h), vertically (v) or auto (a)
