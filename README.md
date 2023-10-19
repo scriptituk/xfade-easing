@@ -7,16 +7,18 @@ Xfade transition progress is linear, so it starts and stops abruptly and appears
 Easing inserts a transition progress envelope to smooth the effect.
 
 This is a port of standard easing equations coded as custom xfade expressions.
-It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with the easing expressions or alone.
+It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with easing or alone.
 
 Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concaternation of an easing expression and a transition expression.
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is also provided.
 
-### Example: wipedown with cubic easing
+## Example
+
+### wipedown with cubic easing
 
 ![wipedown-cubic](assets/wipedown-cubic.gif)
 
-#### CLI command
+### CLI command
 
 ```bash
 ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex "
@@ -37,7 +39,7 @@ The semicolon token combines expressions.
 > [!IMPORTANT]
 > ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing is slower
 
-#### Getting the expressions
+### Getting the expressions
 
 In this example you can copy the easing expression from file [easings-inline.txt](expr/easings-inline.txt) and the transition expression from [transitions-rgb24-inline.txt](expr/transitions-rgb24-inline.txt).
 Those contain inline expressions for CLI use.
@@ -49,7 +51,7 @@ xfade-easing.sh -t wipedown -e cubic -x -
 dumps the xfade `expr` parameter:  
 ` 'st(0,1-P);st(1,if(gt(P,0.5),4*ld(0)^3,1-4*P^3));st(0,1-ld(1));if(gt(Y,H*(1-ld(0))),A,B)'`
 
-#### Using a script
+### Using a script
 
 Some expressions are very long, so using [-filter_complex_script](https://ffmpeg.org/ffmpeg.html#filter_005fcomplex_005fscript-option) keeps things manageable and readable.
 
