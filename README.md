@@ -16,15 +16,15 @@ Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression g
 
 ### wipedown with cubic easing
 
-![wipedown-cubic](assets/wipedown-cubic.gif)
+![wipedown cubic](assets/wipedown-cubic.gif)
 
 ### CLI command
 
 ```bash
 ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex "
     xfade=duration=3:offset=1:transition=custom:expr='
-        st(0,1-P); st(1,if(gt(P,0.5),4*ld(0)^3,1-4*P^3)); st(0,1-ld(1)) ;
-        if(gt(Y,H*(1-ld(0))),A,B)
+        st(0, if(gt(P, 0.5), 1 - 4 * (1-P)^3, 4 * P^3)) ;
+        if(gt(Y, H*(1-ld(0))), A, B)
     '" output.mp4
 ```
 
@@ -32,9 +32,6 @@ Here, the `expr` parameter is shown on two lines for clarity.
 The first line is the easing expression $e(P)$ (`cubic inout`) which stores its calculated progress value in `st(0)`.  
 The second line is the  transition expression $t(e(P))$ (`wipedown`) which loads its eased progress value from `ld(0)` instead of `P`.
 The semicolon token combines expressions.
-
-> [!NOTE]
-> the example appears overly complicated because xfade progress `P` moves from 1 to 0 but the easing equations expect progress from 0 to 1
 
 > [!IMPORTANT]
 > ffmpeg option `-filter_complex_threads 1` is required because xfade expressions are not thread-safe (the `st()` & `ld()` functions use xfade context memory), consequently processing is slower
@@ -49,7 +46,9 @@ Alternatively use the [expression generator](#expression-generator-cli-script):
 xfade-easing.sh -t wipedown -e cubic -x -
 ```
 dumps the xfade `expr` parameter:  
-` 'st(0,1-P);st(1,if(gt(P,0.5),4*ld(0)^3,1-4*P^3));st(0,1-ld(1));if(gt(Y,H*(1-ld(0))),A,B)'`
+```
+'st(0,if(gt(P,0.5),1-4*(1-P)^3,4*P^3));if(gt(Y,H*(1-ld(0))),A,B)'
+```
 
 ### Using a script
 
@@ -65,9 +64,7 @@ xfade-easing.sh -t wipedown -e cubic -s "xfade=offset=10:duration=5:transition=c
 writes the complete xfade filter description to file script.txt:
 ```
 xfade=offset=10:duration=5:transition=custom:expr='
-st(0, 1 - P);
-st(1, if(gt(P, 0.5), 4 * ld(0)^3, 1 - 4 * P^3));
-st(0, 1 - ld(1))
+st(0, if(gt(P, 0.5), 1 - 4 * (1 - P)^3, 4 * P^3))
 ;
 if(gt(Y, H * (1 - ld(0))), A, B)'
 ```
@@ -175,11 +172,7 @@ This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel
 - back
 - bounce
 
-![standard easings](assets/all-easings.png)
-
-Here are all the standard easings superimposed by the [Desmos Graphing Calculator](https://www.desmos.com/calculator):
-
-![standard easings](assets/desmos-easings.png)
+![standard easings](assets/standard-easings.png)
 
 ### Other easings
 
@@ -189,6 +182,12 @@ Here are all the standard easings superimposed by the [Desmos Graphing Calculato
 The `squareroot` & `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` & `cubic` respectively:
 
 ![quadratic vs squareroot](assets/quadratic-squareroot.png)
+
+### All easings
+
+Here are all the supported easings superimposed by the [Desmos Graphing Calculator](https://www.desmos.com/calculator):
+
+![all easings](assets/all-easings.png)
 
 ## Transition expressions
 
@@ -244,7 +243,7 @@ Below are xfade ports of some of the simpler GLSL transitions at [GL Transitions
 > there are better and faster ways to use the complete set of GL Transitions with FFmpeg:  
 > [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) is a native FFmpeg filter which requires building ffmpeg from source  
 > [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which requires installation  
-> [xfade_opencl](https://ffmpeg.org/ffmpeg-filters.html#xfade_005fopencl) FFmpeg filter can run custom transition effects from OpenCL source (not OpenGL) but enablement is quite involved
+> [xfade_opencl](https://ffmpeg.org/ffmpeg-filters.html#xfade_005fopencl) FFmpeg filter can run custom transition effects from OpenCL source but enablement is quite involved and OpenCL is not not OpenGL
 
 #### With easing
 
@@ -252,7 +251,7 @@ GL Transitions can also be eased, with or without parameters:
 
 *Example*: `Swirl`
 
-![Swirl-bounce](assets/gl_Swirl-bounce.gif)
+![Swirl bounce](assets/gl_Swirl-bounce.gif)
 
 #### Gallery
 
@@ -358,7 +357,7 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script (xfade-easing.sh version 1.2) by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script (xfade-easing.sh version 1.3) by Raymond Luckhurst, scriptit.uk
 Generates custom xfade filter expressions for rendering transitions with easing.
 See https://ffmpeg.org/ffmpeg-filters.html#xfade & https://trac.ffmpeg.org/wiki/Xfade
 Usage: xfade-easing.sh [options]
@@ -432,9 +431,7 @@ ditto, using expansion specifiers in file name
 appends the following to file exprs.php:
 ```php
 $expr['rectcrop_exponential_inout'] = '
-st(0, 1 - P);
-st(1, if(gt(P, 0.5), if(eq(P, 1), 0, 2^(9 - 20 * P)), if(eq(P, 0), 1, 1 - 2^(20 * P - 11))));
-st(0, 1 - ld(1))
+st(0, if(gt(P, 0.5), if(eq(P, 1), 1, 1 - 2^(9 - 20 * P)), if(eq(P, 0), 0, 2^(20 * P - 11))))
 ;
 st(1, abs(ld(0) - 0.5) * W);
 st(2, abs(ld(0) - 0.5) * H);
@@ -456,43 +453,43 @@ if(gt(P, 0.5), ld(1) * ld(2) + A * (1 - ld(2)), st(2, ld(2) - 1); B * ld(2) + ld
 Plot data is generated using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
 It is therefore real expression data.
 
-The plots above in [Standard easings](#standard-easings-robert-penner) show the test plots for all easings and all 3 modes (in, out and in-out).
-
 - `xfade-easing.sh -e elastic -p plot-%e.pdf`  
 creates a PDF file plot-elastic.pdf of the elastic easing
 - `xfade-easing.sh -e bounce -p %e.png -c 500x`  
-creates image file bounce.png of the bounce easing scaled to 500px wide
+creates image file bounce.png of the bounce easing scaled to 500px wide:
 
 ![bounce plot](assets/bounce.png)
+
+The plots above in [Standard easings](#standard-easings-robert-penner) show the test plots for all standard easings and all three modes (in, out and in-out).
 
 ### Generating demo videos
 
 > [!NOTE]
 > all demos on this page show animated GIFs of transition effects on still images except for the first demo [wipedows cubic](#example-wipedown-with-cubic-easing) which has video inputs
 
-- `xfade-easing.sh -t hlwind -e quartic -m in -v windy.gif`  
-creates an animated GIF image of the hlwind transition with quartic-in easing  
-![hlwind-quartic](assets/windy.gif)
+- `xfade-easing.sh -t hlwind -e quintic -m in -v windy.gif`  
+creates an animated GIF image of the hlwind transition with quintic-in easing  
+![hlwind quintic-in](assets/windy.gif)
 
 - `xfade-easing.sh -t radial -e squareroot -m inout -v %t-%e.mp4 -n -u 1.5`  
 creates a video annotated in larger text using expansion specifiers for the file name  
-![radial-squareroot!](assets/radial-squareroot.gif)
+![radial squareroot](assets/radial-squareroot.gif)
 
 - `xfade-easing.sh -t gl_polar_function=25 -i islands.png,rainbow.png -v paradise.mkv`  
 creates a lossless (FFV1) video (e.g. for further processing) of a GL transition with given parameters between specified inputs  
-![gl_polar_function=25!](assets/paradise.gif)
+![gl_polar_function=25](assets/paradise.gif)
 
 - `xfade-easing.sh -t gl_angular=0,1 -e exponential -i street.png,road.png,flowers.png,bird.png,barley.png -v multiple.mp4 -z 250x`  
 creates a video of the GL transition `angular` with parameter `startingAngle=0` (west) and `clockwise=1` (an added parameter) for 5 inputs  
-![gl_angular=0-exponential](assets/multiple.gif)
+![gl_angular=0 exponential](assets/multiple.gif)
 
-- `xfade-easing.sh -t circlecrop=1 -e quintic -i phone.png,beach.png -v home-away.mp4 -l 10 -d 8 -z 246x -2 h,8,LightSkyBlue -n`  
-creates a 10s video of the Xfade transition `circlecrop` with white background (added parameter), horizontally stacked with 8px `LightSkyBlue` gap (see [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)), with a slow 8s transition and quintic easing  
-![circlecrop-quintic](assets/home-away.gif)
+- `xfade-easing.sh -t circlecrop=1 -e quartic -i phone.png,beach.png -v home-away.mp4 -l 10 -d 8 -z 246x -2 h,8,LightSkyBlue -n`  
+creates a 10s video of the Xfade transition `circlecrop` with white background (added parameter), horizontally stacked with 8px `LightSkyBlue` gap (see [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)), with a slow 8s transition and quartic easing  
+![circlecrop quartic](assets/home-away.gif)
 
 - `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -i balloons.png,fruits.png -v living-life.mp4 -l 7 -d 5 -z 500x -r 30 -f yuv420p`  
 a 5 second GL transition with arguments and gentle quadratic easing, running at 30fps for 7 seconds, processing in YUV (Y'CbCr) colour space throughout  
-![gl_PolkaDotsCurtain-quadratic ](assets/living-life.gif)
+![gl_PolkaDotsCurtain quadratic ](assets/living-life.gif)
 
 ## See also
 
