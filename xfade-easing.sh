@@ -12,7 +12,7 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.2
+export VERSION=1.3
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -20,7 +20,6 @@ trap "rm -f $TMP-*" EXIT
 ERROR=64 # unreserved exit code
 N=$'\n'
 T=$'\t'
-P='ld(0)' # progress
 FFOPTS='-y -hide_banner -loglevel warning -stats_period 1'
 
 # defaults
@@ -69,7 +68,7 @@ _main() {
     [[ -z $transition_expr ]] && _error "unknown transition '$transition'" && exit $ERROR
 
     expr=$transition_expr # uneased (linear)
-    transition_expr=$(gsed -e "s/\<P\>/$P/g" <<<$transition_expr) # expects eased progress in ld(0)
+    transition_expr=$(gsed -e "s/\<P\>/ld(0)/g" <<<$transition_expr) # expects eased progress in ld(0)
     if [[ $easing == linear ]]; then
         easing_expr='st(0, P)' # no easing
     else
@@ -312,104 +311,109 @@ _step() { # edge x
 # see http://robertpenner.com/easing/
 # see https://github.com/Michaelangel007/easing
 _rp_easing() { # easing mode
-    local K=1.70158 # for -10% back
-    local K1=2.70158 # K+1
-    local H=1.525 # for back in-out
-    local H1=2.525 # H+1
     local i o io # mode expressions
     local x # expr
     case $1 in
         # note: P is xfade P; Q is 1-P (progress 0 to 1)
     linear)
-        io='st(1, Q)'
+        io='st(0, P)'
         i="$io"
         o="$io"
         ;;
     quadratic)
-        i='st(1, Q^2)'
-        o='st(1, 1 - P^2)'
-        io='st(1, if(gt(P, 0.5), 2 * Q^2, 1 - 2 * P^2))'
+        i='st(0, P * (2 - P))'
+        o='st(0, P^2)'
+        io='st(0, if(gt(P, 0.5), 2 * P * (2 - P) - 1, 2 * P^2))'
         ;;
     cubic)
-        i='st(1, Q^3)'
-        o='st(1, 1 - P^3)'
-        io='st(1, if(gt(P, 0.5), 4 * Q^3, 1 - 4 * P^3))'
+        i='st(0, 1 - Q^3)'
+        o='st(0, P^3)'
+        io='st(0, if(gt(P, 0.5), 1 - 4 * Q^3, 4 * P^3))'
         ;;
     quartic)
-        i='st(1, Q^4)'
-        o='st(1, 1 - P^4)'
-        io='st(1, if(gt(P, 0.5), 8 * Q^4, 1 - 8 * P^4))'
+        i='st(0, 1 - Q^4)'
+        o='st(0, P^4)'
+        io='st(0, if(gt(P, 0.5), 1 - 8 * Q^4, 8 * P^4))'
         ;;
     quintic)
-        i='st(1, Q^5)'
-        o='st(1, 1 - P^5)'
-        io='st(1, if(gt(P, 0.5), 16 * Q^5, 1 - 16 * P^5))'
+        i='st(0, 1 - Q^5)'
+        o='st(0, P^5)'
+        io='st(0, if(gt(P, 0.5), 1 - 16 * Q^5, 16 * P^5))'
         ;;
     sinusoidal)
-        i='st(1, 1 - sin(P * PI / 2))'
-        o='st(1, cos(P * PI / 2))'
-        io='st(1, (1 + cos(P * PI)) / 2)'
+        i='st(0, sin(P * PI / 2))'
+        o='st(0, 1 - cos(P * PI / 2))'
+        io='st(0, (1 - cos(P * PI)) / 2)'
         ;;
     exponential)
-        i='st(1, if(eq(P, 1), 0, 2^(-10 * P)))'
-        o='st(1, if(eq(P, 0), 1, 1 - 2^(-10 * Q)))'
-        io='st(1, if(gt(P, 0.5), if(eq(P, 1), 0, 2^(9 - 20 * P)), if(eq(P, 0), 1, 1 - 2^(20 * P - 11))))'
+        i='st(0, if(eq(P, 1), 1, 1 - 2^(-10 * P)))'
+        o='st(0, if(eq(P, 0), 0, 2^(-10 * Q)))'
+        io='st(0, if(gt(P, 0.5), if(eq(P, 1), 1, 1 - 2^(9 - 20 * P)), if(eq(P, 0), 0, 2^(20 * P - 11))))'
         ;;
     circular)
-        i='st(1, 1 - sqrt(1 - Q^2))'
-        o='st(1, sqrt(1 - P^2))'
-        io='st(1, if(gt(P, 0.5), 1 - sqrt(1 - 4 * Q^2), 1 + sqrt(1 - 4 * P^2)) / 2)'
+        i='st(0, sqrt(P * (2 - P)))'
+        o='st(0, 1 - sqrt(1 - P^2))'
+        io='st(0, if(gt(P, 0.5), 1 + sqrt(1 - 4 * Q^2), 1 - sqrt(1 - 4 * P^2)) / 2)'
         ;;
     elastic)
-        i='st(1, cos(20 * P * PI / 3) / 2^(10 * P))'
-        o='st(1, 1 - cos(20 * Q * PI / 3) / 2^(10 * Q))'
+        i='st(0, 1 - cos(20 * P * PI / 3) / 2^(10 * P))'
+        o='st(0, cos(20 * Q * PI / 3) / 2^(10 * Q))'
         _make
-        _make 'st(1, 2 * Q - 1);'
-        _make 'st(2, cos(40 * ld(1) * PI / 9) / 2);'
-        _make 'st(3, 2^(10 * ld(1)));'
-        _make 'st(1, if(gt(P, 0.5), ld(2) * ld(3), 1 - ld(2) / ld(3)))'
+        _make 'st(0, 1 - 2 * P);'
+        _make 'st(1, cos(40 * ld(0) * PI / 9) / 2);'
+        _make 'st(0, 2^(10 * ld(0)));'
+        _make 'st(0, if(gt(P, 0.5), 1 - ld(1) * ld(0), ld(1) / ld(0)))'
         io=$made
         ;;
     back)
-        i='st(1, Q^2 * (Q * K1 - K))'
-        o='st(1, 1 - P^2 * (P * K1 - K))'
-        io='st(1, if(gt(P, 0.5), 2 * Q^2 * (2 * Q * H1 - H), 1 - 2 * P^2 * (2 * P * H1 - H)))'
+        local K=1.70158 # for -10% back
+        local K1=2.70158 # K+1
+        local H=1.525 # for back in-out
+        local H1=2.525 # H+1
+        i='st(0, 1 - Q^2 * (Q * K1 - K))'
+        o='st(0, P^2 * (P * K1 - K))'
+        io='st(0, if(gt(P, 0.5), 1 - 2 * Q^2 * (2 * Q * H1 - H), 2 * P^2 * (2 * P * H1 - H)))'
         ;;
     bounce)
         _make
-        _make ' st(2, 121 / 16);'
+        _make ' st(1, 121 / 16);'
         _make ' if(lt(P, 4 / 11),'
-        _make '  ld(2) * P^2,'
+        _make '  ld(1) * P^2,'
         _make '  if(lt(P, 8 / 11),'
-        _make '   ld(2) * (P - 6 / 11)^2 + 3 / 4,'
+        _make '   ld(1) * (P - 6 / 11)^2 + 3 / 4,'
         _make '   if(lt(P, 10 / 11),'
-        _make '    ld(2) * (P - 9 / 11)^2 + 15 / 16,'
-        _make '    ld(2) * (P - 21 / 22)^2 + 63 / 64'
+        _make '    ld(1) * (P - 9 / 11)^2 + 15 / 16,'
+        _make '    ld(1) * (P - 21 / 22)^2 + 63 / 64'
         _make '   )'
         _make '  )'
         _make ' )'
         x=$made
         _make
-        _make "st(1, $x);"
-        _make 'st(1, 1 - ld(1))'
+        _make 'st(0,'
+        _make "$x"
+        _make ')'
         i=$made
-        x="${x//P/Q}"
-        o="st(1, $x)"
+        x="${x//P/ld(0)}"
         _make
-        _make 'st(1, sgn(P - 0.5));'
-        _make 'st(0, ld(1) * (2 * P - 1));'
-        _make "st(2, $x);"
-        _make 'st(1, (1 - ld(1) * ld(2)) / 2)'
+        _make 'st(0, 1 - P);'
+        _make 'st(0,'
+        _make "$x"
+        _make ');'
+        _make 'st(0, 1 - ld(0))'
+        o=$made
+        _make
+        _make 'st(0, st(2, sgn(P - 0.5)) * (2 * P - 1));'
+        _make 'st(0,'
+        _make "$x"
+        _make ');'
+        _make 'st(0, (1 + ld(2) * ld(0)) / 2)'
         io=$made
         ;;
     esac
     x="$io"
     [[ $2 == in ]] && x="$i"
     [[ $2 == out ]] && x="$o"
-    x="${x//H1/$H1}"
-    x="${x//H/$H}"
-    x="${x//K1/$K1}"
-    x="${x//K/$K}"
+    [[ $1 == back ]] && x="${x//H1/$H1}" && x="${x//H/$H}" && x="${x//K1/$K1}" && x="${x//K/$K}"
     echo "$x"
 }
 
@@ -419,14 +423,14 @@ _se_easing() { # easing mode
     local x # expr
     case $1 in
     squareroot) # opposite to quadratic (not Pohoreski's sqrt)
-        i='st(1, sqrt(Q))'
-        o='st(1, 1 - sqrt(P))'
-        io='st(1, if(gt(P, 0.5), sqrt(2 * Q), 2 - sqrt(2 * P)) / 2)'
+        i='st(0, 1 - sqrt(Q))'
+        o='st(0, sqrt(P))'
+        io='st(0, if(gt(P, 0.5), 2 - sqrt(2 * Q), sqrt(2 * P)) / 2)'
     ;;
     cuberoot) # opposite to cubic
-        i='st(1, pow(Q, 1 / 3))'
-        o='st(1, 1 - pow(P, 1 / 3))'
-        io='st(1, if(gt(P, 0.5), pow(2 * Q, 1 / 3), 2 - pow(2 * P, 1 / 3)) / 2)'
+        i='st(0, 1 - pow(Q, 1 / 3))'
+        o='st(0, pow(P, 1 / 3))'
+        io='st(0, if(gt(P, 0.5), 2 - pow(2 * Q, 1 / 3), pow(2 * P, 1 / 3)) / 2)'
     ;;
 #   step) # steps at halfway point
 #       io='st(1, if(gt(P, 0.5), 0, 1))'
@@ -445,8 +449,7 @@ _easing() { # easing mode
     local x=$(_rp_easing $1 $2) # try RP
     [[ -z $x ]] && x=$(_se_easing $1 $2) # try supplementary
     [[ -z $x ]] && exit $ERROR # unknown easing name
-    x="${x//Q/$P}"
-    x="st(0, 1 - P);%n$x;%nst(0, 1 - ld(1))" # xfade progress goes from 1 to 0
+    x="${x//Q/(1 - P)}" # xfade progress goes from 1 to 0
     echo "$x" # f(P) in ld(0)
     exit 0
 }
@@ -868,9 +871,9 @@ _gl_transition() { # transition args
         _make 'if(between(ld(1), 0, 1) * between(ld(2), 0, 1),'
         _make ' st(1, ld(1) * W);'
         _make ' st(2, (1 - ld(2)) * H);'
-        _make ' st(1, a(ld(1), ld(2)));'
-        _make ' st(2, b(ld(1), ld(2)));'
-        _make ' mix(ld(1), ld(2), ld(5)),'
+        _make ' st(3, a(ld(1), ld(2)));'
+        _make ' st(4, b(ld(1), ld(2)));'
+        _make ' mix(ld(3), ld(4), ld(5)),'
         _make " $s"
         _make ')'
         ;;
@@ -1038,7 +1041,7 @@ _plot() { # path easing
     local expr mode
     for mode in in out inout; do
         expr=$(_easing $2 $mode)
-        expr="$expr; if(eq(PLANE,0)*eq(X,0)*eq(Y,0), print(-1,$ll); print(1-P,$ll); print(1-$P,$ll))"
+        expr="$expr; if(eq(PLANE,0)*eq(X,0)*eq(Y,0), print(-1,$ll); print(1-P,$ll); print(1-ld(0),$ll))"
         expr=$(_expand '%x' "$expr")
         local log=$TMP-plot-$mode.log
         export FFREPORT="file=$log:level=$ll" # prints to log file
