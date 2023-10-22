@@ -9,7 +9,7 @@ Easing inserts a transition progress envelope to smooth the effect.
 This is a port of standard easing equations coded as custom xfade expressions.
 It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with easing or alone.
 
-Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concaternation of an easing expression and a transition expression.
+Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concatenation of an easing expression and a transition expression.
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is also provided.
 
 ## Example
@@ -84,7 +84,7 @@ This format is crammed into a single line stripped of whitespace.
 
 *Example*: `elastic out` easing (leaves progress in `st(0)`)
 ```
-st(0,1-P);st(1,1-cos(20*ld(0)*PI/3)/2^(10*ld(0)));st(0,1-ld(1))
+st(0,cos(20*(1-P)*PI/3)/2^(10*(1-P)))
 ```
 
 ### Script, for -filter_complex_script
@@ -158,7 +158,7 @@ If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#express
 
 ### Standard easings (Robert Penner)
 
-This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single argument version of [Robert Penner’s](http://robertpenner.com/easing/) easing functions, further optimised by me.
+This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single argument version of [Robert Penner’s](http://robertpenner.com/easing/) easing functions, further optimised by me for the peculiarities of xfade.
 
 - linear
 - quadratic
@@ -273,7 +273,7 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade A
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
 | texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | xfade `expr` is evaluated for every texture component (plane) and pixel position <br/> <br/> `vec4 transition(vec2 uv) {...}` runs for every pixel position |
 
-To make porting easier to follow, the expression generator Bash script [xfade-easing.sh](xfade-easing.sh) replicates the original variable names found in the C or GLSL source code as comments. It also uses pseudo functions to emulate real functions, expanding them inline later.
+To make porting easier to follow, the expression generator Bash script [xfade-easing.sh](xfade-easing.sh) replicates as comments the original variable names found in the C or GLSL source code. It also uses pseudo functions to emulate real functions, expanding them inline later.
 
 *Example*: porting transition `gl_randomsquares`
 
@@ -451,7 +451,7 @@ if(gt(P, 0.5), ld(1) * ld(2) + A * (1 - ld(2)), st(2, ld(2) - 1); B * ld(2) + ld
 ### Generating test plots
 
 Plot data is generated using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
-It is therefore real expression data.
+It is therefore actual expression data.
 
 - `xfade-easing.sh -e elastic -p plot-%e.pdf`  
 creates a PDF file plot-elastic.pdf of the elastic easing
