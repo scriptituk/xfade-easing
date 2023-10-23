@@ -1,13 +1,13 @@
-# FFmpeg Xfade custom easing and transition expressions
+# FFmpeg Xfade custom expressions for easings and transitions
 
 ## Summary
 
 Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects.
-Xfade transition progress is linear, so it starts and stops abruptly and appears disjointed.
+Xfade transition progress is linear, so it starts and stops abruptly and transitions appear disjointed.
 Easing inserts a transition progress envelope to smooth the effect.
 
 This is a port of standard easing equations coded as custom xfade expressions.
-It also ports most xfade transitions, some [GL Transitions](https://github.com/gl-transitions/gl-transitions) and other transitions for use in tandem with easing or alone.
+It also ports most xfade transitions, some [GL Transitions](#gl-transitions) and other transitions for use in tandem with easing or alone.
 
 Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concatenation of an easing expression and a transition expression.
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is also provided.
@@ -185,7 +185,7 @@ The `squareroot` & `cuberoot` easings focus more on the middle regions and less 
 
 ### All easings
 
-Here are all the supported easings superimposed by the [Desmos Graphing Calculator](https://www.desmos.com/calculator):
+Here are all the supported easings superimposed using the [Desmos Graphing Calculator](https://www.desmos.com/calculator):
 
 ![all easings](assets/all-easings.png)
 
@@ -224,6 +224,7 @@ See the FFmpeg Wiki [Xfade page](https://trac.ffmpeg.org/wiki/Xfade#Gallery).
 Below are xfade ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) for use with or without easing.
 
 - gl_angular [args: startingAngle,direction(!0=clockwise); default: =90,0]
+- gl_BookFlip
 - gl_CrazyParametricFun [args: a,b,amplitude,smoothness; default: =4,1,120,0.1]
 - gl_crosswarp
 - gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1]
@@ -232,8 +233,10 @@ Below are xfade ports of some of the simpler GLSL transitions at [GL Transitions
 - gl_pinwheel [args: speed; default: =2]
 - gl_polar_function [args: segments; default: =5]
 - gl_PolkaDotsCurtain [args: dots,centre.x,centre.y; default: =20,0,0]
+- gl_powerKaleido [args: scale,z,speed; default: =2,1.5,5]
 - gl_randomsquares [args: size.x,size.y,smoothness; default: =10,10,0.5]
 - gl_ripple [args: amplitude,speed; default: =100,50]
+- gl_Rolls [args: type,RotDown; default: =0,0]
 - gl_rotate_scale_fade [args: centre.x,centre.y,rotations,scale,backColor(0=black;!0=white); default: =0.5,0.5,1,8,0]
 - gl_squareswire [args: squares.h,squares.v,direction.x,direction.y,smoothness; default: =10,10,1.0,-0.5,1.6]
 - gl_Swirl
@@ -258,13 +261,13 @@ GL Transitions can also be eased, with or without parameters:
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
 Here are the xfade-ported GL Transitions with default parameters and no easing.
-See also the [GL Transitions Gallery](https://gl-transitions.com/gallery).
+See also the [GL Transitions Gallery](https://gl-transitions.com/gallery) which is not exhaustive.
 
 ![GL gallery](assets/gl-gallery.gif)
 
 #### Porting
 
-GLSL shader code runs on the GPU in real time. However GL Transition and Xfade APIs are quite similar and simple algorithms are easily ported.
+GLSL shader code runs on the GPU in real time. However GL Transition and Xfade APIs are broadly similar and simple algorithms are easily ported using vector resolution.
 
 | context | GL Transitions | Xfade filter | notes |
 | :---: | :---: | :---: | --- |
@@ -316,6 +319,8 @@ Use `x_overlay_blend` to boost contrast by combining multiply and screen blends.
 - x_screen_blend
 - x_overlay_blend
 
+![other transitions](assets/x_blends.gif)
+
 ### Parameters
 
 Many GL Transitions accept parameters to tweak the transition effect.
@@ -357,7 +362,7 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script (xfade-easing.sh version 1.3) by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script (xfade-easing.sh version 1.4) by Raymond Luckhurst, scriptit.uk
 Generates custom xfade filter expressions for rendering transitions with easing.
 See https://ffmpeg.org/ffmpeg-filters.html#xfade & https://trac.ffmpeg.org/wiki/Xfade
 Usage: xfade-easing.sh [options]
@@ -480,12 +485,16 @@ creates a lossless (FFV1) video (e.g. for further processing) of a GL transition
 ![gl_polar_function=25](assets/paradise.gif)
 
 - `xfade-easing.sh -t gl_angular=0,1 -e exponential -i street.png,road.png,flowers.png,bird.png,barley.png -v multiple.mp4 -z 250x`  
-creates a video of the GL transition `angular` with parameter `startingAngle=0` (west) and `clockwise=1` (an added parameter) for 5 inputs  
+creates a video of the GL transition `angular` with parameter `startingAngle=0` (west) and `clockwise=1` (an added parameter) for 5 inputs with fast exponential easing  
 ![gl_angular=0 exponential](assets/multiple.gif)
 
-- `xfade-easing.sh -t circlecrop=1 -e quartic -i phone.png,beach.png -v home-away.mp4 -l 10 -d 8 -z 246x -2 h,8,LightSkyBlue -n`  
-creates a 10s video of the Xfade transition `circlecrop` with white background (added parameter), horizontally stacked with 8px `LightSkyBlue` gap (see [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)), with a slow 8s transition and quartic easing  
-![circlecrop quartic](assets/home-away.gif)
+-  `xfade-easing.sh -t gl_BookFlip -e quartic -m out -i alice-12.png,alice-34.png -v book.gif -z 248x -n -2 h,4,black`  
+![gl_BookFlip quartic out](assets/book.gif)  
+creates a simple page turn with quartic-out easing for a more realistic effect.
+
+- `xfade-easing.sh -t circlecrop=1 -e sinusoidal -i phone.png,beach.png -v home-away.mp4 -l 10 -d 8 -z 246x -2 h,8,LightSkyBlue -n`  
+creates a 10s video of the Xfade transition `circlecrop` with white background (added parameter), horizontally stacked with 8px `LightSkyBlue` gap (see [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)), with a slow 8s transition and sinusoidal easing  
+![circlecrop sinusoidal](assets/home-away.gif)
 
 - `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -i balloons.png,fruits.png -v living-life.mp4 -l 7 -d 5 -z 500x -r 30 -f yuv420p`  
 a 5 second GL transition with arguments and gentle quadratic easing, running at 30fps for 7 seconds, processing in YUV (Y'CbCr) colour space throughout  
