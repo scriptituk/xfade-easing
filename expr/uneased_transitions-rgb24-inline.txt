@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 1.3
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 1.4
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Inline uneased transition expressions (rgb24) for CLI filter_complex filterchains
@@ -171,6 +171,9 @@ st(1,trunc(H*P));st(2,ld(1)+Y);st(3,(ld(2)-trunc(ld(2)/H)*H)+H*lt(ld(2),0));if(b
 GL_ANGULAR
 st(1,90);st(2,0);st(3,1-P);st(1,ld(1)*PI/180);st(1,atan2(0.5-Y/H,X/W-0.5)+ld(1));st(1,(ld(1)+PI)/(2*PI));if(ld(2),st(1,-ld(1)));st(1,ld(1)-floor(ld(1)));st(1,gte(ld(3),ld(1)));A*(1-ld(1))+B*ld(1)
 
+GL_BOOKFLIP
+st(1,X/W);st(2,1-Y/H);st(3,gte(ld(1),P));if(lt(ld(1),0.5),st(4,(ld(1)-0.5)/(0.5-P)/2+0.5);st(5,(ld(2)-0.5)/(0.5+P*(0.5-ld(1))*2)/2+0.5);st(4,ld(4)*W);st(5,(1-ld(5))*H);st(5,if(eq(PLANE,0),b0(ld(4),ld(5)),if(eq(PLANE,1),b1(ld(4),ld(5)),if(eq(PLANE,2),b2(ld(4),ld(5)),b3(ld(4),ld(5))))));st(4,A);if(lt(PLANE,3),st(5,ld(5)*max(0.7,abs(P-0.5)*2))),st(4,(ld(1)-1+P)/(P-0.5)/2);st(5,(ld(2)-0.5)/(0.5+(1-P)*(ld(1)-0.5)*2)/2+0.5);st(4,ld(4)*W);st(5,(1-ld(5))*H);st(4,if(eq(PLANE,0),a0(ld(4),ld(5)),if(eq(PLANE,1),a1(ld(4),ld(5)),if(eq(PLANE,2),a2(ld(4),ld(5)),a3(ld(4),ld(5))))));st(5,B);if(lt(PLANE,3),st(4,ld(4)*max(0.7,abs(P-0.5)*2))));ld(4)*(1-ld(3))+ld(5)*ld(3)
+
 GL_CRAZYPARAMETRICFUN
 st(1,4);st(2,1);st(3,120);st(4,0.1);st(5,1-P);st(6,ld(1)-ld(2));st(7,ld(1)/ld(2)-1);st(1,ld(6)*cos(ld(5))+ld(2)*cos(ld(5)*ld(7)));st(2,ld(6)*sin(ld(5))-ld(2)*sin(ld(5)*ld(7)));st(6,X/W-0.5);st(7,0.5-Y/H);st(8,hypot(ld(6),ld(7)));st(8,ld(5)*ld(8)*ld(3));st(1,ld(6)*sin(ld(8)*ld(1))/ld(4));st(2,ld(7)*sin(ld(8)*ld(2))/ld(4));st(1,(X/W+ld(1))*W);st(2,(1-((1-Y/H)+ld(2)))*H);st(1,if(eq(PLANE,0),a0(ld(1),ld(2)),if(eq(PLANE,1),a1(ld(1),ld(2)),if(eq(PLANE,2),a2(ld(1),ld(2)),a3(ld(1),ld(2))))));st(2,st(2,clip((ld(5)-0.2)/0.8,0,1))*ld(2)*(3-2*ld(2)));ld(1)*(1-ld(2))+B*ld(2)
 
@@ -195,11 +198,17 @@ st(1,5);st(2,X/W-0.5);st(3,0.5-Y/H);st(4,atan2(ld(3),ld(2))-PI/2);st(4,cos(ld(1)
 GL_POLKADOTSCURTAIN
 st(1,20);st(2,0);st(3,0);st(4,X/W*ld(1));st(4,ld(4)-floor(ld(4)));st(5,(1-Y/H)*ld(1));st(5,ld(5)-floor(ld(5)));st(1,hypot(ld(4)-0.5,ld(5)-0.5));st(2,(1-P)/hypot(X/W-ld(2),1-Y/H-ld(3)));if(lt(ld(1),ld(2)),B,A)
 
+GL_POWERKALEIDO
+st(1,2);st(2,1.5);st(3,5);st(1,ld(1)/10);st(3,ld(3)*(1-P));st(4,(X/W-0.5)*W/H*ld(2));st(5,(0.5-Y/H)*ld(2));st(6,sin(ld(3)));st(7,cos(ld(3)));st(4,ld(7)*st(2,ld(4))+ld(6)*ld(5));st(5,-ld(6)*ld(2)+ld(7)*ld(5));st(9,0);while(lt(ld(9),10),st(2,0);while(lt(ld(2),2*PI),st(6,sin(ld(2)));st(7,cos(ld(2)));if(eq(gt(asin(ld(7)),0),gt(ld(5)-ld(1)*ld(7),ld(6)/ld(7)*(ld(4)+ld(1)*ld(6)))),st(4,ld(4)+ld(6)*ld(1)*2);st(5,ld(5)-ld(7)*ld(1)*2);st(8,ld(4)*ld(7)+ld(5)*ld(6));st(4,2*ld(7)*ld(8)-ld(4));st(5,2*ld(6)*ld(8)-ld(5)));st(2,ld(2)+120/180*PI));st(9,ld(9)+1));st(6,sin(-ld(3)));st(7,cos(-ld(3)));st(4,ld(7)*st(2,ld(4))+ld(6)*ld(5));st(5,-ld(6)*ld(2)+ld(7)*ld(5));st(4,ld(4)/W*H);st(4,(ld(4)+0.5)/2);st(5,(ld(5)+0.5)/2);st(4,2*abs(ld(4)-floor(ld(4)+0.5)));st(5,2*abs(ld(5)-floor(ld(5)+0.5)));st(1,X/W);st(2,1-Y/H);st(3,cos(P*PI*2)/2+0.5);st(4,ld(4)*(1-ld(3))+ld(1)*ld(3));st(5,ld(5)*(1-ld(3))+ld(2)*ld(3));st(4,ld(4)*W);st(5,(1-ld(5))*H);st(1,if(eq(PLANE,0),a0(ld(4),ld(5)),if(eq(PLANE,1),a1(ld(4),ld(5)),if(eq(PLANE,2),a2(ld(4),ld(5)),a3(ld(4),ld(5))))));st(2,if(eq(PLANE,0),b0(ld(4),ld(5)),if(eq(PLANE,1),b1(ld(4),ld(5)),if(eq(PLANE,2),b2(ld(4),ld(5)),b3(ld(4),ld(5))))));st(3,cos(P*PI)/2+0.5);ld(1)*(1-ld(3))+ld(2)*ld(3)
+
 GL_RANDOMSQUARES
 st(1,10);st(2,10);st(3,0.5);st(1,floor(ld(1)*X/W));st(2,floor(ld(2)*(1-Y/H)));st(4,st(4,sin(ld(1)*12.9898+ld(2)*78.233)*43758.545)-floor(ld(4)));st(4,ld(4)-((1-P)*(1+ld(3))));st(4,st(4,clip(ld(4)/-ld(3),0,1))*ld(4)*(3-2*ld(4)));A*(1-ld(4))+B*ld(4)
 
 GL_RIPPLE
 st(1,100);st(2,50);st(3,X/W-0.5);st(4,0.5-Y/H);st(5,hypot(ld(3),ld(4)));st(6,1-P);st(5,(sin(ld(6)*(ld(5)*ld(1)-ld(2)))+0.5)/30);st(3,ld(3)*ld(5));st(4,ld(4)*ld(5));st(3,(X/W+ld(3))*W);st(4,(1-((1-Y/H)+ld(4)))*H);st(1,if(eq(PLANE,0),a0(ld(3),ld(4)),if(eq(PLANE,1),a1(ld(3),ld(4)),if(eq(PLANE,2),a2(ld(3),ld(4)),a3(ld(3),ld(4))))));st(2,st(2,clip((ld(6)-0.2)/0.8,0,1))*ld(2)*(3-2*ld(2)));ld(1)*(1-ld(2))+B*ld(2)
+
+GL_ROLLS
+st(1,0);st(2,0);st(3,PI/2*(1-P));st(4,X/W);st(5,1-Y/H);if(eq(ld(1),0)+eq(ld(1),3),st(4,1-ld(4)));if(gte(ld(1),2),st(5,1-ld(5)));if(if(gte(ld(1),2),ld(2),not(ld(2))),st(3,-ld(3)));st(6,cos(ld(3)));st(7,sin(ld(3)));st(8,W/H);st(2,ld(4)*ld(8)*ld(6)-ld(5)*ld(7));st(3,ld(4)*ld(8)*ld(7)+ld(5)*ld(6));if(between(ld(2),0,ld(8))*between(ld(3),0,1),st(2,ld(2)/ld(8));if(eq(ld(1),0)+eq(ld(1),3),st(2,1-ld(2)));if(gte(ld(1),2),st(3,1-ld(3)));st(2,ld(2)*W);st(3,(1-ld(3))*H);if(eq(PLANE,0),a0(ld(2),ld(3)),if(eq(PLANE,1),a1(ld(2),ld(3)),if(eq(PLANE,2),a2(ld(2),ld(3)),a3(ld(2),ld(3))))),B)
 
 GL_ROTATE_SCALE_FADE
 st(1,0.5);st(2,0.5);st(3,1);st(4,8);st(5,1-P);st(6,X/W-ld(1));st(7,(1-Y/H)-ld(2));st(8,hypot(ld(6),ld(7)));st(6,ld(6)/ld(8));st(7,ld(7)/ld(8));st(3,2*PI*ld(3)*ld(5));st(9,2*abs(P-0.5));st(4,ld(4)*(1-ld(9))+1*ld(9));st(6,st(9,ld(6))*cos(ld(3))-ld(7)*sin(ld(3)));st(7,ld(9)*sin(ld(3))+ld(7)*cos(ld(3)));st(1,ld(1)+ld(6)*ld(8)/ld(4));st(2,ld(2)+ld(7)*ld(8)/ld(4));if(between(ld(1),0,1)*between(ld(2),0,1),st(1,ld(1)*W);st(2,(1-ld(2))*H);st(3,if(eq(PLANE,0),a0(ld(1),ld(2)),if(eq(PLANE,1),a1(ld(1),ld(2)),if(eq(PLANE,2),a2(ld(1),ld(2)),a3(ld(1),ld(2))))));st(4,if(eq(PLANE,0),b0(ld(1),ld(2)),if(eq(PLANE,1),b1(ld(1),ld(2)),if(eq(PLANE,2),b2(ld(1),ld(2)),b3(ld(1),ld(2))))));ld(3)*(1-ld(5))+ld(4)*ld(5),if(lt(PLANE,3),0,255))
