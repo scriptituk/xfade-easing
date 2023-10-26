@@ -1,4 +1,4 @@
-# FFmpeg Xfade custom expressions for easings and transitions
+# FFmpeg Xfade custom expressions for easing transitions
 
 ## Summary
 
@@ -7,10 +7,13 @@ Xfade transition progress is linear, so it starts and stops abruptly and transit
 Easing inserts a transition progress envelope to smooth the effect.
 
 This is a port of standard easing equations coded as custom xfade expressions.
-It also ports most xfade transitions, some [GL Transitions](#gl-transitions) and other transitions for use in tandem with easing or alone.
+It also ports most xfade transitions, many [GL Transitions](#gl-transitions) and other transitions for use in tandem with easing or alone.
 
-Deployment involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concatenation of an easing expression and a transition expression.
+Application involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concatenation of an easing expression and a transition expression.
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is also provided.
+
+This solution for eased transitions requires no compilation or installations; just ffmpeg.
+Processing speed however is slow for complex effects.
 
 ## Example
 
@@ -194,58 +197,64 @@ Here are all the supported easings superimposed using the [Desmos Graphing Calcu
 ### Xfade transitions
 
 These are ports of the C-code transitions in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) for use with easing.
-Omitted transitions are `distance`, `hblur`, `fadegrays` which perform aggregation, so cannot be computed efficiently on a per plane-pixel basis.
+Omitted transitions are `distance` and `hblur` which perform aggregation, so cannot be computed efficiently on a per plane-pixel basis.
 
-- fade fadefast fadeslow fadeblack fadewhite
+- fade fadefast fadeslow fadegrays fadeblack fadewhite
+- dissolve pixelize
 - wipeleft wiperight wipeup wipedown
 - wipetl wipetr wipebl wipebr
 - slideleft slideright slideup slidedown
 - smoothleft smoothright smoothup smoothdown
-- circlecrop rectcrop [args: backColor(0=black;!0=white); default: =0]
+- circlecrop [args: backWhite; default: =0]
+- rectcrop [args: backWhite; default: =0]
 - circleopen circleclose
 - vertopen vertclose horzopen horzclose
-- dissolve pixelize
 - diagtl diagtr diagbl diagbr
 - hlslice hrslice vuslice vdslice
 - radial zoomin
 - squeezeh squeezev
 - hlwind hrwind vuwind vdwind
-- coverleft coverright
-- coverup coverdown
-- revealleft revealright
-- revealup revealdown
+- coverleft coverright coverup coverdown
+- revealleft revealright revealup revealdown
 
 #### Gallery
 
-See the FFmpeg Wiki [Xfade page](https://trac.ffmpeg.org/wiki/Xfade#Gallery).
+Here are the xfade transitions processed using custom expressions instead of the built-in transitions (for testing), with no easing.
+See also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) page.
+
+![Xfade gallery](assets/xf-gallery.gif)
 
 ### GL Transitions
 
-Below are xfade ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) for use with or without easing.
+These are xfade ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) for use with or without easing.
 
-- gl_angular [args: startingAngle,direction(!0=clockwise); default: =90,0]
-- gl_BookFlip
-- gl_CrazyParametricFun [args: a,b,amplitude,smoothness; default: =4,1,120,0.1]
-- gl_crosswarp
-- gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1]
-- gl_kaleidoscope [args: speed,angle,power; default: =1,1,1.5]
-- gl_multiply_blend
-- gl_pinwheel [args: speed; default: =2]
-- gl_polar_function [args: segments; default: =5]
-- gl_PolkaDotsCurtain [args: dots,centre.x,centre.y; default: =20,0,0]
-- gl_powerKaleido [args: scale,z,speed; default: =2,1.5,5]
-- gl_randomsquares [args: size.x,size.y,smoothness; default: =10,10,0.5]
-- gl_ripple [args: amplitude,speed; default: =100,50]
-- gl_Rolls [args: type,RotDown; default: =0,0]
-- gl_rotate_scale_fade [args: centre.x,centre.y,rotations,scale,backColor(0=black;!0=white); default: =0.5,0.5,1,8,0]
-- gl_squareswire [args: squares.h,squares.v,direction.x,direction.y,smoothness; default: =10,10,1.0,-0.5,1.6]
-- gl_Swirl
-- gl_WaterDrop [args: amplitude,speed; default: =30,30]
+- gl_angular [args: startingAngle,direction(!0=clockwise); default: =90,0] (by: Fernando Kuteken)
+- gl_BookFlip (by: hong)
+- gl_CrazyParametricFun [args: a,b,amplitude,smoothness; default: =4,1,120,0.1] (by: mandubian)
+- gl_crosswarp (by: Eke Péter)
+- gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1] (by: pschroen)
+- gl_kaleidoscope [args: speed,angle,power; default: =1,1,1.5] (by: nwoeanhinnogaehr)
+- gl_multiply_blend (by: Fernando Kuteken)
+- gl_pinwheel [args: speed; default: =2] (by: Mr Speaker)
+- gl_polar_function [args: segments; default: =5] (by: Fernando Kuteken)
+- gl_PolkaDotsCurtain [args: dots,centre.x,centre.y; default: =20,0,0] (by: bobylito)
+- gl_powerKaleido [args: scale,z,speed; default: =2,1.5,5] (by: Boundless)
+- gl_randomsquares [args: size.x,size.y,smoothness; default: =10,10,0.5] (by: gre)
+- gl_ripple [args: amplitude,speed; default: =100,50] (by: gre)
+- gl_Rolls [args: type,RotDown; default: =0,0] (by: Mark Craig)
+- gl_RotateScaleVanish [args: FadeInSecond,ReverseEffect,ReverseRotation; default: =1,0,0] (by: Mark Craig)
+- gl_rotateTransition (by: haiyoucuv)
+- gl_rotate_scale_fade [args: centre.x,centre.y,rotations,scale,backWhite; default: =0.5,0.5,1,8,0] (by: Fernando Kuteken)
+- gl_squareswire [args: squares.h,squares.v,direction.x,direction.y,smoothness; default: =10,10,1.0,-0.5,1.6] (by: gre)
+- gl_static_wipe [args: transitionUpToDown,max_static_span; default: =1,0.5] (by: Ben Lucas)
+- gl_Swirl (by: Sergey Kosarevsky)
+- gl_WaterDrop [args: amplitude,speed; default: =30,30] (by: Paweł Płóciennik)
 
 > [!NOTE]
-> there are better and faster ways to use the complete set of GL Transitions with FFmpeg:  
+> there are better and faster ways to use GL Transitions with FFmpeg:  
 > [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) is a native FFmpeg filter which requires building ffmpeg from source  
 > [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which requires installation  
+> [gl-transition-render](https://www.npmjs.com/package/gl-transition-scripts) is a Node.js script to render GL Transitions with images on the CLI  
 > [xfade_opencl](https://ffmpeg.org/ffmpeg-filters.html#xfade_005fopencl) FFmpeg filter can run custom transition effects from OpenCL source but enablement is quite involved and OpenCL is not not OpenGL
 
 #### With easing
@@ -261,7 +270,7 @@ GL Transitions can also be eased, with or without parameters:
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
 Here are the xfade-ported GL Transitions with default parameters and no easing.
-See also the [GL Transitions Gallery](https://gl-transitions.com/gallery) which is not exhaustive.
+See also the [GL Transitions Gallery](https://gl-transitions.com/gallery) (which lacks many recent contributor transitions).
 
 ![GL gallery](assets/gl-gallery.gif)
 
@@ -362,10 +371,9 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script (xfade-easing.sh version 1.4) by Raymond Luckhurst, scriptit.uk
-Generates custom xfade filter expressions for rendering transitions with easing.
-See https://ffmpeg.org/ffmpeg-filters.html#xfade & https://trac.ffmpeg.org/wiki/Xfade
-Usage: xfade-easing.sh [options]
+FFmpeg Xfade Easing script (xfade-easing.sh version 1.5) by Raymond Luckhurst, scriptit.uk
+Generates custom xfade expressions for rendering transitions with easing.
+Usage: xfade-easing.sh [options] [video inputs]
 Options:
     -f pixel format (default: rgb24): use ffmpeg -pix_fmts for list
     -t transition name (default: fade); use -L for list
@@ -381,7 +389,7 @@ Options:
        %X does too but is not condensed, intended for -filter_complex_script files
        %y expands to the easing expression only, inline; %Y script
        %z expands to the eased transition expression only, inline; %Z script
-          for the uneased transition expression only, use -e linear (default) and %x or %X
+          for the uneased transition expression only, omit -e option and use %x or %X
        %n inserts a newline
     -p easing plot output filename (default: no plot)
        accepts expansions but %m/%M are pointless as plots show all easing modes
@@ -391,7 +399,6 @@ Options:
     -v video output filename (default: no video), accepts expansions
        formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
        if gifsicle is available then gifs will be optimised
-    -i video inputs CSV (2 or more needed, default: sheep,goat - inline pngs 250x200)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
     -l video length per transition (default: 5s)
@@ -417,7 +424,7 @@ Notes:
        are not thread-safe (the st() & ld() functions use contextual allocation)
     4. certain xfade transitions are not implemented because they perform aggregation
        (distance, fadegrays, hblur)
-    5. a few GL Transitions are also ported, some of which take parameters;
+    5. many GL Transitions are also ported, some of which take parameters;
        to override the default parameters append as CSV after an = sign,
        e.g. -t gl_PolkaDotsCurtain=10,0.5,0.5 for 10 dots centred
        (see https://gl-transitions.com/gallery)
@@ -480,23 +487,23 @@ creates an animated GIF image of the hlwind transition with quintic-in easing
 creates a video annotated in larger text using expansion specifiers for the file name  
 ![radial squareroot](assets/radial-squareroot.gif)
 
-- `xfade-easing.sh -t gl_polar_function=25 -i islands.png,rainbow.png -v paradise.mkv`  
-creates a lossless (FFV1) video (e.g. for further processing) of a GL transition with given parameters between specified inputs  
+- `xfade-easing.sh -t gl_polar_function=25 -v paradise.mkv islands.png rainbow.png`  
+creates a lossless (FFV1) video (e.g. for further processing) of a GL transition with 25 segments between specified inputs  
 ![gl_polar_function=25](assets/paradise.gif)
 
-- `xfade-easing.sh -t gl_angular=0,1 -e exponential -i street.png,road.png,flowers.png,bird.png,barley.png -v multiple.mp4 -z 250x`  
+- `xfade-easing.sh -t gl_angular=0,1 -e exponential -v multiple.mp4 street.png road.png flowers.png bird.png barley.png`  
 creates a video of the GL transition `angular` with parameter `startingAngle=0` (west) and `clockwise=1` (an added parameter) for 5 inputs with fast exponential easing  
 ![gl_angular=0 exponential](assets/multiple.gif)
 
--  `xfade-easing.sh -t gl_BookFlip -e quartic -m out -i alice-12.png,alice-34.png -v book.gif -z 248x -n -2 h,4,black`  
-![gl_BookFlip quartic out](assets/book.gif)  
-creates a simple page turn with quartic-out easing for a more realistic effect.
+- `xfade-easing.sh -t gl_BookFlip -e quartic -m out -v book.gif -z 248x -n -2 h,4,black alice-12.png alice-34.png`  
+creates a simple page turn with quartic-out easing for a more realistic effect.  
+![gl_BookFlip quartic out](assets/book.gif)
 
-- `xfade-easing.sh -t circlecrop=1 -e sinusoidal -i phone.png,beach.png -v home-away.mp4 -l 10 -d 8 -z 246x -2 h,8,LightSkyBlue -n`  
+- `xfade-easing.sh -t circlecrop=1 -e sinusoidal -v home-away.mp4 -l 10 -d 8 -z 246x -2 h,8,LightSkyBlue -n phone.png beach.png`  
 creates a 10s video of the Xfade transition `circlecrop` with white background (added parameter), horizontally stacked with 8px `LightSkyBlue` gap (see [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)), with a slow 8s transition and sinusoidal easing  
 ![circlecrop sinusoidal](assets/home-away.gif)
 
-- `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -i balloons.png,fruits.png -v living-life.mp4 -l 7 -d 5 -z 500x -r 30 -f yuv420p`  
+- `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0.5 -e quadratic -v living-life.mp4 -l 7 -d 5 -z 500x -r 30 -f yuv420p balloons.png fruits.png`  
 a 5 second GL transition with arguments and gentle quadratic easing, running at 30fps for 7 seconds, processing in YUV (Y'CbCr) colour space throughout  
 ![gl_PolkaDotsCurtain quadratic ](assets/living-life.gif)
 
@@ -510,7 +517,8 @@ a 5 second GL transition with arguments and gentle quadratic easing, running at 
 - [GL Transitions homepage](https://gl-transitions.com) and [Gallery](https://gl-transitions.com/gallery) and [Editor](https://gl-transitions.com/editor)
 - [GL Transitions repository](https://github.com/gl-transitions/gl-transitions) on GitHub
 - [OpenGL Reference Pages](https://registry.khronos.org/OpenGL-Refpages/gl4/)
-- [libavfilter/vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) xfade C code
-- [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c) expr C code
+- [libavfilter/vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) xfade source code
+- [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c) expr source code
 - [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) native FFmpeg GL Transitions filter
 - [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) Node.js package, concats videos with GL Transitions
+- [gl-transition-render](https://www.npmjs.com/package/gl-transition-scripts) Node.js script to render GL Transitions with images on the CLI  
