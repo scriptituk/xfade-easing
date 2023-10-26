@@ -100,25 +100,25 @@ st(1, 0.5);
 st(2, 0.5);
 st(3, 1);
 st(4, 8);
-st(5, 1 - ld(0));
-st(6, X / W - ld(1));
-st(7, (1 - Y / H) - ld(2));
-st(8, hypot(ld(6), ld(7)));
-st(6, ld(6) / ld(8));
-st(7, ld(7) / ld(8));
-st(3, 2 * PI * ld(3) * ld(5));
-st(9, 2 * abs(ld(0) - 0.5));
-st(4, ld(4) * (1 - ld(9)) + 1 * ld(9));
-st(6, st(9, ld(6)) * cos(ld(3)) - ld(7) * sin(ld(3)));
-st(7, ld(9) * sin(ld(3)) + ld(7) * cos(ld(3)));
-st(1, ld(1) + ld(6) * ld(8) / ld(4));
-st(2, ld(2) + ld(7) * ld(8) / ld(4));
+st(0, 1 - ld(0));
+st(5, X / W - ld(1));
+st(6, (1 - Y / H) - ld(2));
+st(7, hypot(ld(5), ld(6)));
+st(5, ld(5) / ld(7));
+st(6, ld(6) / ld(7));
+st(3, 2 * PI * ld(3) * ld(0));
+st(8, 2 * abs(ld(0) - 0.5));
+st(4, ld(4) * (1 - ld(8)) + 1 * ld(8));
+st(5, st(8, ld(5)) * cos(ld(3)) - ld(6) * sin(ld(3)));
+st(6, ld(8) * sin(ld(3)) + ld(6) * cos(ld(3)));
+st(1, ld(1) + ld(5) * ld(7) / ld(4));
+st(2, ld(2) + ld(6) * ld(7) / ld(4));
 if(between(ld(1), 0, 1) * between(ld(2), 0, 1),
  st(1, ld(1) * W);
  st(2, (1 - ld(2)) * H);
- st(1, if(eq(PLANE,0), a0(ld(1),ld(2)), if(eq(PLANE,1), a1(ld(1),ld(2)), if(eq(PLANE,2), a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
- st(2, if(eq(PLANE,0), b0(ld(1),ld(2)), if(eq(PLANE,1), b1(ld(1),ld(2)), if(eq(PLANE,2), b2(ld(1),ld(2)), b3(ld(1),ld(2))))));
- ld(1) * (1 - ld(5)) + ld(2) * ld(5),
+ st(3, ifnot(PLANE, a0(ld(1),ld(2)), if(eq(PLANE,1), a1(ld(1),ld(2)), if(eq(PLANE,2), a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
+ st(4, ifnot(PLANE, b0(ld(1),ld(2)), if(eq(PLANE,1), b1(ld(1),ld(2)), if(eq(PLANE,2), b2(ld(1),ld(2)), b3(ld(1),ld(2))))));
+ ld(3) * (1 - ld(0)) + ld(4) * ld(0),
  if(lt(PLANE,3), 0, 255)
 )
 ```
@@ -132,19 +132,20 @@ These use `P` directly for progress instead of `ld(0)`. They are especially usef
 ```
 st(1, 30);
 st(2, 30);
+st(0, 1 - P);
 st(3, X / W - 0.5);
 st(4, 0.5 - Y / H);
 st(5, hypot(ld(3), ld(4)));
-st(6, if(lte(ld(5), 1 - P),
- st(1, sin(ld(5) * ld(1) - (1 - P) * ld(2)));
+st(6, if(lte(ld(5), ld(0)),
+ st(1, sin(ld(5) * ld(1) - ld(0) * ld(2)));
  st(3, ld(3) * ld(1));
  st(4, ld(4) * ld(1));
  st(3, X + ld(3) * W);
  st(4, Y - ld(4) * H);
- if(eq(PLANE,0), a0(ld(3),ld(4)), if(eq(PLANE,1), a1(ld(3),ld(4)), if(eq(PLANE,2), a2(ld(3),ld(4)), a3(ld(3),ld(4))))),
+ ifnot(PLANE, a0(ld(3),ld(4)), if(eq(PLANE,1), a1(ld(3),ld(4)), if(eq(PLANE,2), a2(ld(3),ld(4)), a3(ld(3),ld(4))))),
  A
 ));
-B * (1 - P) + ld(6) * P
+ld(6) * (1 - ld(0)) + B * ld(0)
 ```
 
 ### Pixel format
@@ -219,7 +220,7 @@ Omitted transitions are `distance` and `hblur` which perform aggregation, so can
 
 #### Gallery
 
-Here are the xfade transitions processed using custom expressions instead of the built-in transitions (for testing), with no easing.
+Here are the xfade transitions processed using custom expressions instead of the built-in transitions (for testing), without easing.
 See also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) page.
 
 ![Xfade gallery](assets/xf-gallery.gif)
@@ -348,11 +349,12 @@ where `p` is the parameter number and `v` its value.
 So for `gl_pinwheel` with a `speed` value 10, change the first line of its expr below to `st(1, 10);`.
 ```
 st(1, 2);
-st(1, atan2(0.5 - Y / H, X / W - 0.5) + (1 - P) * ld(1));
+st(0, 1 - ld(0));
+st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(0) * ld(1));
 st(1, mod(ld(1), PI / 4));
-st(1, sgn(1 - P - ld(1)));
-st(1, if(lt(0.5, ld(1)), 0, 1));
-A * ld(1) + B * (1 - ld(1))
+st(1, sgn(ld(0) - ld(1)));
+st(1, gte(0.5, ld(1)));
+B * (1 - ld(1)) + A * ld(1)
 ```
 Similarly, `gl_directionalwarp` takes 3 parameters: `smoothness`, `direction.x`, `direction.y` (from `xfade-easing.sh -L`)
 and its expr starts with 3 corresponding `st()` (store) functions which may be changed from their default values:
