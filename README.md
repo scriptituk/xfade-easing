@@ -195,7 +195,7 @@ Here are all the supported easings superimposed using the [Desmos Graphing Calcu
 
 ### Overshoots
 
-The elastic and bounce easings overshoot and undershoot, causing some transitions to clip and others to show colour distortion.
+The elastic and back easings overshoot and undershoot, causing some transitions to clip and others to show colour distortion.
 
 Overshoot rendering can only access the two frames of data available.
 A wrapping strategy might work for simple horizontal/vertical effects whereby fetching X & Y pixel data is intercepted.
