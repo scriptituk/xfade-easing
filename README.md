@@ -193,6 +193,14 @@ Here are all the supported easings superimposed using the [Desmos Graphing Calcu
 
 ![all easings](assets/all-easings.png)
 
+### Overshoots
+
+The elastic and bounce easings overshoot and undershoot, causing some transitions to clip and others to show colour distortion.
+
+Overshoot rendering can only access the two frames of data available.
+A wrapping strategy might work for simple horizontal/vertical effects whereby fetching X & Y pixel data is intercepted.
+At present, progress outside the range 0 to 1 will yield unexpected results.
+
 ## Transition expressions
 
 ### Xfade transitions
@@ -488,7 +496,7 @@ The plots above in [Standard easings](#standard-easings-robert-penner) show the 
 ### Generating demo videos
 
 > [!NOTE]
-> all demos on this page show animated GIFs of transition effects on still images except for the first demo [wipedows cubic](#example-wipedown-with-cubic-easing) which has video inputs
+> all demos on this page show animated GIFs of transition effects on still images except for the first demo [wipedows cubic](#wipedown-with-cubic-easing) which has video inputs
 
 - `xfade-easing.sh -t hlwind -e quintic -m in -v windy.gif`  
 creates an animated GIF image of the hlwind transition with quintic-in easing using default built-in images  
