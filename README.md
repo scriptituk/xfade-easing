@@ -1,5 +1,5 @@
 # Custom transition expressions for FFmpeg Xfade filter
-#### Incorporating standard easing functions and ported GL Transitions
+### Incorporating standard easing functions and ported GL Transitions
 
 ## Summary
 
