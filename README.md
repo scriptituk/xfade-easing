@@ -449,6 +449,8 @@ Notes:
 ```
 ### Generating expr code
 
+Expr code is generated using `-x` option and customised with the `-s`,`-a` options.
+
 - `xfade-easing.sh -t slideright -e quadratic -m out -x -`  
 prints expr for slideright transition with quadratic-out easing to stdout
 - `xfade-easing.sh -t coverup -e quartic -m in -x coverup-quartic_in.txt`  
@@ -482,6 +484,8 @@ if(gt(ld(1), ld(4) * (1 - P)), A, B)'
 
 ### Generating test plots
 
+Plots are generated using `-p` option and customised with the `-c` option.
+
 Plot data is generated using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
 It is therefore actual expression data.
 
@@ -495,6 +499,8 @@ creates image file bounce.png of the bounce easing scaled to 500px wide:
 The plots above in [Standard easings](#standard-easings-robert-penner) show the test plots for all standard easings and all three modes (in, out and in-out).
 
 ### Generating demo videos
+
+Videos are generated using `-v` option and customised with the `-z` ,`-l`,`-d`,`-r`,`-n`,`-u`,`-2` options.
 
 > [!NOTE]
 > all demos on this page show animated GIFs of transition effects on still images except for the first demo [wipedows cubic](#wipedown-with-cubic-easing) which has video inputs
