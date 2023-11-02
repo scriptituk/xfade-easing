@@ -1,4 +1,5 @@
-# FFmpeg Xfade custom expressions for easing transitions
+# Custom transition expressions for FFmpeg Xfade filter
+#### Incorporating standard easing functions and ported GL Transitions
 
 ## Summary
 
@@ -197,8 +198,8 @@ Here are all the supported easings superimposed using the [Desmos Graphing Calcu
 
 The elastic and back easings overshoot and undershoot, causing some transitions to clip and others to show colour distortion.
 
-Overshoot rendering can only access the two frames of data available.
-A wrapping strategy might work for simple horizontal/vertical effects whereby fetching X & Y pixel data is intercepted.
+Rendering expressions can only access the two frames of data available.
+A wrapping overshoot strategy might work for simple horizontal/vertical effects whereby fetching X & Y pixel data is intercepted.
 At present, progress outside the range 0 to 1 will yield unexpected results.
 
 ## Transition expressions
@@ -536,6 +537,7 @@ a GL transition with arguments and gentle quadratic easing, running at 30fps for
 - [GL Transitions homepage](https://gl-transitions.com) and [Gallery](https://gl-transitions.com/gallery) and [Editor](https://gl-transitions.com/editor)
 - [GL Transitions repository](https://github.com/gl-transitions/gl-transitions) on GitHub
 - [OpenGL Reference Pages](https://registry.khronos.org/OpenGL-Refpages/gl4/) GLSL function reference
+- [GLSL Vector and Matrix Operations](https://en.wikibooks.org/wiki/GLSL_Programming/Vector_and_Matrix_Operations) GLSL specific built-in data types and functions
 - [libavfilter/vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) xfade source code
 - [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c) expr source code
 - [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) native FFmpeg GL Transitions filter
