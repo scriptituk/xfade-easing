@@ -108,11 +108,11 @@ st(5, ld(5) / ld(7));
 st(6, ld(6) / ld(7));
 st(3, 2 * PI * ld(3) * (1 - ld(0)));
 st(8, 2 * abs(ld(0) - 0.5));
-st(4, ld(4) * (1 - ld(8)) + 1 * ld(8));
-st(8, ld(5) * cos(ld(3)) - ld(6) * sin(ld(3)));
+st(8, ld(4) * (1 - ld(8)) + 1 * ld(8));
+st(4, ld(5) * cos(ld(3)) - ld(6) * sin(ld(3)));
 st(6, ld(5) * sin(ld(3)) + ld(6) * cos(ld(3)));
-st(1, ld(1) + ld(8) * ld(7) / ld(4));
-st(2, ld(2) + ld(6) * ld(7) / ld(4));
+st(1, ld(1) + ld(4) * ld(7) / ld(8));
+st(2, ld(2) + ld(6) * ld(7) / ld(8));
 if(between(ld(1), 0, 1) * between(ld(2), 0, 1),
  st(1, ld(1) * W);
  st(2, (1 - ld(2)) * H);
