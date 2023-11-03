@@ -296,7 +296,7 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade A
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
 | texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | xfade `expr` is evaluated for every texture component (plane) and pixel position <br/> <br/> `vec4 transition(vec2 uv) {...}` runs for every pixel position |
 
-To make porting easier to follow, the expression generator Bash script [xfade-easing.sh](xfade-easing.sh) replicates as comments the original variable names found in the C or GLSL source code. It also uses pseudo functions to emulate real functions, expanding them inline later.
+To make porting easier to follow, the expression generator Bash script [xfade-easing.sh](xfade-easing.sh) replicates as comments the original variable names found in the GLSL source code (and xfade C code). It also uses pseudo functions to emulate real functions, expanding them inline later.
 
 *Example*: porting transition `gl_randomsquares`
 
@@ -449,7 +449,7 @@ Notes:
 ```
 ### Generating expr code
 
-Expr code is generated using `-x` option and customised with the `-s`,`-a` options.
+Expr code is generated using the `-x` option and customised with the `-s`,`-a` options.
 
 - `xfade-easing.sh -t slideright -e quadratic -m out -x -`  
 prints expr for slideright transition with quadratic-out easing to stdout
@@ -484,9 +484,9 @@ if(gt(ld(1), ld(4) * (1 - P)), A, B)'
 
 ### Generating test plots
 
-Plots are generated using `-p` option and customised with the `-c` option.
+Plots are generated using the `-p` option and customised with the `-c` option.
 
-Plot data is generated using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
+Plot data is logged using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
 It is therefore actual expression data.
 
 - `xfade-easing.sh -e elastic -p plot-%e.pdf`  
@@ -500,7 +500,7 @@ The plots above in [Standard easings](#standard-easings-robert-penner) show the 
 
 ### Generating demo videos
 
-Videos are generated using `-v` option and customised with the `-z` ,`-l`,`-d`,`-r`,`-n`,`-u`,`-2` options.
+Videos are generated using the `-v` option and customised with the `-z` ,`-l`,`-d`,`-r`,`-n`,`-u`,`-2` options.
 
 > [!NOTE]
 > all demos on this page show animated GIFs of transition effects on still images except for the first demo [wipedows cubic](#wipedown-with-cubic-easing) which has video inputs
