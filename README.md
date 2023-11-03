@@ -101,13 +101,12 @@ st(1, 0.5);
 st(2, 0.5);
 st(3, 1);
 st(4, 8);
-st(0, 1 - ld(0));
 st(5, X / W - ld(1));
 st(6, (1 - Y / H) - ld(2));
 st(7, hypot(ld(5), ld(6)));
 st(5, ld(5) / ld(7));
 st(6, ld(6) / ld(7));
-st(3, 2 * PI * ld(3) * ld(0));
+st(3, 2 * PI * ld(3) * (1 - ld(0)));
 st(8, 2 * abs(ld(0) - 0.5));
 st(4, ld(4) * (1 - ld(8)) + 1 * ld(8));
 st(5, st(8, ld(5)) * cos(ld(3)) - ld(6) * sin(ld(3)));
@@ -119,7 +118,8 @@ if(between(ld(1), 0, 1) * between(ld(2), 0, 1),
  st(2, (1 - ld(2)) * H);
  st(3, ifnot(PLANE, a0(ld(1),ld(2)), if(eq(PLANE,1), a1(ld(1),ld(2)), if(eq(PLANE,2), a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
  st(4, ifnot(PLANE, b0(ld(1),ld(2)), if(eq(PLANE,1), b1(ld(1),ld(2)), if(eq(PLANE,2), b2(ld(1),ld(2)), b3(ld(1),ld(2))))));
- ld(3) * (1 - ld(0)) + ld(4) * ld(0),
+ st(5, 1 - ld(0));
+ ld(3) * (1 - ld(5)) + ld(4) * ld(5),
  if(lt(PLANE,3), 0, 255)
 )
 ```
@@ -133,20 +133,20 @@ These use `P` directly for progress instead of `ld(0)`. They are especially usef
 ```
 st(1, 30);
 st(2, 30);
-st(0, 1 - P);
-st(3, X / W - 0.5);
-st(4, 0.5 - Y / H);
-st(5, hypot(ld(3), ld(4)));
-st(6, if(lte(ld(5), ld(0)),
- st(1, sin(ld(5) * ld(1) - ld(0) * ld(2)));
- st(3, ld(3) * ld(1));
+st(3, 1 - ld(0));
+st(4, X / W - 0.5);
+st(5, 0.5 - Y / H);
+st(6, hypot(ld(4), ld(5)));
+st(7, if(lte(ld(6), ld(3)),
+ st(1, sin(ld(6) * ld(1) - ld(3) * ld(2)));
  st(4, ld(4) * ld(1));
- st(3, X + ld(3) * W);
- st(4, Y - ld(4) * H);
- ifnot(PLANE, a0(ld(3),ld(4)), if(eq(PLANE,1), a1(ld(3),ld(4)), if(eq(PLANE,2), a2(ld(3),ld(4)), a3(ld(3),ld(4))))),
+ st(5, ld(5) * ld(1));
+ st(4, X + ld(4) * W);
+ st(5, Y - ld(5) * H);
+ ifnot(PLANE, a0(ld(4),ld(5)), if(eq(PLANE,1), a1(ld(4),ld(5)), if(eq(PLANE,2), a2(ld(4),ld(5)), a3(ld(4),ld(5))))),
  A
 ));
-ld(6) * (1 - ld(0)) + B * ld(0)
+ld(7) * (1 - ld(3)) + B * ld(3)
 ```
 
 ### Pixel format
@@ -361,10 +361,10 @@ where `p` is the parameter number and `v` its value.
 So for `gl_pinwheel` with a `speed` value 10, change the first line of its expr below to `st(1, 10);`.
 ```
 st(1, 2);
-st(0, 1 - ld(0));
-st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(0) * ld(1));
+st(2, 1 - ld(0));
+st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(2) * ld(1));
 st(1, mod(ld(1), PI / 4));
-st(1, sgn(ld(0) - ld(1)));
+st(1, sgn(ld(2) - ld(1)));
 st(1, gte(0.5, ld(1)));
 B * (1 - ld(1)) + A * ld(1)
 ```
