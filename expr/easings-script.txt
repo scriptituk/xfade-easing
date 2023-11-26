@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 1.6
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 1.7
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Script easing expressions for filter_complex_script filterchains
