@@ -2,7 +2,7 @@
 // license: BSD 3 Clause
 // Adapted by Sergey Kosarevsky from:
 // http://rectalogic.github.io/webvfx/examples_2transition-shader-pagecurl_8html-example.html
-// Refactored by Raymond Luckhurst to aid porting
+// Refactored by Raymond Luckhurst to aid porting to FFmpeg Xfade
 
 const float MIN_AMOUNT = -0.16;
 const float MAX_AMOUNT = 1.5;
@@ -32,7 +32,7 @@ vec4 antiAlias(vec4 color1, vec4 color2, float distanc) {
 }
 */
 
-float distanceToEdge(vec2 point) {
+float distanceToEdge(vec2 point) { // inline this func
     float dx, dy;
     if (point.x < 0.0) dx = -point.x;
     else if (point.x > 1.0) dx = point.x - 1.0;
@@ -89,7 +89,7 @@ vec4 transition(vec2 p) {
         if (!(hitAngleMod > PI && amount < 0.5) && !(hitAngleMod > PI/2.0 && amount < 0.0)) { // seeThroughWithShadow
             point.y = hitAngle / 2.0 / PI;
             point = vec2(C * point.x - S * point.y + 0.985, S * point.x + C * point.y + 0.985); // rrotation
-            float dist = distanceToEdge(point);
+            float dist = distanceToEdge(point); // (inline)
             shado = (1.0 - dist * 30.0) / 3.0;
             if (shado < 0.0)
                 shado = 0.0;
