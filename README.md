@@ -6,8 +6,7 @@
 Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects
 but the transition rate is linear, starting and stoping abruptly and progressing at constant speed,
 therefore transitions lack interest.
-Easing inserts a progress envelope to smooth transitions in a natural way,
-especialy useful for slideshows and presentations.
+Easing inserts a progress envelope to smooth transitions in a natural way.
 
 <img src="assets/xfade-easing.gif" alt="InvertedPageCurl" align="right">
 
@@ -15,7 +14,7 @@ This project is a port of standard easing equations coded as custom xfade expres
 It also ports most xfade transitions and many [GL Transitions](#gl-transitions) for use in tandem with easing or alone.
 
 Usage involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concatenation of an easing expression and a transition expression.
-Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and chained visual media, e.g. slideshows.
+Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and joined-up visual media sequences.
 
 This solution for eased transitions and GL Transitions requires no compilation or installation, just ffmpeg.
 However processing is distinctly slower than alternative solutions, especially for complex effects – see [Performance](#performance).
@@ -244,7 +243,9 @@ See also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) pag
 
 ### GL Transitions
 
-These are xfade ports of some of the simpler GLSL transitions at [GL Transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) for use with or without easing.
+The open collection of [GL Transitions]() “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
+
+So some of the simpler customisable GLSL transition code at [GL Transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) has been ported as custom xfade expressions for use with or without easing:
 
 - gl_angular [args: startingAngle,goClockwise; default: =90,0] (by: Fernando Kuteken)
 - gl_BookFlip (by: hong)
@@ -273,7 +274,7 @@ These are xfade ports of some of the simpler GLSL transitions at [GL Transitions
 
 #### With easing
 
-GL Transitions can also be eased, with or without parameters:
+GL Transitions can also be eased, with or without customisation parameters:
 
 *Example*: `Swirl` transition with `bounce inout` easing
 
@@ -298,6 +299,7 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade A
 | ratio | `uniform float ratio` | `W / H` | GL width and height are normalised |
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
 | texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | xfade `expr` is evaluated for every texture component (plane) and pixel position <br/> <br/> `vec4 transition(vec2 uv) {...}` runs for every pixel position |
+| code | imperative procedural <br/> compiled <br/> strongly typed | imperative <br/> interpreted <br/> doubles only | xfade `expr` is restricted to just 10 variables, a few operators, constants and functions |
 
 To make porting easier to follow, the expression generator Bash script [xfade-easing.sh](src/xfade-easing.sh) replicates as comments the original variable names found in the GLSL source code (and xfade C code). It also uses pseudo functions to emulate real functions, expanding them inline later.
 
@@ -384,14 +386,14 @@ Note though that certain parameters are implemented as bash constructs within [x
 
 ### Performance
 
-Custom transitions apply an interpreted equation to each pixel in each plane which obviously incurs a performance hit, further exacerbated by disabling multithreading in order to use the `st()` and `ld()` functions.
+Custom transitions apply an interpreted equation to each pixel in each plane which obviously incurs a performance hit, further exacerbated by multithreading disabled in order to use the `st()` and `ld()` functions.
 So these custom expressions are not fast – but they are convenient because they use plain vanilla ffmpeg commands.
 
 The following times are based on empirical timings scaled by benchmark scores (the [Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks)).
-They are rough estimates in seconds to process a 3-second transition of HD720 (1280x720) 3-plane media, raw-encoded to a null device (`-an -f rawvideo -y /dev/null`) at benchmark midpoints.
+They are rough estimates in seconds to process a 3-second transition of HD720 (1280x720) 3-plane media, raw-encoded to a null device (`-an -f rawvideo -y /dev/null`) at Mac benchmark midpoints.
 For greyscale (single plane), subtract two thirds.
 For an alpha plane, add a third.
-Mac model performance varies enormously so the Mac dates are very approximate.
+Mac model performance varies enormously so the Mac vintage dates are very approximate.
 Windows performance has not been measured.
 
 | benchmark → <br/> transition ↓ | 2333–3129 <br/> (M1,M2,M3 Macs) | 1150–1655 <br/> (2017–19 Macs) | 700–1150 <br/> (2013–16 Macs) | 195–700 <br/> (2008–12 Macs) |
@@ -479,14 +481,13 @@ Windows performance has not been measured.
 
 The slowest transition gl_powerKaleido is clearly impractical for most purposes!
 
-The most complex transition is gl_InvertedPageCurl which involved much refactoring to port it to ffmpeg.
-The [refactored InvertedPageCurl.glsl](src/InvertedPageCurl-refactored.glsl) omits anti-aliasing for simplicity.
+The most complex transition is gl_InvertedPageCurl which involved much refactoring to port it to xfade, resulting in file [InvertedPageCurl-refactored.glsl](src/InvertedPageCurl-refactored.glsl) which omits anti-aliasing for simplicity.
 
 There are better and faster ways to use GL Transitions with FFmpeg:
+- [gl-transition-scripts](https://www.npmjs.com/package/gl-transition-scripts) includes a Node.js CLI script `gl-transition-render` that can render multiple GL Transitions and images for FFmpeg processing
 - [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) is a native FFmpeg filter which requires building ffmpeg from source
 - [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which requires installation and a lot of temporary storage
-- [gl-transition-render](https://www.npmjs.com/package/gl-transition-scripts) is a Node.js script to render GL Transitions with images on the CLI
-- the FFmpeg [xfade_opencl](https://ffmpeg.org/ffmpeg-filters.html#xfade_005fopencl) filter can do custom transitions from OpenCL source but enablement is quite involved and OpenCL is not not OpenGL
+- (the FFmpeg [xfade_opencl](https://ffmpeg.org/ffmpeg-filters.html#xfade_005fopencl) filter can do custom transitions from OpenCL source but enablement is quite involved and OpenCL is not not OpenGL)
 
 ## Expression generator CLI script
 
@@ -613,7 +614,7 @@ The plots above in [Standard easings](#standard-easings-robert-penner) show the 
 Videos are generated using the `-v` option and customised with the `-z` ,`-l`,`-d`,`-r`,`-n`,`-u`,`-2` options.
 
 > [!NOTE]
-> all demos on this page show animated GIFs of transition effects on still images except for the top two which have video inputs
+> all demos on this page show animated GIFs of transition effects on still images except for the first two which have video inputs
 
 - `xfade-easing.sh -t hlwind -e quintic -m in -v windy.gif`  
 creates an animated GIF image of the hlwind transition with quintic-in easing using default built-in images  
