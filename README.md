@@ -3,8 +3,8 @@
 
 ## Summary
 
-This project is a port of standard easing equations coded as custom xfade expressions.
-It also ports most xfade transitions and many [GL Transitions](#gl-transitions) for use in tandem with easing or alone.
+This project is a port of standard easing equations coded as custom xfade expressions,
+also most xfade transitions and many [GL Transitions](#gl-transitions) for use in tandem with easing or alone.
 
 <img src="assets/xfade-easing.gif" alt="InvertedPageCurl" align="right">
 
@@ -17,7 +17,7 @@ Usage involves setting the xfade `transition` parameter to `custom` and the `exp
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and joined-up visual media sequences.
 
 This solution for eased transitions and GL Transitions requires no compilation or installation, just ffmpeg.
-However processing is distinctly slower than alternative solutions, especially for complex effects – see [Performance](#performance).
+However processing is markedly slower than alternative solutions, especially for complex effects – see [Performance](#performance).
 
 ## Example
 
@@ -190,7 +190,7 @@ This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel
 - squareroot
 - cuberoot
 
-The `squareroot` & `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` & `cubic` respectively:
+The `squareroot` and `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` and `cubic` respectively:
 
 ![quadratic vs squareroot](assets/quadratic-squareroot.png)
 
@@ -202,11 +202,11 @@ Here are all the supported easings superimposed using the [Desmos Graphing Calcu
 
 ### Overshoots
 
-The elastic and back easings overshoot and undershoot, causing some transitions to clip and others to show colour distortion.
+The elastic and back easings overshoot and undershoot, causing many transitions to clip and others to show colour distortion.
 
 Rendering expressions can only access the two frames of data available.
 A wrapping overshoot strategy might work for simple horizontal/vertical effects whereby fetching X & Y pixel data is intercepted.
-At present, progress outside the range 0 to 1 will yield unexpected results.
+At present, progress outside the range 0 to 1 may yield unpredictable results.
 
 ## Transition expressions
 
@@ -245,7 +245,7 @@ See also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) pag
 
 The open collection of [GL Transitions]() “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
 
-So some of the simpler customisable GLSL transition code at [GL Transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) has been ported as custom xfade expressions for use with or without easing:
+So some of the simpler GLSL code at [GL Transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), much of it customisable, has been ported as custom xfade expressions for use with or without easing:
 
 - gl_angular [args: startingAngle,goClockwise; default: =90,0] (by: Fernando Kuteken)
 - gl_BookFlip (by: hong)
@@ -479,14 +479,14 @@ Windows performance has not been measured.
 | gl_kaleidoscope | 250 | 490 | 740 | 1530 |
 | gl_powerKaleido | 1020 | 1990 | 3020 | 6240 |
 
-The slowest transition gl_powerKaleido is clearly impractical for most purposes!
+The slowest transition `gl_powerKaleido` is clearly impractical for most purposes!
 
-The most complex transition is gl_InvertedPageCurl which involved much refactoring to port it to xfade, resulting in [InvertedPageCurl-refactored.glsl](src/InvertedPageCurl-refactored.glsl) which omits anti-aliasing for simplicity.
+The most complex transition is `gl_InvertedPageCurl` which involved much refactoring to port to xfade, resulting in [InvertedPageCurl-refactored.glsl](src/InvertedPageCurl-refactored.glsl) which omits anti-aliasing for simplicity.
 
 There are better and faster ways to use GL Transitions with FFmpeg:
-- [gl-transition-scripts](https://www.npmjs.com/package/gl-transition-scripts) includes a Node.js CLI script `gl-transition-render` that can render multiple GL Transitions and images for FFmpeg processing
+- [gl-transition-scripts](https://www.npmjs.com/package/gl-transition-scripts) includes a Node.js CLI script `gl-transition-render` which can render multiple GL Transitions and images for FFmpeg processing
 - [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) is a native FFmpeg filter which requires building ffmpeg from source
-- [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which requires installation and a lot of temporary storage
+- [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package that requires installation and a lot of temporary storage
 - (the FFmpeg [xfade_opencl](https://ffmpeg.org/ffmpeg-filters.html#xfade_005fopencl) filter can do custom transitions from OpenCL source but enablement is quite involved and OpenCL is not OpenGL)
 
 ## Expression generator CLI script
