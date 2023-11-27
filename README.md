@@ -154,7 +154,7 @@ ld(7) * (1 - ld(3)) + B * ld(3)
 
 ### Pixel format
 
-Transitions that affect colour components work differently for RGB-type formats than non-RGB colour spaces and for different bit depths.
+Transitions that affect colour components work differently for RGB variants than non-RGB colour spaces and for different bit depths.
 The expression generator [xfade-easing.sh](#expression-generator-cli-script) emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing the RGB signal type (`AV_PIX_FMT_FLAG_RGB`) from the `-f` option format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and the bit depth from `ffmpeg -pix_fmts` data.
 It can then set the black, white and mid plane values correctly.
 See [How does FFmpeg identify color spaces?](https://trac.ffmpeg.org/wiki/colorspace#HowdoesFFmpegidentifycolorspaces) for details.
@@ -243,9 +243,9 @@ See also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) pag
 
 ### GL Transitions
 
-The open collection of [GL Transitions]() “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
+The open collection of [GL Transitions](https://gl-transitions.com/) “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
 
-So some of the simpler GLSL code at [GL Transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), much of it customisable, has been ported as custom xfade expressions for use with or without easing:
+So some of the simpler GLSL transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), much of them customisable, have been ported as custom xfade expressions for use with or without easing:
 
 - gl_angular [args: startingAngle,goClockwise; default: =90,0] (by: Fernando Kuteken)
 - gl_BookFlip (by: hong)
@@ -299,7 +299,7 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade A
 | ratio | `uniform float ratio` | `W / H` | GL width and height are normalised |
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
 | texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | xfade `expr` is evaluated for every texture component (plane) and pixel position <br/> <br/> `vec4 transition(vec2 uv) {...}` runs for every pixel position |
-| code | imperative procedural <br/> compiled <br/> strongly typed | imperative <br/> interpreted <br/> doubles only | xfade `expr` is restricted to just 10 variables, a few operators, constants and functions |
+| code | imperative procedural <br/> compiled <br/> strongly typed | imperative <br/> interpreted <br/> C doubles only | xfade `expr` is restricted to just 10 variables and a few operators, constants and functions |
 
 To make porting easier to follow, the expression generator Bash script [xfade-easing.sh](src/xfade-easing.sh) replicates as comments the original variable names found in the GLSL source code (and xfade C code). It also uses pseudo functions to emulate real functions, expanding them inline later.
 
@@ -348,10 +348,10 @@ Use `x_overlay_blend` to boost contrast by combining multiply and screen blends.
 ![other transitions](assets/x_blends.gif)
 -->
 
-### Customising parameters
+### Customisation parameters
 
 Many GL Transitions accept parameters to customise the transition effect.
-Certain Xfade transitions have been altered to also accept parameters.
+Certain Xfade transitions have been altered to accept parameters too.
 The parameters and default values are shown above, [here](#xfade-transitions) and [here](#gl-transitions).
 
 Using [xfade-easing.sh](#expression-generator-cli-script), parameters can be appended to the transition name as CSV.
@@ -386,7 +386,7 @@ Note though that certain parameters are implemented as bash constructs within [x
 
 ### Performance
 
-Custom transitions apply an interpreted expression to each pixel in each plane which obviously incurs a performance hit, further exacerbated by multithreading disabled in order to use the `st()` and `ld()` functions.
+Custom transitions apply an interpreted expression to each pixel in each plane which obviously incurs a performance hit, further exacerbated by disabling multithreading in order to use the `st()` and `ld()` functions.
 So these custom expressions are not fast – but they are convenient because they use plain vanilla ffmpeg commands.
 
 The following times are based on empirical timings scaled by benchmark scores (the [Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks)).
