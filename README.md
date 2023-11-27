@@ -3,15 +3,15 @@
 
 ## Summary
 
-Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects
-but the transition rate is linear, starting and stoping abruptly and progressing at constant speed,
-therefore transitions lack interest.
-Easing inserts a progress envelope to smooth transitions in a natural way.
+This project is a port of standard easing equations coded as custom xfade expressions.
+It also ports most xfade transitions and many [GL Transitions](#gl-transitions) for use in tandem with easing or alone.
 
 <img src="assets/xfade-easing.gif" alt="InvertedPageCurl" align="right">
 
-This project is a port of standard easing equations coded as custom xfade expressions.
-It also ports most xfade transitions and many [GL Transitions](#gl-transitions) for use in tandem with easing or alone.
+Xfade is a FFmpeg video transition filter which provides an expression evaluator for custom effects
+but the transition rate is linear, starting and stopping abruptly and progressing at constant speed,
+therefore transitions lack interest.
+Easing inserts a progress envelope to smooth transitions in a natural way.
 
 Usage involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concatenation of an easing expression and a transition expression.
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and joined-up visual media sequences.
@@ -157,10 +157,10 @@ ld(7) * (1 - ld(3)) + B * ld(3)
 Transitions that affect colour components work differently for RGB-type formats than non-RGB colour spaces and for different bit depths.
 The expression generator [xfade-easing.sh](#expression-generator-cli-script) emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing the RGB signal type (`AV_PIX_FMT_FLAG_RGB`) from the `-f` option format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and the bit depth from `ffmpeg -pix_fmts` data.
 It can then set the black, white and mid plane values correctly.
-See [How does FFmpeg identify colorspaces?](https://trac.ffmpeg.org/wiki/colorspace#HowdoesFFmpegidentifycolorspaces) for details.
+See [How does FFmpeg identify color spaces?](https://trac.ffmpeg.org/wiki/colorspace#HowdoesFFmpegidentifycolorspaces) for details.
 
 The expression files in [expr/](expr) cater for RGB and YUV formats with 8-bit component depth.
-For faster processing of grayscale media use `xfade-easing.sh -f gray`.
+For faster processing of greyscale media use `xfade-easing.sh -f gray`.
 Grayscale is not RGB therefore it is processed as a luma plane.
 
 If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#expression-generator-cli-script) `-f` option.
@@ -348,10 +348,10 @@ Use `x_overlay_blend` to boost contrast by combining multiply and screen blends.
 ![other transitions](assets/x_blends.gif)
 -->
 
-### Parameters
+### Customising parameters
 
-Many GL Transitions accept parameters to tweak the transition effect.
-Some Xfade transitions have been altered to also accept parameters.
+Many GL Transitions accept parameters to customise the transition effect.
+Certain Xfade transitions have been altered to also accept parameters.
 The parameters and default values are shown above, [here](#xfade-transitions) and [here](#gl-transitions).
 
 Using [xfade-easing.sh](#expression-generator-cli-script), parameters can be appended to the transition name as CSV.
@@ -386,7 +386,7 @@ Note though that certain parameters are implemented as bash constructs within [x
 
 ### Performance
 
-Custom transitions apply an interpreted equation to each pixel in each plane which obviously incurs a performance hit, further exacerbated by multithreading disabled in order to use the `st()` and `ld()` functions.
+Custom transitions apply an interpreted expression to each pixel in each plane which obviously incurs a performance hit, further exacerbated by multithreading disabled in order to use the `st()` and `ld()` functions.
 So these custom expressions are not fast – but they are convenient because they use plain vanilla ffmpeg commands.
 
 The following times are based on empirical timings scaled by benchmark scores (the [Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks)).
@@ -481,13 +481,13 @@ Windows performance has not been measured.
 
 The slowest transition gl_powerKaleido is clearly impractical for most purposes!
 
-The most complex transition is gl_InvertedPageCurl which involved much refactoring to port it to xfade, resulting in file [InvertedPageCurl-refactored.glsl](src/InvertedPageCurl-refactored.glsl) which omits anti-aliasing for simplicity.
+The most complex transition is gl_InvertedPageCurl which involved much refactoring to port it to xfade, resulting in [InvertedPageCurl-refactored.glsl](src/InvertedPageCurl-refactored.glsl) which omits anti-aliasing for simplicity.
 
 There are better and faster ways to use GL Transitions with FFmpeg:
 - [gl-transition-scripts](https://www.npmjs.com/package/gl-transition-scripts) includes a Node.js CLI script `gl-transition-render` that can render multiple GL Transitions and images for FFmpeg processing
 - [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) is a native FFmpeg filter which requires building ffmpeg from source
 - [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which requires installation and a lot of temporary storage
-- (the FFmpeg [xfade_opencl](https://ffmpeg.org/ffmpeg-filters.html#xfade_005fopencl) filter can do custom transitions from OpenCL source but enablement is quite involved and OpenCL is not not OpenGL)
+- (the FFmpeg [xfade_opencl](https://ffmpeg.org/ffmpeg-filters.html#xfade_005fopencl) filter can do custom transitions from OpenCL source but enablement is quite involved and OpenCL is not OpenGL)
 
 ## Expression generator CLI script
 
@@ -521,12 +521,12 @@ Options:
        accepts expansions but %m/%M are pointless as plots show all easing modes
        formats: gif, jpg, png, svg, pdf, eps, html <canvas>, determined from file extension
     -c canvas size for easing plot (default: 640x480, scaled to inches for PDF/EPS)
-       format: WxH; omitting W or H keeps aspect ratio, e.g -z x300 scales W
+       format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
        formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
        if gifsicle is available then gifs will be optimised
     -z video size (default: input 1 size)
-       format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
+       format: WxH; omitting W or H keeps aspect ratio, e.g. -z 300x scales H
     -l video length (default: 5s per transition)
     -d video transition duration (default: 3s)
     -r video framerate (default: 25fps)
@@ -645,7 +645,7 @@ creates a 10s video with a slow 8s circlecrop Xfade transition with white backgr
 ![circlecrop sinusoidal](assets/home-away.gif)
 
 - `xfade-easing.sh -t gl_InvertedPageCurl -e cubic -m in -v score.mp4 -f gray -l 12 -d 3 -z 480x -2 1,0,0xD8D8D8,10 fugue1.png fugue2.png fugue3.png`  
-a page curl effect with cubic-in easing using grayscale format (the `-2 1,0,colour,padding` trick creates a border)  
+a page curl effect with cubic-in easing using greyscale format (the `-2 1,0,colour,padding` trick creates a border)  
 ![gl_InvertedPageCurl quadratic ](assets/score.gif)  
 (I play [this Bach fugue](https://youtu.be/5IGKLtCrUt0?t=1m17s) on my YouTube channel [digitallegro](https://www.youtube.com/@digitallegro/videos) but the page curl there was generated by [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat))
 
