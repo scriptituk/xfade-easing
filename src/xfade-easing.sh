@@ -12,7 +12,7 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.7
+export VERSION=1.8
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -30,8 +30,9 @@ export MODE=inout
 export EXPRFORMAT="'%x'"
 export PLOTSIZE=640x480 # default for gnuplot (4:3)
 export VIDEOSIZE=250x200 # sheep/goat png (5:4)
-export VIDEOLENGTH=5
 export VIDEOTRANSITIONDURATION=3
+export VIDEOTIME=1
+export VIDEOLENGTH=5
 export VIDEOFPS=25
 export VIDEOSTACK=,0,white,0 # orientation,gap,colour,padding
 export VIDEOFSMULT=1.0
@@ -127,7 +128,7 @@ _deps() {
 # process CLI options
 _opts() {
     local OPTIND OPTARG opt
-    while getopts ':f:t:e:m:x:as:p:c:v:z:l:d:r:nu:2:LHVIPT:K' opt; do
+    while getopts ':f:t:e:m:x:as:p:c:v:z:i:d:l:r:nu:k:LHVIPT:K' opt; do
         case $opt in
         f) o_format=$OPTARG ;;
         t) o_transition=$OPTARG ;;
@@ -140,12 +141,13 @@ _opts() {
         c) o_psize=$OPTARG ;;
         v) o_video=$OPTARG ;;
         z) o_vsize=$OPTARG ;;
-        l) o_vlength=$OPTARG ;;
         d) o_vtduration=$OPTARG ;;
+        i) o_vtime=$OPTARG ;;
+        l) o_vlength=$OPTARG ;;
         r) o_vfps=$OPTARG ;;
         n) o_vname=true ;;
         u) o_vfsmult=$OPTARG ;;
-        2) o_vstack=$OPTARG ;;
+        k) o_vstack=$OPTARG ;;
         L) o_list=true ;;
         H) o_help=true ;;
         V) o_version=true ;;
@@ -490,8 +492,7 @@ _xf_transition() { # transition args
     fadefast|fadeslow)
         r=1 && s=+
         [[ $1 =~ slow ]] && r=2 && s=-
-        _make 'st(1, 1 / maxv);' # imax
-        _make "st(1, pow(P, 1 + log($r $s abs(A - B) * ld(1))));"
+        _make "st(1, pow(P, 1 + log($r $s abs(A - B) / maxv)));"
         _make 'mix(A, B, ld(1))'
         ;;
     dissolve)
@@ -586,19 +587,22 @@ _xf_transition() { # transition args
         _make 'mix(B, A, ld(1))'
         ;;
     circlecrop)
-        s=black; [[ ${a[0]-0} != 0 ]] && s=white # backWhite
-        _make 'st(1, (2 * abs(P - 0.5))^3 * hypot(W / 2, H / 2));' # z
-        _make 'st(2, hypot(X - W / 2, Y - H / 2));' # dist
-        _make 'st(3, if(lt(P, 0.5), B, A));' # val
-        _make "if(lt(ld(1), ld(2)), $s, ld(3))"
+        _make "st(1, ${a[0]-0});" # backWhite
+        _make 'st(2, (2 * abs(P - 0.5))^3 * hypot(W / 2, H / 2));' # z
+        _make 'st(3, hypot(X - W / 2, Y - H / 2));' # dist
+        _make 'if(lt(ld(2), ld(3)),'
+        _make ' ifnot(ld(1), black, white),' # bg
+        _make ' if(lt(P, 0.5), B, A)' # val
+        _make ')'
         ;;
     rectcrop)
-        s=black; [[ ${a[0]-0} != 0 ]] && s=white # backWhite
-        _make 'st(1, abs(P - 0.5) * W);' # zw
-        _make 'st(2, abs(P - 0.5) * H);' # zh
-        _make 'st(3, lt(abs(X - W / 2), ld(1) * lt(abs(Y - H / 2), ld(2))));' # dist
-        _make 'st(4, if(lt(P, 0.5), B, A));' # val
-        _make "ifnot(ld(3), $s, ld(4))"
+        _make "st(1, ${a[0]-0});" # backWhite
+        _make 'st(2, abs(P - 0.5) * W);' # zw
+        _make 'st(3, abs(P - 0.5) * H);' # zh
+        _make 'if(lt(abs(X - W / 2), ld(2)) * lt(abs(Y - H / 2), ld(3)),' # dist
+        _make ' if(lt(P, 0.5), B, A),' # val
+        _make ' ifnot(ld(1), black, white)' # bg
+        _make ')'
         ;;
     circleopen|circleclose)
         _make 'st(1, hypot(W / 2, H / 2));' # z
@@ -639,8 +643,7 @@ _xf_transition() { # transition args
         _make 'st(2, smoothstep(-0.5, 0, ld(2), 2));' # smooth
         _make 'st(1, 10 * ld(1));'
         _make 'st(1, fract(ld(1)));'
-        _make 'st(1, gt(ld(2), ld(1)));' # ss
-        _make 'mix(B, A, ld(1))'
+        _make 'if(gt(ld(2), ld(1)), B, A)'
         ;;
     radial)
         _make 'st(1, atan2(X - W / 2, Y - H / 2) - (P - 0.5) * PI * 2.5);' # smooth
@@ -660,16 +663,16 @@ _xf_transition() { # transition args
     squeezeh)
         _make 'st(1, 0.5 + (Y / H - 0.5) / P);' # z
         _make 'if(between(ld(1), 0, 1),'
-        _make ' st(2, round(ld(1) * (H - 1)));'
-        _make ' a(X, ld(2)),'
+        _make ' st(1, round(ld(1) * (H - 1)));'
+        _make ' a(X, ld(1)),'
         _make ' B'
         _make ')'
         ;;
     squeezev)
         _make 'st(1, 0.5 + (X / W - 0.5) / P);' # z
         _make 'if(between(ld(1), 0, 1),'
-        _make ' st(2, round(ld(1) * (W - 1)));'
-        _make ' a(ld(2), Y),'
+        _make ' st(1, round(ld(1) * (W - 1)));'
+        _make ' a(ld(1), Y),'
         _make ' B'
         _make ')'
         ;;
@@ -729,14 +732,13 @@ _gl_transition() { # transition args
     gl_angular) # by Fernando Kuteken
         _make "st(1, ${a[0]-90});" # startingAngle
         _make "st(2, ${a[1]-0});" # goClockwise
-        _make 'st(3, 1 - P);'
+        _make 'st(3, 1 - P);' # progress
         _make 'st(1, ld(1) * PI / 180);' # offset
         _make 'st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(1));' # angle
         _make 'st(1, (ld(1) + PI) / (2 * PI));' # normalizedAngle
         _make 'if(ld(2), st(1, -ld(1)));'
         _make 'st(1, fract(ld(1)));'
-        _make 'st(1, step(ld(1), ld(3)));'
-        _make 'mix(A, B, ld(1))'
+        _make 'if(step(ld(1), ld(3)), B, A)'
         ;;
     gl_BookFlip) # by hong
         _make 'st(1, X / W - 0.5);'
@@ -749,7 +751,11 @@ _gl_transition() { # transition args
         _make ' st(5, (1 - ld(5)) * H);'
         _make ' st(5, b(ld(4), ld(5)));'
         _make ' st(4, A);'
-        _make ' if(st(6, lt(PLANE,3)*(isrgb+not(PLANE))),'
+        if [[ $p_isrgb -ne 0 ]]; then
+        _make ' if(st(6, lt(PLANE, 3)),'
+        else
+        _make ' if(st(6, not(PLANE)),'
+        fi
         _make '  st(5, ld(5) * max(0.7, abs(P - 0.5) * 2))' # shadeVal
         _make ' ),'
         _make ' st(4, (ld(1) - 0.5 + P) / (P - 0.5) / 2);' # skewRight skewX
@@ -769,7 +775,7 @@ _gl_transition() { # transition args
         _make "st(2, ${a[1]-1});" # b
         _make "st(3, ${a[2]-120});" # amplitude
         _make "st(4, ${a[3]-0.1});" # smoothness
-        _make 'st(5, 1 - P);'
+        _make 'st(5, 1 - P);' # progress
         _make 'st(6, ld(1) - ld(2));'
         _make 'st(7, ld(1) / ld(2) - 1);'
         _make 'st(1, ld(6) * cos(ld(5)) + ld(2) * cos(ld(5) * ld(7)));' # x
@@ -799,28 +805,69 @@ _gl_transition() { # transition args
         _make 'st(7, b(ld(4), ld(5)));'
         _make 'mix(ld(6), ld(7), ld(1))'
         ;;
+    gl_doorway) # by gre
+        _make "st(1, ${a[0]-0.4});" # reflection
+        _make "st(2, ${a[1]-0.4});" # perspective
+        _make "st(3, ${a[2]-3});" # depth
+        _make "st(4, ${a[3]-0});" # backWhite
+        _make 'st(0, 1 - P);' # progress
+        _make 'st(5, X / W);' # p.x
+        _make 'st(6, 1 - Y / H);' # p.y
+        _make 'st(7, 0);' # 0 for back
+        _make 'st(8, 2 * abs(ld(5) - 0.5) - ld(0));' # middleSlit
+        _make 'if(gt(ld(8), 0),'
+        _make ' st(8, 1 / (1 + ld(2) * ld(0) * (1 - ld(8))));' # d
+        _make ' st(5, ld(5) + (1 - gt(ld(5), 0.5) * 2) * ld(0) / 2);' # pfr.x
+        _make ' st(6, (ld(6) + (1 - ld(8)) / 2) * ld(8));' # pfr.y
+        _make ' st(7, between(ld(5), 0, 1) * between(ld(6), 0, 1)),' # 1 for getFromColor
+        _make ' st(8, 1 - ld(0));'
+        _make ' st(8, mix(1, ld(3), ld(8)));' # size
+        _make ' st(5, (ld(5) - 0.5) * ld(8) + 0.5);' # pto.x
+        _make ' st(6, (ld(6) - 0.5) * ld(8) + 0.5);' # pto.y
+        _make ' st(7, 2 * between(ld(5), 0, 1) * between(ld(6), 0, 1));' # 2 for getToColor
+        _make ' ifnot(ld(7),'
+        _make '  st(6, ld(6) * -1.2 - 0.02);'
+        _make '  st(7, 3 * between(ld(5), 0, 1) * between(ld(6), 0, 1))' # 3 for getToColor mix
+        _make ' )'
+        _make ');'
+        _make 'if(ld(7),'
+        _make ' st(2, ld(5) * W);'
+        _make ' st(3, (1 - ld(6)) * H);'
+        _make ' if(eq(ld(7), 1),'
+        _make '  a(ld(2), ld(3)),'
+        _make '  st(3, b(ld(2), ld(3)));'
+        _make '  if(eq(ld(7), 2),'
+        _make '   ld(3),'
+        _make '   st(4, ifnot(ld(4), black, white));'
+        _make '   st(1, ld(1) * (1 - ld(6)));'
+        _make '   mix(ld(4), ld(3), ld(1))'
+        _make '  )'
+        _make ' ),'
+        _make ' ifnot(ld(4), black, white)'
+        _make ')'
+        ;;
     gl_DirectionalScaled) # by Thibaut Foussard
         _make "st(1, ${a[0]-0});" # direction.x
         _make "st(2, ${a[1]-1});" # direction.y
         _make "st(3, ${a[2]-0.7});" # scale
-        s=black; [[ ${a[3]-0} != 0 ]] && s=white # backWhite
-        _make 'st(4, 1 - P);'
-        _make 'st(3, 1 - (1 - 1 /ld(3)) * sin(ld(4) * PI));' # s
-        _make 'st(4, pow(sin(ld(4) * PI / 2), 3));' # easedProgress
-        _make 'st(1, X / W + ld(4) * sgn(ld(1)));' # p.x
-        _make 'st(2, (1 - Y / H) + ld(4) * sgn(ld(2)));' # p.y
-        _make 'st(4, (fract(ld(2)) - 0.5) * ld(3) + 0.5);' # f.y
+        _make "st(4, ${a[3]-0});" # backWhite
+        _make 'st(5, 1 - P);' # progress
+        _make 'st(3, 1 - (1 - 1 /ld(3)) * sin(ld(5) * PI));' # s
+        _make 'st(5, pow(sin(ld(5) * PI / 2), 3));' # easedProgress
+        _make 'st(1, X / W + ld(5) * sgn(ld(1)));' # p.x
+        _make 'st(2, (1 - Y / H) + ld(5) * sgn(ld(2)));' # p.y
+        _make 'st(5, (fract(ld(2)) - 0.5) * ld(3) + 0.5);' # f.y
         _make 'st(3, (fract(ld(1)) - 0.5) * ld(3) + 0.5);' # f.x
-        _make 'st(5, step(0, ld(2)) * step(ld(2), 1) * step(0, ld(1)) * step(ld(1), 1));' # mixer
-        _make 'st(6, ld(3) * W);'
-        _make 'st(7, (1 - ld(4)) * H);'
-        _make 'st(1, a(ld(6), ld(7)));'
-        _make 'st(2, b(ld(6), ld(7)));'
-        _make 'st(5, if(ld(5), ld(1), ld(2)));' # col
+        _make 'st(6, step(0, ld(2)) * step(ld(2), 1) * step(0, ld(1)) * step(ld(1), 1));' # mixer
+        _make 'st(7, ld(3) * W);'
+        _make 'st(8, (1 - ld(5)) * H);'
+        _make 'st(1, a(ld(7), ld(8)));'
+        _make 'st(2, b(ld(7), ld(8)));'
+        _make 'st(6, if(ld(6), ld(1), ld(2)));' # col
         _make 'st(1, 1 - ld(3));'
-        _make 'st(2, 1 - ld(4));'
-        _make 'st(1, step(0, ld(3)) * step(0, ld(1)) * step(0, ld(4)) * step(0, ld(2)));' # border
-        _make "if(ld(1), ld(5), $s)"
+        _make 'st(2, 1 - ld(5));'
+        _make 'st(1, step(0, ld(3)) * step(0, ld(1)) * step(0, ld(5)) * step(0, ld(2)));' # border
+        _make 'if(ld(1), ld(6), ifnot(ld(4), black, white))'
         ;;
     gl_directionalwarp) # by pschroen
         _make "st(1, ${a[0]-0.1});" # smoothness
@@ -859,6 +906,42 @@ _gl_transition() { # transition args
         _make 'st(6, (1 - ld(6)) * H);'
         _make 'st(6, b(X, ld(6)));'
         _make 'mix(ld(5), ld(6), ld(3))'
+        ;;
+    gl_hexagonalize) # by Fernando Kuteken
+        _make "st(1, ${a[0]-50});" # steps
+        _make "st(2, ${a[1]-20});" # horizontalHexagons
+        _make 'st(0, 1 - P);' # progress
+        _make 'st(3, 2 * min(ld(0), 1 - ld(0)));' # dist
+        _make 'if(gt(ld(1), 0), st(3, ceil(ld(3) * ld(1)) / ld(1)));'
+        _make 'if(gt(ld(3), 0),'
+        _make ' st(2, st(1, sqrt(3)) / 3 * ld(3) / ld(2));' # size
+        # hexagonFromPoint
+        _make ' st(3, (X / W - 0.5) / ld(2));' # point.x
+        _make ' st(4, ((H - Y) / W - 0.5) / ld(2));' # point.y
+        _make ' st(3, (ld(1) * ld(3) - ld(4)) / 3);' # hex.q
+        _make ' st(4, 2 / 3 * ld(4));' # hex.r
+        _make ' st(5, -ld(3) - ld(4));' # hex.s
+        # roundHexagon
+        _make ' st(6, floor(ld(3) + 0.5));' # q
+        _make ' st(7, floor(ld(4) + 0.5));' # r
+        _make ' st(8, floor(ld(5) + 0.5));' # s
+        _make ' st(3, abs(ld(6) - ld(3)));' # deltaQ
+        _make ' st(4, abs(ld(7) - ld(4)));' # deltaR
+        _make ' st(5, abs(ld(8) - ld(5)));' # deltaS
+        _make ' if(gt(ld(3), ld(4)) * gt(ld(3), ld(5)),'
+        _make '  st(6, -ld(7) - ld(8)),'
+        _make '  if(gt(ld(4), ld(5)), st(7, -ld(6) - ld(8)))'
+        _make ' );'
+        # pointFromHexagon
+        _make ' st(3, ld(1) * (ld(6) + ld(7) / 2) * ld(2) + 0.5);' # x
+        _make ' st(4, 3 / 2 * ld(7) * ld(2) + 0.5);' # y
+        _make ' st(3, ld(3) * W);'
+        _make ' st(4, H - ld(4) * W);'
+        _make ' st(1, a(ld(3), ld(4)));'
+        _make ' st(2, b(ld(3), ld(4)));'
+        _make ' mix(ld(1), ld(2), ld(0)),'
+        _make ' mix(A, B, ld(0))'
+        _make ')'
         ;;
     gl_InvertedPageCurl) # by Hewlett-Packard
         # see https://github.com/scriptituk/xfade-easing/blob/main/src/InvertedPageCurl-simplified.glsl
@@ -954,7 +1037,7 @@ _gl_transition() { # transition args
         _make "st(1, ${a[0]-1});" # speed
         _make "st(2, ${a[1]-1});" # angle
         _make "st(3, ${a[2]-1.5});" # power
-        _make 'st(4, 1 - P);'
+        _make 'st(4, 1 - P);' # progress
         _make 'st(5, X / W - 0.5);' # p.x
         _make 'st(6, 0.5 - Y / H);' # p.y
         _make 'st(1, pow(ld(4), ld(3)) * ld(1));' # t
@@ -975,6 +1058,36 @@ _gl_transition() { # transition args
         _make 'st(2, mix(ld(7), ld(8), ld(4)));'
         _make 'st(3, 1 - 2 * abs(P - 0.5));'
         _make 'mix(ld(1), ld(2), ld(3))'
+        ;;
+    gl_Mosaic) # by Xaychru
+        _make "st(1, ${a[0]-2});" # endx
+        _make "st(2, ${a[1]--1});" # endy
+        _make 'st(5, 1 - 2 * P);' # rpr
+        _make 'st(5, abs(3 - ld(5) * ld(5) * 2));' # az
+        _make 'st(6, pow(cos(P * PI) / 2 + 0.5, 2));'
+        _make 'st(3, (X / W - 0.5) * ld(5) + ld(1) * ld(6) + 0.5);' # rp.x
+        _make 'st(4, (0.5 - Y / H) * ld(5) + ld(2) * ld(6) + 0.5);' # rp.y
+        _make 'st(5, floor(ld(3)));'
+        _make 'st(6, floor(ld(4)));'
+        _make 'st(3, ld(3) - ld(5));'
+        _make 'st(4, ld(4) - ld(6));'
+        _make 'st(1, eq(ld(5), ld(1)) * eq(ld(6), ld(2)));' # onEnd
+        _make 'st(2, frand(ld(5), ld(6), 2));'
+        _make 'ifnot(ld(1),'
+        _make ' st(7, floor(ld(2) * 4) * PI / 2);' # ang
+        _make ' st(5, cos(ld(7)));'
+        _make ' st(6, sin(ld(7)));'
+        _make ' st(7, ld(3) - 0.5);'
+        _make ' st(4, ld(4) - 0.5);'
+        _make ' st(3, 0.5 + ld(5) * ld(7) + ld(6) * ld(4));'
+        _make ' st(4, 0.5 - ld(6) * ld(7) + ld(5) * ld(4))'
+        _make ');'
+        _make 'st(3, ld(3) * W);'
+        _make 'st(4, (1 - ld(4)) * H);'
+        _make 'if(ld(1) + gt(ld(2), 0.5),'
+        _make ' b(ld(3), ld(4)),'
+        _make ' a(ld(3), ld(4))'
+        _make ')'
         ;;
 #   gl_multiply_blend) # by Fernando Kuteken
 #       _make 'st(1, A * B / maxv);'
@@ -1003,7 +1116,7 @@ _gl_transition() { # transition args
         _make 'st(5, ld(5) - 1);'
         _make 'st(5, frand(ld(5), ld(6), 5));' # c
         _make 'st(4, mix(ld(1), ld(7), ld(3)) + (ld(5) - ld(1)) * ld(4) * (1 - ld(3)) + (ld(8) - ld(7)) * ld(3) * ld(4));' # n
-        _make 'st(1, 1 - P);'
+        _make 'st(1, 1 - P);' # progress
         _make 'st(3, 1 + ld(2));'
         _make 'st(1, mix(-ld(2), ld(3), ld(1)));' # p
         _make 'st(3, ld(1) + ld(2));' # higher
@@ -1013,12 +1126,11 @@ _gl_transition() { # transition args
         ;;
     gl_pinwheel) # by Mr Speaker
         _make "st(1, ${a[0]-2});" # speed
-        _make 'st(2, 1 - P);'
+        _make 'st(2, 1 - P);' # progress
         _make 'st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(2) * ld(1));' # circPos
         _make 'st(1, mod(ld(1), PI / 4));' # modPos
         _make 'st(1, sgn(ld(2) - ld(1)));' # signed
-        _make 'st(1, step(ld(1), 0.5));'
-        _make 'mix(B, A, ld(1))'
+        _make 'if(step(ld(1), 0.5), A, B)'
         ;;
     gl_polar_function) # by Fernando Kuteken
         _make "st(1, ${a[0]-5});" # segments
@@ -1095,6 +1207,11 @@ _gl_transition() { # transition args
         [[ -n $o_logprogress ]] && _make 'st(9,floor(time(0)));'
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
+    gl_randomNoisex) # by towrabbit
+        _make 'st(1, frand(X, Y, 1));'
+        _make 'st(1, floor(ld(1) + (1 - P)));'
+        _make 'mix(A, B, ld(1))'
+        ;;
     gl_randomsquares) # by gre
         _make "st(1, ${a[0]-10});" # size.x
         _make "st(2, ${a[1]-10});" # size.y
@@ -1112,7 +1229,7 @@ _gl_transition() { # transition args
         _make 'st(3, X / W - 0.5);' # dir.x
         _make 'st(4, 0.5 - Y / H);' # dir.y
         _make 'st(5, hypot(ld(3), ld(4)));' # dist
-        _make 'st(6, 1 - P);'
+        _make 'st(6, 1 - P);' # progress
         _make 'st(5, (sin(ld(6) * (ld(5) * ld(1) - ld(2))) + 0.5) / 30);'
         _make 'st(3, ld(3) * ld(5));' # offset.x
         _make 'st(4, ld(4) * ld(5));' # offset.y
@@ -1177,7 +1294,7 @@ _gl_transition() { # transition args
     gl_rotateTransition) # by haiyoucuv
         _make 'st(1, X / W - 0.5);'
         _make 'st(2, 0.5 - Y / H);'
-        _make 'st(3, 1 - P);'
+        _make 'st(3, 1 - P);' # progress
         _make 'st(5, ld(3) * PI * 2);' # angle
         _make 'st(4, sin(ld(5)));'
         _make 'st(5, cos(ld(5)));'
@@ -1240,13 +1357,12 @@ _gl_transition() { # transition args
         _make 'st(2, fract(ld(2)));' # squarep.y
         _make 'st(5, ld(6) / 2);' # squaremin
         _make 'st(6, 1 - ld(5));' # squaremax
-        _make 'st(5, step(ld(5), ld(1)) * step(ld(5), ld(2)) * step(ld(1), ld(6)) * step(ld(2), ld(6)));' # a
-        _make 'mix(A, B, ld(5))'
+        _make 'if(step(ld(5), ld(1)) * step(ld(5), ld(2)) * step(ld(1), ld(6)) * step(ld(2), ld(6)), B, A)'
         ;;
     gl_static_wipe) # by Ben Lucas
         _make "st(1, ${a[0]-1});" # transitionUpToDown
         _make "st(2, ${a[1]-0.5});" # max_static_span
-        _make 'st(3, 1 - P);'
+        _make 'st(3, 1 - P);' # progress
         _make 'st(2, ld(2) * sqrt(sin(PI * ld(3))));' # span
         _make 'st(4, X / W);' # uv.x
         _make 'st(5, 1 - Y / H);' # uv.y
@@ -1256,17 +1372,21 @@ _gl_transition() { # transition args
         _make 'st(7, ld(3) + ld(2));'
         _make 'st(7, smoothstep(ld(3), ld(7), ld(1), 7));'
         _make 'st(6, ld(6) * (1 - ld(7)));' # noiseEnvelope
-        _make 'st(7, 1 - step(ld(3), ld(1)));' # mixRatio
-        _make 'st(7, mix(A, B, ld(7)));' # transitionMix
-        _make 'if(eq(PLANE, 3),'
-        _make ' st(1, maxv),'
-        _make ' if(isrgb+not(PLANE),'
-        _make '  st(4, ld(4) * (1 + ld(3)));'
-        _make '  st(5, ld(5) * (1 + ld(3)));'
-        _make '  st(1, frand(ld(4), ld(5), 1));' # (using frand not rnd)
-        _make '  st(1, ld(1) * maxv),' # noise
-        _make '  st(1, midv)'
-        _make ' )'
+        _make 'st(7, if(1 - step(ld(3), ld(1)), B, A));' # transitionMix
+        if [[ $p_isrgb -ne 0 ]]; then
+        _make 'if(lt(PLANE, 3),'
+        else
+        _make 'if(not(PLANE),'
+        fi
+        _make ' st(4, ld(4) * (1 + ld(3)));'
+        _make ' st(5, ld(5) * (1 + ld(3)));'
+        _make ' st(1, frand(ld(4), ld(5), 1));' # (using frand not rnd)
+        _make ' st(1, ld(1) * maxv),' # noise
+        if [[ $p_isrgb -ne 0 ]]; then
+        _make ' st(1, maxv)'
+        else
+        _make ' st(1, if(lt(PLANE, 3), midv, maxv))'
+        fi
         _make ');'
         _make 'mix(ld(7), ld(1), ld(6))'
         ;;
@@ -1295,7 +1415,7 @@ _gl_transition() { # transition args
     gl_WaterDrop) # by Paweł Płóciennik
         _make "st(1, ${a[0]-30});" # amplitude
         _make "st(2, ${a[1]-30});" # speed
-        _make 'st(3, 1 - P);'
+        _make 'st(3, 1 - P);' # progress
         _make 'st(4, X / W - 0.5);' # dir.x
         _make 'st(5, 0.5 - Y / H);' # dir.y
         _make 'st(6, hypot(ld(4), ld(5)));' # dist
@@ -1366,7 +1486,7 @@ _transition() { # transition
             x=${x/@/$r} # expand
         done
     done
-    for s in isrgb black white maxv midv; do # expand pseudo variables
+    for s in black white maxv midv; do # expand pseudo variables
         r=p_$s # replace
         x=${x//$s/${!r}} # expand
     done
@@ -1415,7 +1535,7 @@ _video() { # path
     local path=$(_expand "$1") file enc
     shift
     local inputs=("$@")
-    local n=${#inputs[@]} i j
+    local n=${#inputs[@]} m i j
     if [[ $n -lt 2 ]]; then
         n=2
         inputs=(sheep goat)
@@ -1425,9 +1545,17 @@ _video() { # path
             inputs[$i]=$file
         done
     fi
-    local m=$((n-1))
-    local length=${o_vlength-$((VIDEOLENGTH*m))} duration=${o_vtduration-$VIDEOTRANSITIONDURATION} offset
-    local time=$(_calc "($length - $m * $duration) / $n")
+    m=$((n-1))
+    local duration=${o_vtduration-$VIDEOTRANSITIONDURATION} time=${o_vtime-$VIDEOTIME} length=$o_vlength err offset
+    if [[ -n $o_vtime && -n $o_vlength ]]; then
+        duration=$(_calc "($length - $n * $time) / $m")
+        [[ $duration =~ ^- ]] && err="calculated duration = $duration, using 0" && duration=0 && length=
+    elif [[ -n $o_vlength ]]; then
+        time=$(_calc "($length - $m * $duration) / $n")
+        [[ $time =~ ^- ]] && err="calculated time = $time, using 0" && time=0 && length=
+    fi
+    [[ -z $length ]] && length=$(_calc "$n * $time + $m * $duration")
+    [[ -n $err ]] && _error "$err, adjusted length = $length"
     local expr=$(_expand '%n%X')
     local fps=${o_vfps-$VIDEOFPS}
     [[ $path =~ .gif && $fps -gt 50 ]] && fps=50 # max for browser support
@@ -1507,7 +1635,7 @@ EOT
         echo "[v]pad=x=$pad:y=$pad:w=iw+$pad*2:h=ih+$pad*2:color=$fill[v];" >> $script
     fi
     if [[ $path == /dev/null ]]; then # no output
-        enc='-f rawvideo'
+        enc='-f null'
     elif [[ $path =~ .gif ]]; then # animated for .md
         echo '[v]split[s0][s1]; [s0]palettegen[s0]; [s1][s0]paletteuse[v]' >> $script
     elif [[ $path =~ .mkv ]]; then # lossless - see https://trac.ffmpeg.org/wiki/Encode/FFV1
@@ -1790,20 +1918,24 @@ Options:
        %n inserts a newline
     -p easing plot output filename (default: no plot)
        accepts expansions but %m/%M are pointless as plots show all easing modes
-       formats: gif, jpg, png, svg, pdf, eps, html <canvas>, determined from file extension
+       formats: gif, jpg, png, svg, pdf, eps, html <canvas>, from file extension
     -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for PDF/EPS)
-       format: WxH; omitting W or H keeps aspect ratio, e.g -z x300 scales W
+       format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless) from file extension
+       formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless), from file extension
+       if /dev/null then format is the null muxer (no output)
        if gifsicle is available then gifs will be optimised
     -z video size (default: input 1 size)
-       format: WxH; omitting W or H keeps aspect ratio, e.g -z 300x scales H
-    -l video length (default: ${VIDEOLENGTH}s per transition)
-    -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s)
+       format: WxH; omitting W or H keeps aspect ratio, e.g. -z 300x scales H
+    -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s, minimum: 0) (see note after -l)
+    -i time between video transitions (default: ${VIDEOTIME}s, minimum: 0) (see note after -l)
+    -l video length (default: ${VIDEOLENGTH}s)
+       note: options -d, -i, -l are interdependent: l = ni + (n - 1)d for n inputs
+       given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
     -r video framerate (default: ${VIDEOFPS}fps)
     -n show effect name on video as text (requires the libfreetype library)
     -u video text font size multiplier (default: $VIDEOFSMULT)
-    -2 video stack orientation,gap,colour,padding (default: $VIDEOSTACK), e.g. h,2,red,1
+    -k video stack orientation,gap,colour,padding (default: $VIDEOSTACK), e.g. h,2,red,1
        stacks uneased and eased videos horizontally (h), vertically (v) or auto (a)
        auto (a) selects the orientation that displays easing to best effect
        also stacks transitions with default and custom parameters, eased or not
@@ -1823,7 +1955,7 @@ Notes:
        are not thread-safe (the st() & ld() functions use contextual allocation)
     4. certain xfade transitions are not implemented because they perform aggregation
        (distance, hblur)
-    5. many GL Transitions are also ported, some of which take parameters;
+    5. many GL Transitions are also ported, some of which take customisation parameters
        to override defaults append parameters as CSV after an = sign,
        e.g. -t gl_PolkaDotsCurtain=10,0.5,0.5 for 10 dots centred
     6. many transitions do not lend themselves well to easing, and easings that overshoot
