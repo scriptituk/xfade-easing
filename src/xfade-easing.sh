@@ -1895,7 +1895,7 @@ va/hDXpd+JF0ekmo82GaP7R1wOPRDx+Z64asX/SPpP/6Xw8+Zv0XE31bwvXz5/4AAAAASUVORK5CYII=
 !GOAT
 
 @USAGE # CLI usage for -H option
-FFmpeg Xfade Easing script ($CMD version $VERSION) by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script version $VERSION by Raymond Luckhurst, scriptit.uk
 Generates custom xfade expressions for rendering transitions with easing
 See https://github.com/scriptituk/xfade-easing
 Usage: $CMD [options] [video inputs]
@@ -1937,9 +1937,9 @@ Options:
     -u video text font size multiplier (default: $VIDEOFSMULT)
     -k video stack orientation,gap,colour,padding (default: $VIDEOSTACK), e.g. h,2,red,1
        stacks uneased and eased videos horizontally (h), vertically (v) or auto (a)
-       auto (a) selects the orientation that displays easing to best effect
+       auto selects the orientation that displays easing to best effect
        also stacks transitions with default and custom parameters, eased or not
-       videos are not stacked unless they are different (nonlinear or customised)
+       videos are only stacked if they are different (nonlinear-eased or customised)
        unstacked videos can be padded using orientation=1, e.g. 1,0,blue,5
     -L list all transitions and easings
     -H show this usage text
