@@ -805,47 +805,6 @@ _gl_transition() { # transition args
         _make 'st(7, b(ld(4), ld(5)));'
         _make 'mix(ld(6), ld(7), ld(1))'
         ;;
-    gl_doorway) # by gre
-        _make "st(1, ${a[0]-0.4});" # reflection
-        _make "st(2, ${a[1]-0.4});" # perspective
-        _make "st(3, ${a[2]-3});" # depth
-        _make "st(4, ${a[3]-0});" # backWhite
-        _make 'st(0, 1 - P);' # progress
-        _make 'st(5, X / W);' # p.x
-        _make 'st(6, 1 - Y / H);' # p.y
-        _make 'st(7, 0);' # 0 for back
-        _make 'st(8, 2 * abs(ld(5) - 0.5) - ld(0));' # middleSlit
-        _make 'if(gt(ld(8), 0),'
-        _make ' st(8, 1 / (1 + ld(2) * ld(0) * (1 - ld(8))));' # d
-        _make ' st(5, ld(5) + (1 - gt(ld(5), 0.5) * 2) * ld(0) / 2);' # pfr.x
-        _make ' st(6, (ld(6) + (1 - ld(8)) / 2) * ld(8));' # pfr.y
-        _make ' st(7, between(ld(5), 0, 1) * between(ld(6), 0, 1)),' # 1 for getFromColor
-        _make ' st(8, 1 - ld(0));'
-        _make ' st(8, mix(1, ld(3), ld(8)));' # size
-        _make ' st(5, (ld(5) - 0.5) * ld(8) + 0.5);' # pto.x
-        _make ' st(6, (ld(6) - 0.5) * ld(8) + 0.5);' # pto.y
-        _make ' st(7, 2 * between(ld(5), 0, 1) * between(ld(6), 0, 1));' # 2 for getToColor
-        _make ' ifnot(ld(7),'
-        _make '  st(6, ld(6) * -1.2 - 0.02);'
-        _make '  st(7, 3 * between(ld(5), 0, 1) * between(ld(6), 0, 1))' # 3 for getToColor mix
-        _make ' )'
-        _make ');'
-        _make 'if(ld(7),'
-        _make ' st(2, ld(5) * W);'
-        _make ' st(3, (1 - ld(6)) * H);'
-        _make ' if(eq(ld(7), 1),'
-        _make '  a(ld(2), ld(3)),'
-        _make '  st(3, b(ld(2), ld(3)));'
-        _make '  if(eq(ld(7), 2),'
-        _make '   ld(3),'
-        _make '   st(4, ifnot(ld(4), black, white));'
-        _make '   st(1, ld(1) * (1 - ld(6)));'
-        _make '   mix(ld(4), ld(3), ld(1))'
-        _make '  )'
-        _make ' ),'
-        _make ' ifnot(ld(4), black, white)'
-        _make ')'
-        ;;
     gl_DirectionalScaled) # by Thibaut Foussard
         _make "st(1, ${a[0]-0});" # direction.x
         _make "st(2, ${a[1]-1});" # direction.y
@@ -891,6 +850,47 @@ _gl_transition() { # transition args
         _make 'st(5, (0.5 - ld(3) * ld(1)) * H);'
         _make 'st(7, b(ld(4), ld(5)));'
         _make 'mix(ld(6), ld(7), ld(1))'
+        ;;
+    gl_doorway) # by gre
+        _make "st(1, ${a[0]-0.4});" # reflection
+        _make "st(2, ${a[1]-0.4});" # perspective
+        _make "st(3, ${a[2]-3});" # depth
+        _make "st(4, ${a[3]-0});" # backWhite
+        _make 'st(0, 1 - P);' # progress
+        _make 'st(5, X / W);' # p.x
+        _make 'st(6, 1 - Y / H);' # p.y
+        _make 'st(7, 0);' # 0 for back
+        _make 'st(8, 2 * abs(ld(5) - 0.5) - ld(0));' # middleSlit
+        _make 'if(gt(ld(8), 0),'
+        _make ' st(8, 1 / (1 + ld(2) * ld(0) * (1 - ld(8))));' # d
+        _make ' st(5, ld(5) + (1 - gt(ld(5), 0.5) * 2) * ld(0) / 2);' # pfr.x
+        _make ' st(6, (ld(6) + (1 - ld(8)) / 2) * ld(8));' # pfr.y
+        _make ' st(7, between(ld(5), 0, 1) * between(ld(6), 0, 1)),' # 1 for getFromColor
+        _make ' st(8, 1 - ld(0));'
+        _make ' st(8, mix(1, ld(3), ld(8)));' # size
+        _make ' st(5, (ld(5) - 0.5) * ld(8) + 0.5);' # pto.x
+        _make ' st(6, (ld(6) - 0.5) * ld(8) + 0.5);' # pto.y
+        _make ' st(7, 2 * between(ld(5), 0, 1) * between(ld(6), 0, 1));' # 2 for getToColor
+        _make ' ifnot(ld(7),'
+        _make '  st(6, ld(6) * -1.2 - 0.02);'
+        _make '  st(7, 3 * between(ld(5), 0, 1) * between(ld(6), 0, 1))' # 3 for getToColor mix
+        _make ' )'
+        _make ');'
+        _make 'if(ld(7),'
+        _make ' st(2, ld(5) * W);'
+        _make ' st(3, (1 - ld(6)) * H);'
+        _make ' if(eq(ld(7), 1),'
+        _make '  a(ld(2), ld(3)),'
+        _make '  st(3, b(ld(2), ld(3)));'
+        _make '  if(eq(ld(7), 2),'
+        _make '   ld(3),'
+        _make '   st(4, ifnot(ld(4), black, white));'
+        _make '   st(1, ld(1) * (1 - ld(6)));'
+        _make '   mix(ld(4), ld(3), ld(1))'
+        _make '  )'
+        _make ' ),'
+        _make ' ifnot(ld(4), black, white)'
+        _make ')'
         ;;
     gl_Dreamy) # by mikolalysenko
         _make 'st(1, X / W);' # p.x
