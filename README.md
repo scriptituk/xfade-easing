@@ -473,7 +473,7 @@ Windows performance has not been measured.
 | gl_RotateScaleVanish | 66 | 128 | 194 | 400 |
 | gl_Swirl | 67 | 130 | 198 | 410 |
 | gl_squareswire | 76 | 148 | 226 | 465 |
-| gl_InvertedPageCurl | 80 | 156 | 236 | 490 |
+| gl_InvertedPageCurl | 80 | 156 | 236 | 485 |
 | gl_DirectionalScaled | 83 | 162 | 244 | 505 |
 | gl_CrazyParametricFun | 83 | 162 | 246 | 510 |
 | gl_static_wipe | 88 | 172 | 260 | 535 |
@@ -502,7 +502,7 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script version 1.8 by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script version 1.8.1 by Raymond Luckhurst, scriptit.uk
 Generates custom xfade expressions for rendering transitions with easing
 See https://github.com/scriptituk/xfade-easing
 Usage: xfade-easing.sh [options] [video inputs]
