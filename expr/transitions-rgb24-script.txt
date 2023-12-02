@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 1.8
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 1.8.1
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Script transition expressions (rgb24) for filter_complex_script filterchains
@@ -589,14 +589,13 @@ if(gt(ld(7), ld(1)),
  st(3, A),
  st(9, -0.173649 * ld(3) + 0.984808 * ld(4) - 0.801);
  if(lt(ld(7), -ld(1)),
-  st(7, -ld(1) - ld(1) - ld(7));
+  st(7, -2 * ld(1) - ld(7));
   st(8, acos(ld(7) / ld(1)) + ld(2) - PI);
-  st(4, ld(8) * ld(1));
-  st(5, -0.173649 * ld(9) - 0.984808 * ld(4) + 0.985);
-  st(6, 0.984808 * ld(9) + -0.173649 * ld(4) + 0.985);
+  st(6, ld(8) * ld(1));
+  st(5, -0.173649 * ld(9) - 0.984808 * ld(6) + 0.985);
+  st(6, 0.984808 * ld(9) + -0.173649 * ld(6) + 0.985);
   if(lt(ld(7), 0) * between(ld(5), 0, 1) * between(ld(6), 0, 1) * (lt(ld(8), PI) + gt(ld(0), 0.5)),
-   st(8, 1 - hypot(ld(5) - 0.5, ld(6) - 0.5) / 71 * 100);
-   st(8, ld(8) * pow(-ld(7) / ld(1), 3) * 0.5);
+   st(8, (1 - hypot(ld(5) - 0.5, ld(6) - 0.5) * 1.414) * pow(-ld(7) / ld(1), 3) / 2);
    st(8, clip(ld(8) * 255, 0, B)),
    st(8, 0)
   );
@@ -616,9 +615,9 @@ if(gt(ld(7), ld(1)),
     )
    )
   );
-  st(8, ld(2) + ld(2) - ld(8));
+  st(8, 2 * ld(2) - ld(8));
   st(4, mod(ld(8), 2 * PI));
-  if(not(gt(ld(4), PI) * lt(ld(0), 0.5)) * not(gt(ld(4), PI / 2) * lt(ld(0), 0)),
+  ifnot(gt(ld(4), PI) * lt(ld(0), 0.5) + gt(ld(4), PI / 2) * lt(ld(0), 0),
    st(4, ld(8) * ld(1));
    st(5, -0.173649 * ld(9) - 0.984808 * ld(4) + 0.985);
    st(6, 0.984808 * ld(9) + -0.173649 * ld(4) + 0.985);
@@ -626,8 +625,8 @@ if(gt(ld(7), ld(1)),
    st(9, if(lt(ld(6), 0), -ld(6), if(gt(ld(6), 1), ld(6) - 1, if(gt(ld(6), 0.5), 1 - ld(6), ld(6)))));
    st(8, if(between(ld(5), 0, 1) + between(ld(6), 0, 1), min(ld(8), ld(9)), hypot(ld(8), ld(9))));
    st(8, (1 - ld(8) * 30) / 3);
-   st(8, if(lt(ld(8), 0), 0, ld(8) * ld(0)));
-   if(lt(PLANE, 3), st(3, ld(3) - ld(8) * 255));
+   st(8, clip(ld(8) * ld(0) * 255, 0, ld(3)));
+   if(lt(PLANE, 3), st(3, ld(3) - ld(8)));
    if(between(ld(5), 0, 1) * between(ld(6), 0, 1),
     st(5, ld(5) * W);
     st(6, (1 - ld(6)) * H);
