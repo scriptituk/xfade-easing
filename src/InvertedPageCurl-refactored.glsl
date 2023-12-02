@@ -54,68 +54,69 @@ vec4 transition(vec2 p) {
 
     if (yc > cylinderRadius) { // Flat surface
         colour = getFromColor(p);
-    } else if (yc < -cylinderRadius) { // Behind surface
-        yc = -cylinderRadius - cylinderRadius - yc;
-        hitAngle = acos(yc / cylinderRadius) + cylinderAngle - PI;
-        point.y = hitAngle / 2.0 / PI;
-        point = vec2(C * point.x - S * point.y + 0.985, S * point.x + C * point.y + 0.985); // rrotation
-        if (yc < 0.0 && point.x >= 0.0 && point.x <= 1.0 && point.y >= 0.0 && point.y <= 1.0 && (hitAngle < PI || amount > 0.5)) {
-            shado = 1.0 - sqrt(pow(point.x - 0.5, 2.0) + pow(point.y - 0.5, 2.0)) / (71.0 / 100.0);
-            shado *= pow(-yc / cylinderRadius, 3.0);
-            shado *= 0.5;
-        } else {
-            shado = 0.0;
-        }
-        colour = vec4(getToColor(p).rgb - shado, 1.0);
     } else {
-        // seeThrough
-        hitAngle = PI - acos(yc / cylinderRadius) + cylinderAngle;
-        if (yc > 0.0) {
-            colour = getFromColor(p);
-        } else {
-            vec2 pt = point; // rotation
-            pt.y = hitAngle / 2.0 / PI;
-            pt = vec2(C * pt.x - S * pt.y + 0.985, S * pt.x + C * pt.y + 0.985); // rrotation
-            if (pt.x >= 0.0 && pt.x <= 1.0 && pt.y >= 0.0 && pt.y <= 1.0) {
-                colour = getFromColor(pt);
-//              colour = antiAlias(colour, vec4(0.0), distanceToEdge(pt));
-            } else {
-                colour = getToColor(p);
-            }
-        }
-
-        hitAngle = cylinderAngle + cylinderAngle - hitAngle;
-        float hitAngleMod = mod(hitAngle, 2.0 * PI);
-        if (!(hitAngleMod > PI && amount < 0.5) && !(hitAngleMod > PI/2.0 && amount < 0.0)) { // seeThroughWithShadow
+        if (yc < -cylinderRadius) { // Behind surface
+            yc = -cylinderRadius - cylinderRadius - yc;
+            hitAngle = acos(yc / cylinderRadius) + cylinderAngle - PI;
             point.y = hitAngle / 2.0 / PI;
             point = vec2(C * point.x - S * point.y + 0.985, S * point.x + C * point.y + 0.985); // rrotation
-            float dist = distanceToEdge(point); // (inline)
-            shado = (1.0 - dist * 30.0) / 3.0;
-            if (shado < 0.0)
+            if (yc < 0.0 && point.x >= 0.0 && point.x <= 1.0 && point.y >= 0.0 && point.y <= 1.0 && (hitAngle < PI || amount > 0.5)) {
+                shado = 1.0 - sqrt(pow(point.x - 0.5, 2.0) + pow(point.y - 0.5, 2.0)) / (71.0 / 100.0);
+                shado *= pow(-yc / cylinderRadius, 3.0);
+                shado *= 0.5; // note: shado may be > getToColor!
+            } else {
                 shado = 0.0;
-            else
-                shado *= amount;
-            colour.r -= shado;
-            colour.g -= shado;
-            colour.b -= shado;
-            if (point.x >= 0.0 && point.x <= 1.0 && point.y >= 0.0 && point.y <= 1.0) {
-                // backside
-                vec4 back = getFromColor(point), otherColor;
-                float gray = (back.r + back.b + back.g) / 15.0;
-                gray += 0.8 * (pow(1.0 - abs(yc / cylinderRadius), 0.2) / 2.0 + 0.5);
-                back.rgb = vec3(gray);
-/*
-                if (yc < 0.0) {
-                    shado = 1.0 - (sqrt(pow(point.x - 0.5, 2.0) + pow(point.y - 0.5, 2.0)) / 0.71);
-                    shado *= pow(-yc / cylinderRadius, 3.0);
-                    shado *= 0.5;
-                    otherColor = vec4(0.0, 0.0, 0.0, shado);
+            }
+            colour = vec4(getToColor(p).rgb - shado, 1.0);
+        } else {
+            // seeThrough
+            hitAngle = PI - acos(yc / cylinderRadius) + cylinderAngle;
+            if (yc > 0.0) {
+                colour = getFromColor(p);
+            } else {
+                vec2 pt = point; // rotation
+                pt.y = hitAngle / 2.0 / PI;
+                pt = vec2(C * pt.x - S * pt.y + 0.985, S * pt.x + C * pt.y + 0.985); // rrotation
+                if (pt.x >= 0.0 && pt.x <= 1.0 && pt.y >= 0.0 && pt.y <= 1.0) {
+                    colour = getFromColor(pt);
+//                  colour = antiAlias(colour, vec4(0.0), distanceToEdge(pt));
                 } else {
-                    otherColor = getFromColor(p);
+                    colour = getToColor(p);
                 }
-                back = antiAlias(back, otherColor, cylinderRadius - abs(yc));
-                colour = antiAlias(back, colour, dist);
-*/              colour = back;
+            }
+    
+            hitAngle = cylinderAngle + cylinderAngle - hitAngle;
+            float hitAngleMod = mod(hitAngle, 2.0 * PI);
+            if (!(hitAngleMod > PI && amount < 0.5) && !(hitAngleMod > PI/2.0 && amount < 0.0)) { // seeThroughWithShadow
+                point.y = hitAngle / 2.0 / PI;
+                point = vec2(C * point.x - S * point.y + 0.985, S * point.x + C * point.y + 0.985); // rrotation
+                float dist = distanceToEdge(point); // (inline)
+                shado = (1.0 - dist * 30.0) / 3.0;
+                if (shado < 0.0)
+                    shado = 0.0;
+                else
+                    shado *= amount;
+                colour.r -= shado;
+                colour.g -= shado;
+                colour.b -= shado;
+                if (point.x >= 0.0 && point.x <= 1.0 && point.y >= 0.0 && point.y <= 1.0) {
+                    // backside
+                    vec4 back = getFromColor(point), otherColor;
+                    float gray = (back.r + back.b + back.g) / 15.0;
+                    gray += 0.8 * (pow(1.0 - abs(yc / cylinderRadius), 0.2) / 2.0 + 0.5);
+                    back.rgb = vec3(gray);
+/*                  if (yc < 0.0) {
+                        shado = 1.0 - (sqrt(pow(point.x - 0.5, 2.0) + pow(point.y - 0.5, 2.0)) / 0.71);
+                        shado *= pow(-yc / cylinderRadius, 3.0);
+                        shado *= 0.5;
+                        otherColor = vec4(0.0, 0.0, 0.0, shado);
+                    } else {
+                        otherColor = getFromColor(p);
+                    }
+                    back = antiAlias(back, otherColor, cylinderRadius - abs(yc));
+                    colour = antiAlias(back, colour, dist);
+*/                  colour = back;
+                }
             }
         }
     }

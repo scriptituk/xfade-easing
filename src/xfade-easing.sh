@@ -12,7 +12,7 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.8
+export VERSION=1.8.1
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -961,15 +961,14 @@ _gl_transition() { # transition args
         _make ' st(3, A),' # colour
         _make " st(9, $C * ld(3) + $S * ld(4) - 0.801);" # point.x
         _make ' if(lt(ld(7), -ld(1)),' # behind surface
-        _make '  st(7, -ld(1) - ld(1) - ld(7));'
+        _make '  st(7, -2 * ld(1) - ld(7));'
         _make '  st(8, acos(ld(7) / ld(1)) + ld(2) - PI);' # hitAngle
-        _make '  st(4, ld(8) * ld(1));'
-        _make "  st(5, $C * ld(9) - $S * ld(4) + 0.985);"
-        _make "  st(6, $S * ld(9) + $C * ld(4) + 0.985);"
+        _make '  st(6, ld(8) * ld(1));'
+        _make "  st(5, $C * ld(9) - $S * ld(6) + 0.985);" # point.x
+        _make "  st(6, $S * ld(9) + $C * ld(6) + 0.985);" # point.y
         _make '  if(lt(ld(7), 0) * between(ld(5), 0, 1) * between(ld(6), 0, 1) * (lt(ld(8), PI) + gt(ld(0), 0.5)),'
-        _make '   st(8, 1 - hypot(ld(5) - 0.5, ld(6) - 0.5) / 71 * 100);' # shado
-        _make '   st(8, ld(8) * pow(-ld(7) / ld(1), 3) * 0.5);'
-        _make '   st(8, clip(ld(8) * maxv, 0, B)),'
+        _make '   st(8, (1 - hypot(ld(5) - 0.5, ld(6) - 0.5) * 1.414) * pow(-ld(7) / ld(1), 3) / 2);' # shado
+        _make '   st(8, clip(ld(8) * maxv, 0, B)),' # prevent -ve texture
         _make '   st(8, 0)'
         _make '  );'
         if [[ $p_isrgb -ne 0 ]]; then
@@ -982,8 +981,8 @@ _gl_transition() { # transition args
         _make '   if(gt(ld(7), 0),'
         _make '    A,'
         _make '    st(4, ld(8) * ld(1));'
-        _make "    st(5, $C * ld(9) - $S * ld(4) + 0.985);"
-        _make "    st(6, $S * ld(9) + $C * ld(4) + 0.985);"
+        _make "    st(5, $C * ld(9) - $S * ld(4) + 0.985);" # pt.x
+        _make "    st(6, $S * ld(9) + $C * ld(4) + 0.985);" # pt.y
         _make '    if(between(ld(5), 0, 1) * between(ld(6), 0, 1),'
         _make '     st(5, ld(5) * W);'
         _make '     st(6, (1 - ld(6)) * H);'
@@ -992,21 +991,22 @@ _gl_transition() { # transition args
         _make '    )'
         _make '   )'
         _make '  );'
-        _make '  st(8, ld(2) + ld(2) - ld(8));' # hitAngle
+        _make '  st(8, 2 * ld(2) - ld(8));' # hitAngle
         _make '  st(4, mod(ld(8), 2 * PI));' # hitAngleMod
-        _make '  if(not(gt(ld(4), PI) * lt(ld(0), 0.5)) * not(gt(ld(4), PI / 2) * lt(ld(0), 0)),' # seeThroughWithShadow
+        _make '  ifnot(gt(ld(4), PI) * lt(ld(0), 0.5) + gt(ld(4), PI / 2) * lt(ld(0), 0),' # seeThroughWithShadow
         _make '   st(4, ld(8) * ld(1));'
-        _make "   st(5, $C * ld(9) - $S * ld(4) + 0.985);"
-        _make "   st(6, $S * ld(9) + $C * ld(4) + 0.985);"
+        _make "   st(5, $C * ld(9) - $S * ld(4) + 0.985);" # point.x
+        _make "   st(6, $S * ld(9) + $C * ld(4) + 0.985);" # point.y
+        # distanceToEdge
         _make '   st(8, if(lt(ld(5), 0), -ld(5), if(gt(ld(5), 1), ld(5) - 1, if(gt(ld(5), 0.5), 1 - ld(5), ld(5)))));' # dx
         _make '   st(9, if(lt(ld(6), 0), -ld(6), if(gt(ld(6), 1), ld(6) - 1, if(gt(ld(6), 0.5), 1 - ld(6), ld(6)))));' # dy
         _make '   st(8, if(between(ld(5), 0, 1) + between(ld(6), 0, 1), min(ld(8), ld(9)), hypot(ld(8), ld(9))));' # dist
         _make '   st(8, (1 - ld(8) * 30) / 3);' # shado
-        _make '   st(8, if(lt(ld(8), 0), 0, ld(8) * ld(0)));'
+        _make '   st(8, clip(ld(8) * ld(0) * maxv, 0, ld(3)));'
         if [[ $p_isrgb -ne 0 ]]; then
-        _make '   if(lt(PLANE, 3), st(3, ld(3) - ld(8) * maxv));'
+        _make '   if(lt(PLANE, 3), st(3, ld(3) - ld(8)));'
         else
-        _make '   ifnot(PLANE, st(3, ld(3) - ld(8) * maxv));'
+        _make '   ifnot(PLANE, st(3, ld(3) - ld(8)));'
         fi
         _make '   if(between(ld(5), 0, 1) * between(ld(6), 0, 1),' # backside
         _make '    st(5, ld(5) * W);'
