@@ -442,47 +442,6 @@ st(5, (0.5 - (ld(3) * ld(1))) * H);
 st(7, ifnot(PLANE, b0(ld(4),ld(5)), if(eq(PLANE,1), b1(ld(4),ld(5)), if(eq(PLANE,2), b2(ld(4),ld(5)), b3(ld(4),ld(5))))));
 ld(6) * (1 - ld(1)) + ld(7) * ld(1)
 
-GL_DOORWAY
-st(1, 0.4);
-st(2, 0.4);
-st(3, 3);
-st(4, 0);
-st(0, 1 - ld(0));
-st(5, X / W);
-st(6, 1 - Y / H);
-st(7, 0);
-st(8, 2 * abs(ld(5) - 0.5) - ld(0));
-if(gt(ld(8), 0),
- st(8, 1 / (1 + ld(2) * ld(0) * (1 - ld(8))));
- st(5, ld(5) + (1 - gt(ld(5), 0.5) * 2) * ld(0) / 2);
- st(6, (ld(6) + (1 - ld(8)) / 2) * ld(8));
- st(7, between(ld(5), 0, 1) * between(ld(6), 0, 1)),
- st(8, 1 - ld(0));
- st(8, 1 * (1 - ld(8)) + ld(3) * ld(8));
- st(5, (ld(5) - 0.5) * ld(8) + 0.5);
- st(6, (ld(6) - 0.5) * ld(8) + 0.5);
- st(7, 2 * between(ld(5), 0, 1) * between(ld(6), 0, 1));
- ifnot(ld(7),
-  st(6, ld(6) * -1.2 - 0.02);
-  st(7, 3 * between(ld(5), 0, 1) * between(ld(6), 0, 1))
- )
-);
-if(ld(7),
- st(2, ld(5) * W);
- st(3, (1 - ld(6)) * H);
- if(eq(ld(7), 1),
-  ifnot(PLANE, a0(ld(2),ld(3)), if(eq(PLANE,1), a1(ld(2),ld(3)), if(eq(PLANE,2), a2(ld(2),ld(3)), a3(ld(2),ld(3))))),
-  st(3, ifnot(PLANE, b0(ld(2),ld(3)), if(eq(PLANE,1), b1(ld(2),ld(3)), if(eq(PLANE,2), b2(ld(2),ld(3)), b3(ld(2),ld(3))))));
-  if(eq(ld(7), 2),
-   ld(3),
-   st(4, ifnot(ld(4), if(lt(PLANE,3), 0, 255), 255));
-   st(1, ld(1) * (1 - ld(6)));
-   ld(4) * (1 - ld(1)) + ld(3) * ld(1)
-  )
- ),
- ifnot(ld(4), if(lt(PLANE,3), 0, 255), 255)
-)
-
 GL_DIRECTIONALSCALED
 st(1, 0);
 st(2, 1);
@@ -528,6 +487,47 @@ st(4, (ld(2) * ld(1) + 0.5) * W);
 st(5, (0.5 - ld(3) * ld(1)) * H);
 st(7, ifnot(PLANE, b0(ld(4),ld(5)), if(eq(PLANE,1), b1(ld(4),ld(5)), if(eq(PLANE,2), b2(ld(4),ld(5)), b3(ld(4),ld(5))))));
 ld(6) * (1 - ld(1)) + ld(7) * ld(1)
+
+GL_DOORWAY
+st(1, 0.4);
+st(2, 0.4);
+st(3, 3);
+st(4, 0);
+st(0, 1 - ld(0));
+st(5, X / W);
+st(6, 1 - Y / H);
+st(7, 0);
+st(8, 2 * abs(ld(5) - 0.5) - ld(0));
+if(gt(ld(8), 0),
+ st(8, 1 / (1 + ld(2) * ld(0) * (1 - ld(8))));
+ st(5, ld(5) + (1 - gt(ld(5), 0.5) * 2) * ld(0) / 2);
+ st(6, (ld(6) + (1 - ld(8)) / 2) * ld(8));
+ st(7, between(ld(5), 0, 1) * between(ld(6), 0, 1)),
+ st(8, 1 - ld(0));
+ st(8, 1 * (1 - ld(8)) + ld(3) * ld(8));
+ st(5, (ld(5) - 0.5) * ld(8) + 0.5);
+ st(6, (ld(6) - 0.5) * ld(8) + 0.5);
+ st(7, 2 * between(ld(5), 0, 1) * between(ld(6), 0, 1));
+ ifnot(ld(7),
+  st(6, ld(6) * -1.2 - 0.02);
+  st(7, 3 * between(ld(5), 0, 1) * between(ld(6), 0, 1))
+ )
+);
+if(ld(7),
+ st(2, ld(5) * W);
+ st(3, (1 - ld(6)) * H);
+ if(eq(ld(7), 1),
+  ifnot(PLANE, a0(ld(2),ld(3)), if(eq(PLANE,1), a1(ld(2),ld(3)), if(eq(PLANE,2), a2(ld(2),ld(3)), a3(ld(2),ld(3))))),
+  st(3, ifnot(PLANE, b0(ld(2),ld(3)), if(eq(PLANE,1), b1(ld(2),ld(3)), if(eq(PLANE,2), b2(ld(2),ld(3)), b3(ld(2),ld(3))))));
+  if(eq(ld(7), 2),
+   ld(3),
+   st(4, ifnot(ld(4), if(lt(PLANE,3), 0, 255), 255));
+   st(1, ld(1) * (1 - ld(6)));
+   ld(4) * (1 - ld(1)) + ld(3) * ld(1)
+  )
+ ),
+ ifnot(ld(4), if(lt(PLANE,3), 0, 255), 255)
+)
 
 GL_DREAMY
 st(1, X / W);
