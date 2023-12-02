@@ -3,7 +3,7 @@
 
 ## Summary
 
-This project is a port of standard easing equations coded as custom xfade expressions,
+This project is a port of standard easing equations coded as custom Xfade expressions,
 also most xfade transitions and many [GL Transitions](#gl-transitions) for use in tandem with easing or alone.
 
 <img src="assets/xfade-easing.gif" alt="InvertedPageCurl" align="right">
@@ -14,7 +14,7 @@ therefore transitions lack interest.
 Easing inserts a progress envelope to smooth transitions in a natural way.
 
 Usage involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concatenation of an easing expression and a transition expression.
-Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and joined-up visual media sequences.
+Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and visual media sequences.
 
 This solution for eased transitions and GL Transitions requires no compilation or installation, just ffmpeg.
 However processing is markedly slower than alternative solutions, especially for complex effects – see [Performance](#performance).
@@ -192,7 +192,7 @@ This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel
 
 The `squareroot` and `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` and `cubic` respectively:
 
-![quadratic vs squareroot](assets/quadratic-squareroot.png)
+![squareroot vs quadratic](assets/squareroot-quadratic.png)
 
 ### All easings
 
@@ -276,14 +276,6 @@ So some of the simpler GLSL transitions at [gl-transitions](https://github.com/g
 - gl_Swirl (by: Sergey Kosarevsky)
 - gl_WaterDrop [args: amplitude,speed; default: =30,30] (by: Paweł Płóciennik)
 
-#### With easing
-
-GL Transitions can also be eased, with or without customisation parameters:
-
-*Example*: `Swirl` transition with `bounce inout` easing
-
-![Swirl bounce](assets/gl_Swirl-bounce.gif)
-
 #### Gallery
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
@@ -293,9 +285,17 @@ see also the [GL Transitions Gallery](https://gl-transitions.com/gallery) (which
 
 ![GL gallery](assets/gl-gallery.gif)
 
+#### With easing
+
+GL Transitions can also be eased, with or without customisation parameters:
+
+*Example*: `Swirl` transition with `bounce inout` easing
+
+![Swirl bounce](assets/gl_Swirl-bounce.gif)
+
 #### Porting
 
-GLSL shader code runs on the GPU in real time. However GL Transition and Xfade APIs are broadly similar and simple algorithms are easily ported using vector resolution.
+GLSL shader code runs on the GPU in real time. However GL Transition and Xfade APIs are broadly similar and non-complex algorithms are easily ported using vector resolution.
 
 | context | GL Transitions | Xfade filter | notes |
 | :---: | :---: | :---: | --- |
@@ -374,8 +374,7 @@ st(2, 1 - ld(0));
 st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(2) * ld(1));
 st(1, mod(ld(1), PI / 4));
 st(1, sgn(ld(2) - ld(1)));
-st(1, gte(0.5, ld(1)));
-B * (1 - ld(1)) + A * ld(1)
+if(gte(0.5, ld(1)), A, B)
 ```
 Similarly, `gl_directionalwarp` takes 3 parameters: `smoothness`, `direction.x`, `direction.y` (from `xfade-easing.sh -L`)
 and its expr starts with 3 corresponding `st()` (store) functions which may be changed from their default values:
@@ -396,10 +395,10 @@ The following times are based on empirical timings scaled by benchmark scores (t
 They are rough estimates in seconds to process a 3-second transition of HD720 (1280x720) 3-plane media (rgb24) through a null muxer at Mac benchmark midpoints.
 For greyscale (single plane), subtract two thirds.
 For an alpha plane, add a third.
-Mac model performance varies enormously so the Mac vintage dates are very approximate.
+Mac model performance varies enormously so the Mac vintage dates are only approximate.
 Windows performance has not been measured.
 
-| benchmark → <br/> transition ↓ | 2333–3129 <br/> (M1,M2,M3 Macs) | 1150–1655 <br/> (2017–19 Macs) | 700–1150 <br/> (2013–16 Macs) | 195–700 <br/> (2008–12 Macs) |
+| benchmark → <br/> transition ↓ | 2335–3120 <br/> (M1,M2,M3 Macs) | 1150–1655 <br/> (2017–19 Macs) | 700–1150 <br/> (2013–16 Macs) | 195–700 <br/> (2008–12 Macs) |
 | :---: | :---: | :---: | :---: | :---: |
 | wipeleft | 1 | 3 | 4 | 9 |
 | wipeup | 1 | 3 | 4 | 9 |
@@ -413,7 +412,7 @@ Windows performance has not been measured.
 | squeezeh | 8 | 16 | 24 | 49 |
 | squeezev | 9 | 17 | 26 | 54 |
 | fadeslow | 11 | 21 | 32 | 66 |
-| fadefast | 11 | 22 | 34 | 70 |
+| fadefast | 12 | 22 | 34 | 70 |
 | dissolve | 13 | 26 | 39 | 81 |
 | rectcrop | 13 | 26 | 39 | 81 |
 | revealup | 14 | 28 | 42 | 87 |
@@ -428,7 +427,7 @@ Windows performance has not been measured.
 | coverright | 16 | 32 | 48 | 99 |
 | gl_randomNoisex | 16 | 32 | 48 | 99 |
 | horzopen | 16 | 32 | 48 | 99 |
-| slideup | 16 | 32 | 49 | 100 |
+| slideup | 17 | 32 | 49 | 100 |
 | slideleft | 17 | 33 | 50 | 104 |
 | slideright | 17 | 33 | 50 | 104 |
 | slidedown | 17 | 34 | 51 | 106 |
@@ -481,7 +480,7 @@ Windows performance has not been measured.
 | gl_rotate_scale_fade | 89 | 174 | 262 | 545 |
 | gl_Mosaic | 91 | 176 | 268 | 555 |
 | gl_directionalwarp | 98 | 192 | 290 | 600 |
-| gl_hexagonalize | 102 | 200 | 304 | 630 |
+| gl_hexagonalize | 104 | 200 | 304 | 630 |
 | gl_perlin | 132 | 258 | 392 | 810 |
 | gl_kaleidoscope | 242 | 470 | 715 | 1480 |
 | gl_powerKaleido | 1030 | 2010 | 3040 | 6290 |
@@ -585,11 +584,13 @@ appends the following to file exprs.php:
 $expr['rectcrop_exponential_out'] = '
 st(0, if(eq(P, 0), 0, 2^(-10 * (1 - P))))
 ;
-st(1, abs(ld(0) - 0.5) * W);
-st(2, abs(ld(0) - 0.5) * H);
-st(3, lt(abs(X - W / 2), ld(1) * lt(abs(Y - H / 2), ld(2))));
-st(4, if(lt(ld(0), 0.5), B, A));
-ifnot(ld(3), if(lt(PLANE,3), 0, 255), ld(4))';
+st(1, 0);
+st(2, abs(ld(0) - 0.5) * W);
+st(3, abs(ld(0) - 0.5) * H);
+if(lt(abs(X - W / 2), ld(2)) * lt(abs(Y - H / 2), ld(3)),
+ if(lt(ld(0), 0.5), B, A),
+ ifnot(ld(1), if(lt(PLANE,3), 0, 255), 255)
+)';
 ```
 - `xfade-easing.sh -t gl_polar_function -s "expr='%n%X'" -x fc-script.txt -a`  
 This is not eased, therefore the expr appended to fc-script.txt uses progress `P` directly:
@@ -658,7 +659,7 @@ creates a 10s video with a slow 8s circlecrop Xfade transition with white backgr
 - `xfade-easing.sh -t gl_InvertedPageCurl -e cubic -m in -v score.mp4 -f gray -i 2 -d 3 -z 480x -k 1,0,0xD8D8D8,10 fugue1.png fugue2.png fugue3.png`  
 a 3s page curl effect, static for 2s, with cubic-in easing using greyscale format (`-k 1,0,colour,padding` creates a border)  
 ![gl_InvertedPageCurl quadratic ](assets/score.gif)  
-(I play [this Bach fugue](https://youtu.be/5IGKLtCrUt0?t=1m17s) on my YouTube channel [digitallegro](https://www.youtube.com/@digitallegro/videos) but the page curl there was generated by [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat))
+(I play [this Bach fugue](https://youtu.be/5IGKLtCrUt0?t=1m17s) on my YouTube channel [digitallegro](https://www.youtube.com/@digitallegro/videos) but the GL page curl there was generated by [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat))
 
 - `xfade-easing.sh -t gl_PolkaDotsCurtain=10,0.5,0 -e quadratic -v life.mp4 -l 7 -d 5 -z 500x -r 30 -f yuv420p balloons.png fruits.png`  
 a GL transition with arguments and gentle quadratic easing, running at 30fps for 7 seconds, processing in YUV (Y'CbCr) colour space throughout  
