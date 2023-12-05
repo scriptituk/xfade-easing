@@ -12,7 +12,7 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.8.1
+export VERSION=1.8.2
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -183,7 +183,7 @@ _format() { # pix_fmt
     [[ $1 =~ (rgb|bgr|gbr|rbg|bggr|rggb) ]] && p_isrgb=1 # (from libavutil/pixdesc.c)
     p_maxv=$(((1<<$depth)-1))
     p_midv=$((1<<($depth-1)))
-    if [[ $p_isrgb -eq 1 ]]; then
+    if [[ $p_isrgb -ne 0 ]]; then
         p_black='if(lt(PLANE,3), 0, maxv)'
         p_white='maxv'
     else
@@ -305,15 +305,39 @@ _frand() { # x y st
 }
 
 # get first input value
+# (not subexpression safe: group first)
 _a() { # X Y
     [[ $# -ne 2 ]] && _error "_a expects 2 args, got $#"
     echo "ifnot(PLANE, a0($1,$2), if(eq(PLANE,1), a1($1,$2), if(eq(PLANE,2), a2($1,$2), a3($1,$2))))"
 }
 
 # get second input value
+# (not subexpression safe: group first)
 _b() { # X Y
     [[ $# -ne 2 ]] && _error "_b expects 2 args, got $#"
     echo "ifnot(PLANE, b0($1,$2), if(eq(PLANE,1), b1($1,$2), if(eq(PLANE,2), b2($1,$2), b3($1,$2))))"
+}
+
+# get black/white value
+# (not subexpression safe: group first)
+_mono() { # W
+    [[ $# -ne 1 ]] && _error "_mono expects 1 arg, got $#"
+    if [[ $p_isrgb -ne 0 ]]; then
+        echo "if($1+eq(PLANE,3), maxv, 0)"
+    else
+        echo "if(between(PLANE,1,2), midv, if($1+PLANE, maxv, 0))"
+    fi
+}
+
+# get grey value
+# (not subexpression safe: group first)
+_grey() { # G
+    [[ $# -ne 1 ]] && _error "_grey expects 1 arg, got $#"
+    if [[ $p_isrgb -ne 0 ]]; then
+        echo "if(eq(PLANE,3), maxv, $1*maxv)"
+    else
+        echo "if(between(PLANE,1,2), midv, if(PLANE, maxv, $1*maxv))"
+    fi
 }
 
 # mix linear interpolation
@@ -591,7 +615,7 @@ _xf_transition() { # transition args
         _make 'st(2, (2 * abs(P - 0.5))^3 * hypot(W / 2, H / 2));' # z
         _make 'st(3, hypot(X - W / 2, Y - H / 2));' # dist
         _make 'if(lt(ld(2), ld(3)),'
-        _make ' ifnot(ld(1), black, white),' # bg
+        _make ' mono(ld(1)),' # bg
         _make ' if(lt(P, 0.5), B, A)' # val
         _make ')'
         ;;
@@ -601,7 +625,7 @@ _xf_transition() { # transition args
         _make 'st(3, abs(P - 0.5) * H);' # zh
         _make 'if(lt(abs(X - W / 2), ld(2)) * lt(abs(Y - H / 2), ld(3)),' # dist
         _make ' if(lt(P, 0.5), B, A),' # val
-        _make ' ifnot(ld(1), black, white)' # bg
+        _make ' mono(ld(1))' # bg
         _make ')'
         ;;
     circleopen|circleclose)
@@ -724,7 +748,6 @@ _xf_transition() { # transition args
 _gl_transition() { # transition args
     local x # expr
     local a=(${2//,/ }) # args
-    local s
     _make ''
     case $1 in
     # NOTE 1: never use P after st(0) as it will break easing
@@ -770,6 +793,25 @@ _gl_transition() { # transition args
         _make ');'
         _make 'mix(ld(4), ld(5), ld(3))'
         ;;
+    gl_Bounce) # by Adrian Purser
+        _make "st(1, ${a[0]-0.6});" # shadow_alpha
+        _make "st(2, ${a[1]-0.075});" # shadow_height
+        _make "st(3, ${a[2]-3});" # bounces
+        _make 'st(4, 1 - P);' # progress
+        _make 'st(3, ld(4) * PI * ld(3));' # phase
+        _make 'st(3, abs(cos(ld(3))) * (1 - sin(ld(4) * PI / 2)));' # y
+        _make 'st(5, 1 - Y / H - ld(3));' # d
+        _make 'st(4, smoothstep(0.95, 1, ld(4), 4));'
+        _make 'st(6, ld(5) / ld(2) * ld(1) + (1 - ld(1)));'
+        _make 'st(6, mix(ld(6), 1, ld(4)));'
+        _make 'st(6, step(ld(5), ld(2)) * (1 - ld(6)));'
+        _make 'st(1, black);'
+        _make 'st(1, mix(B, ld(1), ld(6)));'
+        _make 'st(2, Y - (1 - ld(3)) * H);'
+        _make 'st(2, a(X, ld(2)));'
+        _make 'st(3, step(ld(5), 0));'
+        _make 'mix(ld(1), ld(2), ld(3))'
+        ;;
     gl_CrazyParametricFun) # by mandubian
         _make "st(1, ${a[0]-4});" # a
         _make "st(2, ${a[1]-1});" # b
@@ -805,6 +847,49 @@ _gl_transition() { # transition args
         _make 'st(7, b(ld(4), ld(5)));'
         _make 'mix(ld(6), ld(7), ld(1))'
         ;;
+    gl_cube) # by gre
+        _make "st(1, ${a[0]-0.7});" # persp
+        _make "st(2, ${a[1]-0.3});" # unzoom
+        _make "st(3, ${a[2]-0.4});" # reflection
+        _make "st(4, ${a[3]-3});" # floating
+        _make 'st(0, 1 - P);' # progress
+        _make 'st(2, ld(2) * 2 * (0.5 - abs(0.5 - ld(0))));' # ux
+        _make 'st(7, X / W * (1 + ld(2)) - ld(2) / 2);' # p.x
+        _make 'st(8, (1 - Y / H) * (1 + ld(2)) - ld(2) / 2);' # p.y
+        _make 'st(2, ld(0) * (1 - ld(1)));' # persp2
+        _make 'st(5, (ld(7) - ld(0)) / (1 - ld(0)));' # fromP.x
+        _make 'st(6, (ld(8) - ld(2) * ld(5) / 2) / (1 - ld(2) * ld(5)));' # fromP.y
+        _make 'st(2, ld(0) * ld(0));'
+        _make 'st(2, 1 - (mix(ld(2), 1, ld(1))));' # persp2
+        _make 'st(1, ld(7) / ld(0));' # toP.x
+        _make 'st(2, (ld(8) - ld(2) * (1 - ld(1)) / 2) / (1 - ld(2) * (1 - ld(1))));' # toP.y
+        _make 'ifnot(st(0, -between(ld(5), 0, 1) * between(ld(6), 0, 1)),' # inBounds(fromP)
+        _make ' ifnot(st(0, between(ld(1), 0, 1) * between(ld(2), 0, 1)),' # inBounds(toP)
+        _make '  st(2, ld(2) * -1.2 - ld(4) / 100);'
+        _make '  ifnot(st(0, 2 * between(ld(1), 0, 1) * between(ld(2), 0, 1)),'
+        _make '   st(6, ld(6) * -1.2 - ld(4) / 100);'
+        _make '   st(0, -2 * between(ld(5), 0, 1) * between(ld(6), 0, 1))'
+        _make '  )'
+        _make ' )'
+        _make ');'
+        _make "st(4, ${a[4]-0});" # backWhite
+        _make 'if(ld(0),'
+        _make ' if(lt(ld(0), 0), st(1, ld(5)); st(2, ld(6)));'
+        _make ' st(5, ld(1) * W);'
+        _make ' st(6, (1 - ld(2)) * H);'
+        _make ' if(lt(ld(0), 0),'
+        _make '  st(1, a(ld(5), ld(6))),'
+        _make '  st(1, b(ld(5), ld(6)))'
+        _make ' );'
+        _make ' if(eq(abs(ld(0)), 2),'
+        _make '  st(3, ld(3) * (1 - ld(2)));'
+        _make '  st(4, mono(ld(4)));'
+        _make '  mix(ld(4), ld(1), ld(3)),'
+        _make '  ld(1)'
+        _make ' ),'
+        _make ' mono(ld(4))'
+        _make ')'
+        ;;
     gl_DirectionalScaled) # by Thibaut Foussard
         _make "st(1, ${a[0]-0});" # direction.x
         _make "st(2, ${a[1]-1});" # direction.y
@@ -826,7 +911,7 @@ _gl_transition() { # transition args
         _make 'st(1, 1 - ld(3));'
         _make 'st(2, 1 - ld(5));'
         _make 'st(1, step(0, ld(3)) * step(0, ld(1)) * step(0, ld(5)) * step(0, ld(2)));' # border
-        _make 'if(ld(1), ld(6), ifnot(ld(4), black, white))'
+        _make 'if(ld(1), ld(6), mono(ld(4)))'
         ;;
     gl_directionalwarp) # by pschroen
         _make "st(1, ${a[0]-0.1});" # smoothness
@@ -884,12 +969,12 @@ _gl_transition() { # transition args
         _make '  st(3, b(ld(2), ld(3)));'
         _make '  if(eq(ld(7), 2),'
         _make '   ld(3),'
-        _make '   st(4, ifnot(ld(4), black, white));'
+        _make '   st(4, mono(ld(4)));'
         _make '   st(1, ld(1) * (1 - ld(6)));'
         _make '   mix(ld(4), ld(3), ld(1))'
         _make '  )'
         _make ' ),'
-        _make ' ifnot(ld(4), black, white)'
+        _make ' mono(ld(4))'
         _make ')'
         ;;
     gl_Dreamy) # by mikolalysenko
@@ -1267,7 +1352,6 @@ _gl_transition() { # transition args
         _make "st(1, ${a[0]-1});" # FadeInSecond
         _make "st(2, ${a[1]-0});" # ReverseEffect
         _make "st(3, ${a[2]-0});" # ReverseRotation
-        s=black; [[ ${a[3]-0} != 0 ]] && s=white # backWhite
         _make 'st(0, if(ld(2), P, 1 - P));' # t
         _make 'st(4, (X / W - 0.5) * W / H);' # xc1
         _make 'st(5, 0.5 - Y / H);' # yc1
@@ -1287,7 +1371,11 @@ _gl_transition() { # transition args
         _make '  b(ld(3), ld(4)),'
         _make '  a(ld(3), ld(4))'
         _make ' )),'
-        _make " st(2, if(ld(1), $s, ld(5)))" # col3
+        _make ' st(2, if(ld(1),' # col3
+        _make "  st(2, ${a[3]-0});" # backWhite
+        _make '  mono(ld(2)),'
+        _make '  ld(5))'
+        _make ' )'
         _make ');'
         _make 'mix(ld(2), ld(5), ld(0))'
         ;;
@@ -1313,7 +1401,6 @@ _gl_transition() { # transition args
         _make "st(2, ${a[1]-0.5});" # centre.y
         _make "st(3, ${a[2]-1});" # rotations
         _make "st(4, ${a[3]-8});" # scale
-        s=black; [[ ${a[4]-0} != 0 ]] && s=white # backWhite
         _make 'st(5, X / W - ld(1));' # difference.x
         _make 'st(6, (1 - Y / H) - ld(2));' # difference.y
         _make 'st(7, hypot(ld(5), ld(6)));' # dist
@@ -1333,7 +1420,34 @@ _gl_transition() { # transition args
         _make ' st(4, b(ld(1), ld(2)));'
         _make ' st(5, 1 - P);'
         _make ' mix(ld(3), ld(4), ld(5)),'
-        _make " $s"
+        _make " st(1, ${a[4]-0.15});" # backGray
+        _make ' grey(ld(1))'
+        _make ')'
+        ;;
+    gl_Slides) # by Mark Craig
+        _make "st(1, ${a[0]-0});" # type
+        _make "st(2, ${a[1]-0});" # In
+        _make 'st(5, st(4, 1 - st(3, if(ld(2), 1 - P, P))) / 2);' # rad 1-rad (1-rad)/2
+        _make 'ifnot(ld(1), st(6, ld(5)); st(7, 0),' # xc1 yc1
+        _make ' if(eq(ld(1), 1), st(6, ld(4)); st(7, ld(5)),'
+        _make '  if(eq(ld(1), 2), st(6, ld(5)); st(7, ld(4)),'
+        _make '   if(eq(ld(1), 3), st(6, 0); st(7, ld(5)),'
+        _make '    if(eq(ld(1), 4), st(6, ld(4)); st(7, 0),'
+        _make '     if(eq(ld(1), 5), st(6, st(7, ld(4))),'
+        _make '      if(eq(ld(1), 6), st(6, 0); st(7, ld(4)),'
+        _make '       if(eq(ld(1), 7), st(6, st(7, 0)),'
+        _make '        st(6, st(7, ld(5)))' # default centre
+        _make '))))))));'
+        _make 'st(4, X / W);'
+        _make 'st(5, Y / H);'
+        _make 'if(between(ld(4), ld(6), ld(6) + ld(3)) * between(ld(5), ld(7), ld(7) + ld(3)),'
+        _make ' st(4, (ld(4) - ld(6)) / ld(3) * W);'
+        _make ' st(5, (ld(5) - ld(7)) / ld(3) * H);'
+        _make ' if(ld(2),'
+        _make '  b(ld(4), ld(5)),'
+        _make '  a(ld(4), ld(5))'
+        _make ' ),'
+        _make ' if(ld(2), A, B)'
         _make ')'
         ;;
     gl_squareswire) # by gre
@@ -1389,6 +1503,48 @@ _gl_transition() { # transition args
         fi
         _make ');'
         _make 'mix(ld(7), ld(1), ld(6))'
+        ;;
+    gl_swap) # by gre
+        _make "st(1, ${a[0]-0.4});" # reflection
+        _make "st(2, ${a[1]-0.2});" # perspective
+        _make "st(3, ${a[2]-3});" # depth
+        _make "st(4, ${a[3]-0});" # backWhite
+        _make 'st(0, 1 - P);' # progress
+        _make 'st(7, mix(1, ld(3), ld(0)));' # size
+        _make 'st(8, ld(2) * ld(0));' # persp
+        _make 'st(5, X / W * ld(7) / (1 - ld(8)));' # pfr.x
+        _make 'st(6, (0.5 - Y / H) * ld(7) / (1 - ld(7) * ld(8) * X / W) + 0.5);' # pfr.y
+        _make 'st(0, 1 - ld(0));'
+        _make 'st(7, mix(1, ld(3), ld(0)));' # size
+        _make 'st(8, ld(2) - ld(8));' # persp
+        _make 'st(2, (X / W - 1) * ld(7) / (1 - ld(8)) + 1);' # pto.x
+        _make 'st(3, (0.5 - Y / H) * ld(7) / (1 - ld(7) * ld(8) * (0.5 - X / W)) + 0.5);' # pto.y
+        _make 'st(7, between(ld(2), 0, 1) * between(ld(3), 0, 1));' # inBounds(pto)
+        _make 'st(8, between(ld(5), 0, 1) * between(ld(6), 0, 1));' # inBounds(pfr)
+        _make 'st(0, gt(ld(0), 0.5));'
+        _make 'ifnot(st(0, if(ld(8) * (ld(0) + not(ld(7))), -1, if(ld(7) * not(ld(0) * ld(8)), 1, 0))),'
+        _make ' st(3, ld(3) * -1.2 - 0.02);'
+        _make ' ifnot(st(0, 2 * between(ld(2), 0, 1) * between(ld(3), 0, 1)),'
+        _make '  st(6, ld(6) * -1.2 - 0.02);'
+        _make '  st(0, -2 * between(ld(5), 0, 1) * between(ld(6), 0, 1))'
+        _make ' )'
+        _make ');'
+        _make 'if(ld(0),'
+        _make ' if(lt(ld(0), 0), st(2, ld(5)); st(3, ld(6)));'
+        _make ' st(5, ld(2) * W);'
+        _make ' st(6, (1 - ld(3)) * H);'
+        _make ' if(lt(ld(0), 0),'
+        _make '  st(2, a(ld(5), ld(6))),'
+        _make '  st(2, b(ld(5), ld(6)))'
+        _make ' );'
+        _make ' if(eq(abs(ld(0)), 2),'
+        _make '  st(1, ld(1) * (1 - ld(3)));'
+        _make '  st(4, mono(ld(4)));'
+        _make '  mix(ld(4), ld(2), ld(1)),'
+        _make '  ld(2)'
+        _make ' ),'
+        _make ' mono(ld(4))'
+        _make ')'
         ;;
     gl_Swirl) # by Sergey Kosarevsky
         _make 'st(1, 1);' # Radius
@@ -1476,7 +1632,7 @@ _transition() { # transition
     [[ -z $x ]] && x=$(_st_transition $1 $2) # try supplementary
     [[ -z $x ]] && exit $ERROR # unknown transition name
     local s r
-    for s in rem mix fract smoothstep frand a b dot step; do # expand pseudo functions
+    for s in rem mix fract smoothstep frand a b mono grey dot step; do # expand pseudo functions
         while [[ $x =~ $s\( ]]; do
             r=$(_heredoc FUNC | gawk -v e="$x" -v f=$s -f-)
             x=${r%%|*} # search
