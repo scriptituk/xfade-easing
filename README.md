@@ -171,24 +171,24 @@ If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#express
 
 This implementation uses [Michael Pohoreski’s](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single argument version of [Robert Penner’s](http://robertpenner.com/easing/) easing functions, further optimised by me for the peculiarities of xfade.
 
-- linear
-- quadratic
-- cubic
-- quartic
-- quintic
-- sinusoidal
-- exponential
-- circular
-- elastic
-- back
-- bounce
+- `linear`
+- `quadratic`
+- `cubic`
+- `quartic`
+- `quintic`
+- `sinusoidal`
+- `exponential`
+- `circular`
+- `elastic`
+- `back`
+- `bounce`
 
 ![standard easings](assets/standard-easings.png)
 
 ### Other easings
 
-- squareroot
-- cuberoot
+- `squareroot`
+- `cuberoot`
 
 The `squareroot` and `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` and `cubic` respectively:
 
@@ -215,24 +215,24 @@ At present, progress outside the range 0 to 1 may yield unpredictable results.
 These are ports of the C-code transitions in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) for use with easing.
 Omitted transitions are `distance` and `hblur` which perform aggregation, so cannot be computed efficiently on a per plane-pixel basis.
 
-- fade fadefast fadeslow
-- fadeblack fadewhite fadegrays
-- wipeleft wiperight wipeup wipedown
-- wipetl wipetr wipebl wipebr
-- slideleft slideright slideup slidedown
-- smoothleft smoothright smoothup smoothdown
-- circlecrop [args: backWhite; default: =0]
-- rectcrop [args: backWhite; default: =0]
-- circleopen circleclose
-- vertopen vertclose horzopen horzclose
-- diagtl diagtr diagbl diagbr
-- hlslice hrslice vuslice vdslice
-- radial zoomin
-- dissolve pixelize
-- squeezeh squeezev
-- hlwind hrwind vuwind vdwind
-- coverleft coverright coverup coverdown
-- revealleft revealright revealup revealdown
+- `fade` `fadefast` `fadeslow`
+- `fadeblack` `fadewhite` `fadegrays`
+- `wipeleft` `wiperight` `wipeup` `wipedown`
+- `wipetl` `wipetr` `wipebl` `wipebr`
+- `slideleft` `slideright` `slideup` `slidedown`
+- `smoothleft` `smoothright` `smoothup` `smoothdown`
+- `circlecrop` [args: `backWhite`; default: `=0`]
+- `rectcrop` [args: `backWhite`; default: `=0`]
+- `circleopen` `circleclose`
+- `vertopen` `vertclose` `horzopen` `horzclose`
+- `diagtl` `diagtr` `diagbl` `diagbr`
+- `hlslice` `hrslice` `vuslice` `vdslice`
+- `radial` `zoomin`
+- `dissolve` `pixelize`
+- `squeezeh` `squeezev`
+- `hlwind` `hrwind` `vuwind` `vdwind`
+- `coverleft` `coverright` `coverup` `coverdown`
+- `revealleft` `revealright` `revealup` `revealdown`
 
 #### Gallery
 
@@ -247,34 +247,38 @@ The open collection of [GL Transitions](https://gl-transitions.com/) “aims to 
 
 So some of the simpler GLSL transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), much of them customisable, have been ported as custom xfade expressions for use with or without easing:
 
-- gl_angular [args: startingAngle,goClockwise; default: =90,0] (by: Fernando Kuteken)
-- gl_BookFlip (by: hong)
-- gl_CrazyParametricFun [args: a,b,amplitude,smoothness; default: =4,1,120,0.1] (by: mandubian)
-- gl_crosswarp (by: Eke Péter)
-- gl_DirectionalScaled [args: direction.x,direction.y,scale,backWhite; default: =0,1,0.7,0] (by: Thibaut Foussard)
-- gl_directionalwarp [args: smoothness,direction.x,direction.y; default: =0.1,-1,1] (by: pschroen)
-- gl_doorway [args: reflection,perspective,depth,backWhite; default: =0.4,0.4,3,0] (by: gre)
-- gl_Dreamy (by: mikolalysenko)
-- gl_hexagonalize [args: steps,horizontalHexagons; default: =50,20] (by: Fernando Kuteken)
-- gl_InvertedPageCurl (by: Hewlett-Packard)
-- gl_kaleidoscope [args: speed,angle,power; default: =1,1,1.5] (by: nwoeanhinnogaehr)
-- gl_Mosaic [args: endx,endy; default: =2,-1] (by: Xaychru)
-- gl_perlin [args: scale,smoothness; default: =4,0.01] (by: Rich Harris)
-- gl_pinwheel [args: speed; default: =2] (by: Mr Speaker)
-- gl_polar_function [args: segments; default: =5] (by: Fernando Kuteken)
-- gl_PolkaDotsCurtain [args: dots,centre.x,centre.y; default: =20,0,0] (by: bobylito)
-- gl_powerKaleido [args: scale,z,speed; default: =2,1.5,5] (by: Boundless)
-- gl_randomNoisex (by: towrabbit)
-- gl_randomsquares [args: size.x,size.y,smoothness; default: =10,10,0.5] (by: gre)
-- gl_ripple [args: amplitude,speed; default: =100,50] (by: gre)
-- gl_Rolls [args: type,RotDown; default: =0,0] (by: Mark Craig)
-- gl_RotateScaleVanish [args: FadeInSecond,ReverseEffect,ReverseRotation,backWhite; default: =1,0,0,0] (by: Mark Craig)
-- gl_rotateTransition (by: haiyoucuv)
-- gl_rotate_scale_fade [args: centre.x,centre.y,rotations,scale,backWhite; default: =0.5,0.5,1,8,0] (by: Fernando Kuteken)
-- gl_squareswire [args: squares.h,squares.v,direction.x,direction.y,smoothness; default: =10,10,1.0,-0.5,1.6] (by: gre)
-- gl_static_wipe [args: transitionUpToDown,max_static_span; default: =1,0.5] (by: Ben Lucas)
-- gl_Swirl (by: Sergey Kosarevsky)
-- gl_WaterDrop [args: amplitude,speed; default: =30,30] (by: Paweł Płóciennik)
+- `gl_angular` [args: `startingAngle`,`goClockwise`; default: `=90,0`] (by: Fernando Kuteken)
+- `gl_BookFlip` (by: hong)
+- `gl_Bounce` [args: `shadow_alpha`,`shadow_height`,`bounces`; default: `=0.6,0.075,3`] (by: Adrian Purser)
+- `gl_CrazyParametricFun` [args: `a`,`b`,`amplitude`,`smoothness`; default: `=4,1,120,0.1`] (by: mandubian)
+- `gl_crosswarp` (by: Eke Péter)
+- `gl_cube` [args: `persp`,`unzoom`,`reflection`,`floating`,`backWhite`; default: `=0.7,0.3,0.4,3,0`] (by: gre)
+- `gl_DirectionalScaled` [args: `direction.x`,`direction.y`,`scale`,`backWhite`; default: `=0,1,0.7,0`] (by: Thibaut Foussard)
+- `gl_directionalwarp` [args: `smoothness`,`direction.x`,`direction.y`; default: `=0.1,-1,1`] (by: pschroen)
+- `gl_doorway` [args: `reflection`,`perspective`,`depth`,`backWhite`; default: `=0.4,0.4,3,0`] (by: gre)
+- `gl_Dreamy` (by: mikolalysenko)
+- `gl_hexagonalize` [args: `steps`,`horizontalHexagons`; default: `=50,20`] (by: Fernando Kuteken)
+- `gl_InvertedPageCurl` (by: Hewlett-Packard)
+- `gl_kaleidoscope` [args: `speed`,`angle`,`power`; default: `=1,1,1.5`] (by: nwoeanhinnogaehr)
+- `gl_Mosaic` [args: `endx`,`endy`; default: `=2,-1`] (by: Xaychru)
+- `gl_perlin` [args: `scale`,`smoothness`; default: `=4,0.01`] (by: Rich Harris)
+- `gl_pinwheel` [args: `speed`; default: `=2`] (by: Mr Speaker)
+- `gl_polar_function` [args: `segments`; default: `=5`] (by: Fernando Kuteken)
+- `gl_PolkaDotsCurtain` [args: `dots`,`centre.x`,`centre.y`; default: `=20,0,0`] (by: bobylito)
+- `gl_powerKaleido` [args: `scale`,`z`,`speed`; default: `=2,1.5,5`] (by: Boundless)
+- `gl_randomNoisex` (by: towrabbit)
+- `gl_randomsquares` [args: `size.x`,`size.y`,`smoothness`; default: `=10,10,0.5`] (by: gre)
+- `gl_ripple` [args: `amplitude`,`speed`; default: `=100,50`] (by: gre)
+- `gl_Rolls` [args: `type`,`RotDown`; default: `=0,0`] (by: Mark Craig)
+- `gl_RotateScaleVanish` [args: `FadeInSecond`,`ReverseEffect`,`ReverseRotation`,`backWhite`; default: `=1,0,0,0`] (by: Mark Craig)
+- `gl_rotateTransition` (by: haiyoucuv)
+- `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backGray`; default: `=0.5,0.5,1,8,0.15`] (by: Fernando Kuteken)
+- `gl_Slides` [args: `type`,`In`; default: `=0,0`] (by: Mark Craig)
+- `gl_squareswire` [args: `squares.h`,`squares.v`,`direction.x`,`direction.y`,`smoothness`; default: `=10,10,1.0,-0.5,1.6`] (by: gre)
+- `gl_static_wipe` [args: `transitionUpToDown`,`max_static_span`; default: `=1,0.5`] (by: Ben Lucas)
+- `gl_swap` [args: `reflection`,`perspective`,`depth`,`backWhite`; default: `=0.4,0.2,3,0`] (by: gre)
+- `gl_Swirl` (by: Sergey Kosarevsky)
+- `gl_WaterDrop` [args: `amplitude`,`speed`; default: `=30,30`] (by: Paweł Płóciennik)
 
 #### Gallery
 
@@ -502,7 +506,7 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script version 1.8.1 by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script version 1.8.2 by Raymond Luckhurst, scriptit.uk
 Generates custom xfade expressions for rendering transitions with easing
 See https://github.com/scriptituk/xfade-easing
 Usage: xfade-easing.sh [options] [video inputs]
