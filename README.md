@@ -404,90 +404,78 @@ Windows performance has not been measured.
 
 | benchmark → <br/> transition ↓ | 2335–3120 <br/> (M1,M2,M3 Macs) | 1150–1655 <br/> (2017–19 Macs) | 700–1150 <br/> (2013–16 Macs) | 195–700 <br/> (2008–12 Macs) |
 | :---: | :---: | :---: | :---: | :---: |
-| wipeleft | 1 | 3 | 4 | 9 |
-| wipeup | 1 | 3 | 4 | 9 |
-| fade | 2 | 4 | 5 | 11 |
-| wiperight | 3 | 5 | 7 | 15 |
-| wipedown | 3 | 5 | 8 | 16 |
-| wipetl | 3 | 7 | 10 | 21 |
-| wipebl | 4 | 9 | 13 | 27 |
-| wipetr | 5 | 9 | 13 | 28 |
-| wipebr | 5 | 9 | 14 | 29 |
-| squeezeh | 8 | 16 | 24 | 49 |
-| squeezev | 9 | 17 | 26 | 54 |
-| fadeslow | 11 | 21 | 32 | 66 |
-| fadefast | 12 | 22 | 34 | 70 |
-| dissolve | 13 | 26 | 39 | 81 |
-| rectcrop | 13 | 26 | 39 | 81 |
-| revealup | 14 | 28 | 42 | 87 |
-| coverleft | 14 | 28 | 42 | 88 |
-| revealleft | 15 | 28 | 43 | 89 |
-| coverup | 15 | 29 | 44 | 92 |
-| revealright | 15 | 29 | 44 | 92 |
-| revealdown | 16 | 30 | 46 | 95 |
-| smoothup | 16 | 30 | 46 | 95 |
-| vertopen | 16 | 31 | 48 | 98 |
-| coverdown | 16 | 32 | 48 | 99 |
-| coverright | 16 | 32 | 48 | 99 |
-| gl_randomNoisex | 16 | 32 | 48 | 99 |
-| horzopen | 16 | 32 | 48 | 99 |
-| slideup | 17 | 32 | 49 | 100 |
-| slideleft | 17 | 33 | 50 | 104 |
-| slideright | 17 | 33 | 50 | 104 |
-| slidedown | 17 | 34 | 51 | 106 |
-| smoothleft | 17 | 34 | 51 | 106 |
-| vertclose | 17 | 34 | 51 | 106 |
-| horzclose | 18 | 34 | 52 | 108 |
-| diagtl | 18 | 35 | 54 | 112 |
-| circlecrop | 19 | 37 | 56 | 116 |
-| smoothdown | 20 | 38 | 58 | 120 |
-| smoothright | 20 | 38 | 58 | 120 |
-| diagbl | 21 | 41 | 62 | 128 |
-| diagtr | 21 | 41 | 63 | 130 |
-| diagbr | 22 | 43 | 65 | 134 |
-| radial | 22 | 43 | 65 | 136 |
-| gl_pinwheel | 23 | 44 | 67 | 140 |
-| gl_polar_function | 25 | 49 | 75 | 156 |
-| vuslice | 26 | 52 | 78 | 162 |
-| hlslice | 27 | 52 | 78 | 162 |
-| gl_angular | 28 | 55 | 83 | 172 |
-| vdslice | 28 | 55 | 84 | 174 |
-| circleopen | 29 | 56 | 84 | 174 |
-| hrslice | 29 | 56 | 84 | 174 |
-| circleclose | 29 | 56 | 85 | 176 |
-| gl_PolkaDotsCurtain | 31 | 61 | 92 | 190 |
-| vdwind | 31 | 61 | 93 | 192 |
-| hlwind | 33 | 64 | 96 | 200 |
-| hrwind | 34 | 65 | 99 | 206 |
-| vuwind | 34 | 65 | 99 | 206 |
-| gl_WaterDrop | 35 | 68 | 102 | 212 |
-| fadewhite | 36 | 70 | 106 | 220 |
-| fadeblack | 38 | 74 | 112 | 234 |
-| pixelize | 41 | 80 | 120 | 250 |
-| gl_randomsquares | 43 | 84 | 126 | 262 |
-| zoomin | 43 | 84 | 128 | 264 |
-| gl_Dreamy | 48 | 93 | 140 | 290 |
-| gl_rotateTransition | 48 | 94 | 142 | 294 |
-| fadegrays | 53 | 102 | 156 | 322 |
-| gl_crosswarp | 53 | 104 | 158 | 326 |
-| gl_Rolls | 54 | 106 | 160 | 332 |
-| gl_BookFlip | 55 | 106 | 162 | 334 |
-| gl_ripple | 55 | 106 | 162 | 334 |
-| gl_doorway | 63 | 122 | 184 | 382 |
-| gl_RotateScaleVanish | 66 | 128 | 194 | 400 |
-| gl_Swirl | 67 | 130 | 198 | 410 |
-| gl_squareswire | 76 | 148 | 226 | 465 |
-| gl_InvertedPageCurl | 80 | 156 | 236 | 485 |
-| gl_DirectionalScaled | 83 | 162 | 244 | 505 |
-| gl_CrazyParametricFun | 83 | 162 | 246 | 510 |
-| gl_static_wipe | 88 | 172 | 260 | 535 |
-| gl_rotate_scale_fade | 89 | 174 | 262 | 545 |
-| gl_Mosaic | 91 | 176 | 268 | 555 |
-| gl_directionalwarp | 98 | 192 | 290 | 600 |
-| gl_hexagonalize | 104 | 200 | 304 | 630 |
-| gl_perlin | 132 | 258 | 392 | 810 |
-| gl_kaleidoscope | 242 | 470 | 715 | 1480 |
-| gl_powerKaleido | 1030 | 2010 | 3040 | 6290 |
+| `wipeleft` | 1 | 3 | 4 | 9 |
+| `fade` `wipeup` | 2 | 4 | 5 | 11 |
+| `wiperight` `wipedown` | 3 | 5 | 8 | 16 |
+| `wipetl` | 3 | 7 | 10 | 21 |
+| `wipetr` `wipebl` | 4 | 9 | 13 | 27 |
+| `wipebr` | 5 | 9 | 14 | 29 |
+| `squeezeh` | 8 | 15 | 22 | 46 |
+| `squeezev` | 8 | 16 | 24 | 50 |
+| `fadefast` | 12 | 23 | 35 | 73 |
+| `fadeslow` | 12 | 24 | 36 | 74 |
+| `dissolve` | 13 | 26 | 39 | 81 |
+| `rectcrop` | 13 | 26 | 40 | 82 |
+| `revealup` | 14 | 28 | 43 | 88 |
+| `revealleft` | 15 | 28 | 43 | 89 |
+| `coverright` `revealright` `coverup` `coverdown` | 15 | 29 | 45 | 92 |
+| `coverleft` `gl_randomNoisex` | 16 | 31 | 46 | 96 |
+| `slideup` `vertopen` | 16 | 32 | 48 | 99 |
+| `slideleft` `smoothup` `revealdown` | 16 | 32 | 48 | 100 |
+| `slidedown` `vertclose` | 17 | 34 | 51 | 106 |
+| `horzopen` `horzclose` | 18 | 34 | 52 | 108 |
+| `slideright` `smoothleft` | 18 | 35 | 53 | 110 |
+| `diagtl` | 18 | 36 | 54 | 112 |
+| `smoothright` | 19 | 38 | 57 | 118 |
+| `smoothdown` | 20 | 38 | 58 | 120 |
+| `circlecrop` `diagbl` | 20 | 40 | 60 | 124 |
+| `diagtr` `diagbr` | 22 | 43 | 65 | 134 |
+| `gl_pinwheel` | 23 | 45 | 69 | 142 |
+| `radial` | 25 | 48 | 74 | 152 |
+| `hlslice` | 26 | 50 | 75 | 156 |
+| `gl_polar_function` | 26 | 50 | 76 | 158 |
+| `vuslice` | 26 | 51 | 77 | 160 |
+| `gl_Slides` | 27 | 53 | 80 | 166 |
+| `circleclose` | 29 | 56 | 84 | 174 |
+| `gl_angular` | 29 | 56 | 85 | 176 |
+| `circleopen` | 29 | 57 | 86 | 178 |
+| `vdslice` | 30 | 58 | 88 | 182 |
+| `hrslice` | 31 | 59 | 90 | 186 |
+| `hrwind` | 32 | 63 | 96 | 198 |
+| `hlwind` | 33 | 64 | 97 | 200 |
+| `gl_PolkaDotsCurtain` | 33 | 64 | 98 | 202 |
+| `vuwind` `vdwind` | 33 | 65 | 99 | 204 |
+| `gl_WaterDrop` | 35 | 69 | 104 | 216 |
+| `fadewhite` | 36 | 70 | 106 | 220 |
+| `fadeblack` | 38 | 73 | 112 | 230 |
+| `pixelize` | 41 | 80 | 122 | 252 |
+| `gl_randomsquares` | 43 | 84 | 126 | 262 |
+| `zoomin` | 44 | 86 | 130 | 270 |
+| `gl_rotateTransition` | 49 | 94 | 144 | 296 |
+| `gl_Dreamy` | 50 | 96 | 146 | 302 |
+| `fadegrays` | 51 | 98 | 150 | 308 |
+| `gl_crosswarp` | 54 | 106 | 160 | 330 |
+| `gl_BookFlip` | 55 | 106 | 162 | 334 |
+| `gl_Rolls` | 55 | 108 | 164 | 338 |
+| `gl_ripple` | 58 | 114 | 172 | 356 |
+| `gl_doorway` | 62 | 122 | 184 | 380 |
+| `gl_Swirl` | 66 | 130 | 196 | 405 |
+| `gl_RotateScaleVanish` | 68 | 132 | 200 | 415 |
+| `gl_Bounce` | 77 | 150 | 228 | 470 |
+| `gl_squareswire` | 80 | 156 | 238 | 490 |
+| `gl_InvertedPageCurl` | 81 | 158 | 240 | 495 |
+| `gl_DirectionalScaled` | 85 | 166 | 252 | 520 |
+| `gl_rotate_scale_fade` | 86 | 168 | 254 | 525 |
+| `gl_static_wipe` | 89 | 172 | 262 | 540 |
+| `gl_CrazyParametricFun` | 90 | 176 | 266 | 550 |
+| `gl_Mosaic` | 94 | 182 | 276 | 570 |
+| `gl_directionalwarp` | 98 | 192 | 290 | 600 |
+| `gl_cube` | 106 | 206 | 312 | 645 |
+| `gl_hexagonalize` | 110 | 214 | 324 | 670 |
+| `gl_swap` | 118 | 230 | 348 | 720 |
+| `gl_perlin` | 128 | 250 | 380 | 785 |
+| `gl_kaleidoscope` | 242 | 470 | 715 | 1480 |
+| `gl_powerKaleido` | 1030 | 2000 | 3030 | 6270 |
 
 The slowest transition `gl_powerKaleido` is clearly impractical for most purposes!
 
