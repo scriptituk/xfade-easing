@@ -16,8 +16,8 @@ Easing inserts a progress envelope to smooth transitions in a natural way.
 Usage involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concatenation of an easing expression and a transition expression.
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and visual media sequences.
 
-This solution for eased transitions and GL Transitions requires no compilation or installation, just standard ffmpeg.
-However processing is markedly slower than alternative solutions, especially for complex effects – see [Performance](#performance).
+This solution for eased transitions works with standard ffmpeg, so it is at least convenient, if somewhat clunky – see [Performance](#performance).
+The GL Transitions here (non-GPU) were a brain-teasing exercise that might prove useful.
 
 ## Example
 
@@ -307,7 +307,6 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade A
 | ratio | `uniform float ratio` | `W / H` | GL width and height are normalised |
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
 | texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | `vec4 transition(vec2 uv) {...}` runs for every pixel position <br/> xfade `expr` is evaluated for every texture component (plane) and pixel position |
-| code | imperative procedural <br/> compiled <br/> strongly typed | imperative <br/> interpreted <br/> C doubles only | xfade `expr` is restricted to just 10 variables and a few operators, constants and functions |
 
 To make porting easier to follow, the expression generator Bash script [xfade-easing.sh](src/xfade-easing.sh) replicates as comments the original variable names found in the GLSL source code (and xfade C code). It also uses pseudo functions to emulate real functions, expanding them inline later.
 
