@@ -16,8 +16,8 @@ Easing inserts a progress envelope to smooth transitions in a natural way.
 Usage involves setting the xfade `transition` parameter to `custom` and the `expr` parameter to the concatenation of an easing expression and a transition expression.
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and visual media sequences.
 
-This solution for eased transitions works with standard ffmpeg, so it is at least convenient, if somewhat clunky – see [Performance](#performance).
-The GL Transitions here (non-GPU) were a brain-teasing exercise that might prove useful.
+This solution for eased transitions works with standard ffmpeg, so it is at least convenient if somewhat clunky – see [Performance](#performance).
+The ported GL Transitions began as a brain-teasing exercise but proved useful.
 
 ## Example
 
