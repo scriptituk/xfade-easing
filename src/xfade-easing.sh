@@ -12,7 +12,7 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.8.2
+export VERSION=1.8.3
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -39,8 +39,8 @@ export VIDEOFSMULT=1.0
 
 # pixel format
 p_isrgb= # is RGB
-p_maxv= # maximum value of component
-p_midv= # mid value of component
+p_maxv= # maximum value
+p_midv= # mid value
 p_black= # black value
 p_white= # white value
 
@@ -191,6 +191,20 @@ _format() { # pix_fmt
         p_white='if(between(PLANE,1,2), midv, maxv)'
     fi
     return 0
+}
+
+# type of AV file
+_type() { # file
+    local mime=`file --mime "$1"`
+    if [[ $mime =~ video/ ]]; then
+        echo video
+    elif [[ $mime =~ image/ ]]; then
+        echo image
+    elif [[ $mime =~ audio/ ]]; then
+        echo audio
+    else
+        echo ''
+    fi
 }
 
 # probe dimension
@@ -344,10 +358,12 @@ _grey() { # G
 # (not subexpression safe: group first)
 _mix() { # a b mix xf
     [[ $# -lt 3 ]] && _error "_mix expects 3 args, got $#"
-    if [[ -n $4 ]]; then
-        echo "$1 * $3 + $2 * (1 - $3)" # xfade mix fn
-    else
+    if [[ $# -eq 3 ]]; then
         echo "$1 * (1 - $3) + $2 * $3"
+    elif [[ $4 == xf ]]; then
+        echo "$1 * $3 + $2 * (1 - $3)" # xfade arg order
+    else
+        _error 'bad _mix args'
     fi
 }
 
@@ -538,7 +554,7 @@ _xf_transition() { # transition args
         _make 'st(1, if(lt(PLANE, 3), (a0(X,Y) + a1(X,Y) + a2(X,Y)) / 3, A));'
         _make 'st(2, if(lt(PLANE, 3), (b0(X,Y) + b1(X,Y) + b2(X,Y)) / 3, B));'
         else
-        _make 'if(between(PLANE,1,2), st(1, midv); st(2, midv), st(1, A); st(2, B));'
+        _make 'if(between(PLANE,1,2), st(1, st(2, midv)), st(1, A); st(2, B));'
         fi
         _make 'st(3, smoothstep(0.8, 1, P, 3));'
         _make 'st(1, mix(A, ld(1), ld(3)));'
@@ -621,9 +637,8 @@ _xf_transition() { # transition args
         ;;
     rectcrop)
         _make "st(1, ${a[0]-0});" # backWhite
-        _make 'st(2, abs(P - 0.5) * W);' # zw
-        _make 'st(3, abs(P - 0.5) * H);' # zh
-        _make 'if(lt(abs(X - W / 2), ld(2)) * lt(abs(Y - H / 2), ld(3)),' # dist
+        _make 'st(2, abs(P - 0.5));'
+        _make 'if(lt(abs(X - W / 2), ld(2) * W) * lt(abs(Y - H / 2), ld(2) * H),' # dist
         _make ' if(lt(P, 0.5), B, A),' # val
         _make ' mono(ld(1))' # bg
         _make ')'
@@ -758,7 +773,7 @@ _gl_transition() { # transition args
         _make 'st(3, 1 - P);' # progress
         _make 'st(1, ld(1) * PI / 180);' # offset
         _make 'st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(1));' # angle
-        _make 'st(1, (ld(1) + PI) / (2 * PI));' # normalizedAngle
+        _make 'st(1, ld(1) / 2 / PI + 0.5);' # normalizedAngle
         _make 'if(ld(2), st(1, -ld(1)));'
         _make 'st(1, fract(ld(1)));'
         _make 'if(step(ld(1), ld(3)), B, A)'
@@ -768,8 +783,8 @@ _gl_transition() { # transition args
         _make 'st(2, 0.5 - Y / H);'
         _make 'st(3, gte(X / W, P));' # pr
         _make 'if(lt(ld(1), 0),'
-        _make ' st(4, ld(1) / (0.5 - P) / 2 + 0.5);' # skewLeft skewX
-        _make ' st(5, ld(2) / (0.5 - P * ld(1) * 2) / 2 + 0.5);' # skewLeft skewY
+        _make ' st(4, ld(1) / (1 - 2 * P) + 0.5);' # skewLeft skewX
+        _make ' st(5, ld(2) / (1 - 4 * P * ld(1)) + 0.5);' # skewLeft skewY
         _make ' st(4, ld(4) * W);'
         _make ' st(5, (1 - ld(5)) * H);'
         _make ' st(5, b(ld(4), ld(5)));'
@@ -781,8 +796,8 @@ _gl_transition() { # transition args
         fi
         _make '  st(5, ld(5) * max(0.7, abs(P - 0.5) * 2))' # shadeVal
         _make ' ),'
-        _make ' st(4, (ld(1) - 0.5 + P) / (P - 0.5) / 2);' # skewRight skewX
-        _make ' st(5, ld(2) / (0.5 + (1 - P) * ld(1) * 2) / 2 + 0.5);' # skewRight skewY
+        _make ' st(4, (ld(1) - 0.5 + P) / (2 * P - 1));' # skewRight skewX
+        _make ' st(5, ld(2) / (1 + 4 * (1 - P) * ld(1)) + 0.5);' # skewRight skewY
         _make ' st(4, ld(4) * W);'
         _make ' st(5, (1 - ld(5)) * H);'
         _make ' st(4, a(ld(4), ld(5)));'
@@ -801,16 +816,18 @@ _gl_transition() { # transition args
         _make 'st(3, ld(4) * PI * ld(3));' # phase
         _make 'st(3, abs(cos(ld(3))) * (1 - sin(ld(4) * PI / 2)));' # y
         _make 'st(5, 1 - Y / H - ld(3));' # d
-        _make 'st(4, smoothstep(0.95, 1, ld(4), 4));'
-        _make 'st(6, ld(5) / ld(2) * ld(1) + (1 - ld(1)));'
-        _make 'st(6, mix(ld(6), 1, ld(4)));'
-        _make 'st(6, step(ld(5), ld(2)) * (1 - ld(6)));'
-        _make 'st(1, black);'
-        _make 'st(1, mix(B, ld(1), ld(6)));'
-        _make 'st(2, Y - (1 - ld(3)) * H);'
-        _make 'st(2, a(X, ld(2)));'
-        _make 'st(3, step(ld(5), 0));'
-        _make 'mix(ld(1), ld(2), ld(3))'
+        _make 'if(gt(ld(5), 0),'
+        _make ' if(gt(ld(5), ld(2)),'
+        _make '  B,'
+        _make '  st(4, smoothstep(0.95, 1, ld(4), 4));'
+        _make '  st(2, (ld(5) / ld(2) - 1) * ld(1) + 1);'
+        _make '  st(2, mix(ld(2), 1, ld(4)));'
+        _make '  st(1, black);'
+        _make '  mix(ld(1), B, ld(2))'
+        _make ' ),'
+        _make ' st(2, Y - (1 - ld(3)) * H);'
+        _make ' a(X, ld(2))'
+        _make ')'
         ;;
     gl_CrazyParametricFun) # by mandubian
         _make "st(1, ${a[0]-4});" # a
@@ -824,12 +841,11 @@ _gl_transition() { # transition args
         _make 'st(2, ld(6) * sin(ld(5)) - ld(2) * sin(ld(5) * ld(7)));' # y
         _make 'st(6, X / W - 0.5);' # dir.x
         _make 'st(7, 0.5 - Y / H);' # dir.y
-        _make 'st(8, hypot(ld(6), ld(7)));' # dist
-        _make 'st(8, ld(5) * ld(8) * ld(3));'
+        _make 'st(8, ld(5) * hypot(ld(6), ld(7)) * ld(3));' # progress * dist * amplitude
         _make 'st(1, ld(6) * sin(ld(8) * ld(1)) / ld(4));' # offset.x
         _make 'st(2, ld(7) * sin(ld(8) * ld(2)) / ld(4));' # offset.y
-        _make 'st(1, (X / W + ld(1)) * W);'
-        _make 'st(2, (1 - ((1 - Y / H) + ld(2))) * H);'
+        _make 'st(1, X + ld(1) * W);'
+        _make 'st(2, Y - ld(2) * H);'
         _make 'st(1, a(ld(1), ld(2)));';
         _make 'st(2, smoothstep(0.2, 1, ld(5), 2));'
         _make 'mix(ld(1), B, ld(2))'
@@ -840,10 +856,10 @@ _gl_transition() { # transition args
         _make 'st(2, X / W - 0.5);'
         _make 'st(3, 0.5 - Y / H);'
         _make 'st(4, (ld(2) * (1 - ld(1)) + 0.5) * W);'
-        _make 'st(5, (0.5 - (ld(3) * (1 - ld(1)))) * H);'
+        _make 'st(5, (0.5 - ld(3) * (1 - ld(1))) * H);'
         _make 'st(6, a(ld(4), ld(5)));'
         _make 'st(4, (ld(2) * ld(1) + 0.5) * W);'
-        _make 'st(5, (0.5 - (ld(3) * ld(1))) * H);'
+        _make 'st(5, (0.5 - ld(3) * ld(1)) * H);'
         _make 'st(7, b(ld(4), ld(5)));'
         _make 'mix(ld(6), ld(7), ld(1))'
         ;;
@@ -859,8 +875,7 @@ _gl_transition() { # transition args
         _make 'st(2, ld(0) * (1 - ld(1)));' # persp2
         _make 'st(5, (ld(7) - ld(0)) / (1 - ld(0)));' # fromP.x
         _make 'st(6, (ld(8) - ld(2) * ld(5) / 2) / (1 - ld(2) * ld(5)));' # fromP.y
-        _make 'st(2, ld(0) * ld(0));'
-        _make 'st(2, 1 - (mix(ld(2), 1, ld(1))));' # persp2
+        _make 'st(2, 1 - (mix(ld(0) * ld(0), 1, ld(1))));' # persp2
         _make 'st(1, ld(7) / ld(0));' # toP.x
         _make 'st(2, (ld(8) - ld(2) * (1 - ld(1)) / 2) / (1 - ld(2) * (1 - ld(1))));' # toP.y
         _make 'ifnot(st(0, -between(ld(5), 0, 1) * between(ld(6), 0, 1)),' # inBounds(fromP)
@@ -951,8 +966,7 @@ _gl_transition() { # transition args
         _make ' st(5, ld(5) + (1 - gt(ld(5), 0.5) * 2) * ld(0) / 2);' # pfr.x
         _make ' st(6, (ld(6) + (1 - ld(8)) / 2) * ld(8));' # pfr.y
         _make ' st(7, between(ld(5), 0, 1) * between(ld(6), 0, 1)),' # 1 for getFromColor
-        _make ' st(8, 1 - ld(0));'
-        _make ' st(8, mix(1, ld(3), ld(8)));' # size
+        _make ' st(8, mix(ld(3), 1, ld(0)));' # size
         _make ' st(5, (ld(5) - 0.5) * ld(8) + 0.5);' # pto.x
         _make ' st(6, (ld(6) - 0.5) * ld(8) + 0.5);' # pto.y
         _make ' st(7, 2 * between(ld(5), 0, 1) * between(ld(6), 0, 1));' # 2 for getToColor
@@ -1122,26 +1136,27 @@ _gl_transition() { # transition args
         _make "st(1, ${a[0]-1});" # speed
         _make "st(2, ${a[1]-1});" # angle
         _make "st(3, ${a[2]-1.5});" # power
-        _make 'st(4, 1 - P);' # progress
-        _make 'st(5, X / W - 0.5);' # p.x
-        _make 'st(6, 0.5 - Y / H);' # p.y
-        _make 'st(1, pow(ld(4), ld(3)) * ld(1));' # t
+        _make 'st(0, 1 - P);' # progress
+        _make 'st(4, X / W - 0.5);' # p.x
+        _make 'st(5, 0.5 - Y / H);' # p.y
+        _make 'st(1, pow(ld(0), ld(3)) * ld(1));' # t
         _make 'st(3, 0);' # i
-        _make 'while(lt(ld(3), 7),'
-        _make ' st(5, sin(ld(1)) * st(7, ld(5)) + cos(ld(1)) * ld(6));'
-        _make ' st(6, sin(ld(1)) * ld(6) - cos(ld(1)) * ld(7));'
-        _make ' st(1, ld(1) + ld(2));'
+        _make 'while(lte(st(3, ld(3) + 1), 7),'
+        _make ' st(6, sin(ld(1)));'
+        _make ' st(7, cos(ld(1)));'
+        _make ' st(8, ld(6) * ld(4) + ld(7) * ld(5));'
+        _make ' st(5, ld(6) * ld(5) - ld(7) * ld(4));'
+        _make ' st(4, abs(mod(ld(8), 2) - 1));'
         _make ' st(5, abs(mod(ld(5), 2) - 1));'
-        _make ' st(6, abs(mod(ld(6), 2) - 1));'
-        _make ' st(3, ld(3) + 1)'
+        _make ' st(1, ld(1) + ld(2))'
         _make ');'
-        _make 'st(5, ld(5) * W);'
-        _make 'st(6, (1 - ld(6)) * H);'
-        _make 'st(7, a(ld(5), ld(6)));'
-        _make 'st(8, b(ld(5), ld(6)));'
-        _make 'st(1, mix(A, B, ld(4)));'
-        _make 'st(2, mix(ld(7), ld(8), ld(4)));'
-        _make 'st(3, 1 - 2 * abs(P - 0.5));'
+        _make 'st(4, ld(4) * W);'
+        _make 'st(5, (1 - ld(5)) * H);'
+        _make 'st(7, a(ld(4), ld(5)));'
+        _make 'st(8, b(ld(4), ld(5)));'
+        _make 'st(1, mix(A, B, ld(0)));'
+        _make 'st(2, mix(ld(7), ld(8), ld(0)));'
+        _make 'st(3, 1 - 2 * abs(ld(0) - 0.5));'
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
     gl_Mosaic) # by Xaychru
@@ -1174,14 +1189,6 @@ _gl_transition() { # transition args
         _make ' a(ld(3), ld(4))'
         _make ')'
         ;;
-#   gl_multiply_blend) # by Fernando Kuteken
-#       _make 'st(1, A * B / maxv);'
-#       _make 'st(2, 2 * (1 - P));'
-#       _make 'if(gt(P, 0.5),'
-#       _make ' mix(A, ld(1), ld(2)),'
-#       _make ' st(2, ld(2) - 1); mix(ld(1), B, ld(2))'
-#       _make ')'
-#       ;;
     gl_perlin) # by Rich Harris
         _make "st(1, ${a[0]-4});" # scale
         _make "st(2, ${a[1]-0.01});" # smoothness
@@ -1251,7 +1258,7 @@ _gl_transition() { # transition args
         _make 'st(4, ld(7) * st(2, ld(4)) + ld(6) * ld(5));'
         _make 'st(5, -ld(6) * ld(2) + ld(7) * ld(5));'
         _make 'st(8, 0);' # iter
-        _make 'while(lt(ld(8), 10),'
+        _make 'while(lte(st(8, ld(8) + 1), 10),'
         _make ' st(2, 0);' # i
         _make ' while(lt(ld(2), 2 * PI),'
         _make '  st(6, sin(ld(2)));'
@@ -1267,8 +1274,7 @@ _gl_transition() { # transition args
         _make '   st(5, 2 * ld(6) * ld(9) - ld(5))'
         _make '  );'
         _make '  st(2, ld(2) + 120 / 180 * PI)' # change 120 to get different mirror effects
-        _make ' );'
-        _make ' st(8, ld(8) + 1)'
+        _make ' )'
         _make ');'
         _make 'st(6, sin(-ld(3)));'
         _make 'st(7, cos(-ld(3)));'
@@ -1318,8 +1324,8 @@ _gl_transition() { # transition args
         _make 'st(5, (sin(ld(6) * (ld(5) * ld(1) - ld(2))) + 0.5) / 30);'
         _make 'st(3, ld(3) * ld(5));' # offset.x
         _make 'st(4, ld(4) * ld(5));' # offset.y
-        _make 'st(3, (X / W + ld(3)) * W);'
-        _make 'st(4, (1 - ((1 - Y / H) + ld(4))) * H);'
+        _make 'st(3, X + ld(3) * W);'
+        _make 'st(4, Y - ld(4) * H);'
         _make 'st(1, a(ld(3), ld(4)));'
         _make 'st(2, smoothstep(0.2, 1, ld(6), 2));'
         _make 'mix(ld(1), B, ld(2))'
@@ -1402,7 +1408,7 @@ _gl_transition() { # transition args
         _make "st(3, ${a[2]-1});" # rotations
         _make "st(4, ${a[3]-8});" # scale
         _make 'st(5, X / W - ld(1));' # difference.x
-        _make 'st(6, (1 - Y / H) - ld(2));' # difference.y
+        _make 'st(6, 1 - Y / H - ld(2));' # difference.y
         _make 'st(7, hypot(ld(5), ld(6)));' # dist
         _make 'st(5, ld(5) / ld(7));' # dir.x
         _make 'st(6, ld(6) / ld(7));' # dir.y
@@ -1514,14 +1520,13 @@ _gl_transition() { # transition args
         _make 'st(8, ld(2) * ld(0));' # persp
         _make 'st(5, X / W * ld(7) / (1 - ld(8)));' # pfr.x
         _make 'st(6, (0.5 - Y / H) * ld(7) / (1 - ld(7) * ld(8) * X / W) + 0.5);' # pfr.y
-        _make 'st(0, 1 - ld(0));'
-        _make 'st(7, mix(1, ld(3), ld(0)));' # size
+        _make 'st(7, mix(ld(3), 1, ld(0)));' # size
         _make 'st(8, ld(2) - ld(8));' # persp
         _make 'st(2, (X / W - 1) * ld(7) / (1 - ld(8)) + 1);' # pto.x
         _make 'st(3, (0.5 - Y / H) * ld(7) / (1 - ld(7) * ld(8) * (0.5 - X / W)) + 0.5);' # pto.y
         _make 'st(7, between(ld(2), 0, 1) * between(ld(3), 0, 1));' # inBounds(pto)
         _make 'st(8, between(ld(5), 0, 1) * between(ld(6), 0, 1));' # inBounds(pfr)
-        _make 'st(0, gt(ld(0), 0.5));'
+        _make 'st(0, lt(ld(0), 0.5));'
         _make 'ifnot(st(0, if(ld(8) * (ld(0) + not(ld(7))), -1, if(ld(7) * not(ld(0) * ld(8)), 1, 0))),'
         _make ' st(3, ld(3) * -1.2 - 0.02);'
         _make ' ifnot(st(0, 2 * between(ld(2), 0, 1) * between(ld(3), 0, 1)),'
@@ -1635,10 +1640,10 @@ _transition() { # transition
     for s in rem mix fract smoothstep frand a b mono grey dot step; do # expand pseudo functions
         while [[ $x =~ $s\( ]]; do
             r=$(_heredoc FUNC | gawk -v e="$x" -v f=$s -f-)
-            x=${r%%|*} # search
-            r=${r#*|} # args
-            [[ $s == mix && -n $is_xf ]] && r+=' xf' # xfade mix args are different
-            r=$(_$s $r) # replace
+            x=${r%%:*} # search
+            readarray -d : -t a < <(printf %s "${r#*:}") # args
+            [[ $s == mix && -n $is_xf ]] && a+=(xf) # xfade mix args are different
+            r=$(_$s "${a[@]}") # replace
             x=${x/@/$r} # expand
         done
     done
@@ -1731,15 +1736,22 @@ _video() { # path
     local script=$TMP-script.txt # filter_complex_script
     rm -f $script
     for i in $(seq 0 1 $m); do
-        local start=$duration stop=$(_calc "($time + $duration + 1 / $fps)")
-        [[ $i -eq 0 ]] && start=0
-        [[ $i -eq $m ]] && stop=$(_calc "$stop - $duration")
+        local start=0 stop=0 trim=$time type=$(_type "${inputs[i]}")
+        if [[ $type == image ]]; then
+            [[ $i -ne 0 ]] && start=$duration
+            stop=$(_calc "$time + $duration + 1 / $fps")
+            [[ $i -eq $m ]] && stop=$(_calc "$stop - $duration")
+        else # video
+            trim=$(_calc "$time + $duration * 2 + 1 / $fps")
+            [[ $i -eq 0 || $i -eq $m ]] && trim=$(_calc "$trim - $duration")
+        fi
         cat << EOT >> $script
 movie='${inputs[i]}',
 format=pix_fmts=$format,
 scale=width=$width:height=$height:flags=lanczos,
 loop=loop=1:size=1,
 fps=fps=$fps,
+trim=duration=$trim,
 tpad=start_mode=clone:start_duration=$start:stop_mode=clone:stop_duration=$stop
 [v$i];
 EOT
@@ -1790,7 +1802,7 @@ EOT
     if [[ $pad -gt 0 ]]; then
         echo "[v]pad=x=$pad:y=$pad:w=iw+$pad*2:h=ih+$pad*2:color=$fill[v];" >> $script
     fi
-    if [[ $path == /dev/null ]]; then # no output
+    if [[ $path == - ]]; then # no output
         enc='-f null'
     elif [[ $path =~ .gif ]]; then # animated for .md
         echo '[v]split[s0][s1]; [s0]palettegen[s0]; [s1][s0]paletteuse[v]' >> $script
@@ -1815,22 +1827,25 @@ $2 == format { split($NF, a, "-"); print a[1] }
 
 @FUNC # expr pseudo function substitution
 BEGIN {
-    OFS = "|"
-    if (i = index(e, f "(")) {
-        s = substr(e, i)
-        while (s ~ /^[^(]*\([^()]*\(/ && sub(/\([^()]*\)/, "{&}", s)) { # nested (..)
-            sub(/\{\(/, "{", s)
-            sub(/\)\}/, "}", s)
+    i = index(e, f "(")
+    n = split(e, c, "")
+    for (j = i; j <= n; j++) {
+        if (c[j] == "(") {
+            if (!l++)
+                k = j + 1
+        } else if (c[j] == ",") {
+            if (l == 1) {
+                a = a ":" gensub(/^ *| *$/, "", "g", substr(e, k, j - k))
+                k = j + 1
+            }
+        } else if (c[j] == ")") {
+            if (!--l) {
+                a = a ":" gensub(/^ *| *$/, "", "g", substr(e, k, j - k))
+                break
+            }
         }
-        s = substr(s, 1, index(s, ")"))
-        e = substr(e, 1, i - 1) "@" substr(e, i + length(s))
-        gsub(/\{/, "(", s)
-        gsub(/\}/, ")", s)
-        sub(/^[^(]*\(/, "", s)
-        gsub(/, */, " ", s)
-        sub(/\)$/, "", s)
     }
-    print e, s # expr args
+    printf substr(e, 1, i - 1) "@" substr(e, j + 1) a # expr:args
 }
 !FUNC
 
@@ -2079,7 +2094,7 @@ Options:
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
        formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless), from file extension
-       if /dev/null then format is the null muxer (no output)
+       if - then format is the null muxer (no output)
        if gifsicle is available then gifs will be optimised
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z 300x scales H
@@ -2107,7 +2122,7 @@ Options:
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
     2. this script requires Bash 4 (2009), gawk, gsed, envsubst, ffmpeg, gnuplot, base64
-    3. use -filter_complex_threads 1 ffmpeg option (slower!) because xfade expressions
+    3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expressions
        are not thread-safe (the st() & ld() functions use contextual allocation)
     4. certain xfade transitions are not implemented because they perform aggregation
        (distance, hblur)
