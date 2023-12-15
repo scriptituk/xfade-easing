@@ -17,7 +17,7 @@ Usage involves setting the xfade `transition` parameter to `custom` and the `exp
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and visual media sequences.
 
 This solution for eased transitions works with standard ffmpeg, so it is at least convenient if somewhat clunky – see [Performance](#performance).
-The ported GL Transitions began as a brain-teasing exercise but proved useful.
+The ported GL Transitions began as a brain-teasing pastime which proved useful.
 
 ## Example
 
@@ -403,78 +403,76 @@ Windows performance has not been measured.
 
 | benchmark → <br/> transition ↓ | 2335–3120 <br/> (M1,M2,M3 Macs) | 1150–1655 <br/> (2017–19 Macs) | 700–1150 <br/> (2013–16 Macs) | 195–700 <br/> (2008–12 Macs) |
 | :---: | :---: | :---: | :---: | :---: |
-| `wipeleft` | 1 | 3 | 4 | 9 |
-| `fade` `wipeup` | 2 | 4 | 5 | 11 |
-| `wiperight` `wipedown` | 3 | 5 | 8 | 16 |
+| `wipeleft` `wipeup` | 1 | 3 | 4 | 9 |
+| `fade` | 2 | 4 | 6 | 12 |
+| `wipedown` | 2 | 5 | 7 | 15 |
+| `wiperight` | 3 | 5 | 8 | 16 |
 | `wipetl` | 3 | 7 | 10 | 21 |
 | `wipetr` `wipebl` | 4 | 9 | 13 | 27 |
-| `wipebr` | 5 | 9 | 14 | 29 |
-| `squeezeh` | 8 | 15 | 22 | 46 |
-| `squeezev` | 8 | 16 | 24 | 50 |
-| `fadefast` | 12 | 23 | 35 | 73 |
-| `fadeslow` | 12 | 24 | 36 | 74 |
-| `dissolve` | 13 | 26 | 39 | 81 |
-| `rectcrop` | 13 | 26 | 40 | 82 |
-| `revealup` | 14 | 28 | 43 | 88 |
-| `revealleft` | 15 | 28 | 43 | 89 |
-| `coverright` `revealright` `coverup` `coverdown` | 15 | 29 | 45 | 92 |
-| `coverleft` `gl_randomNoisex` | 16 | 31 | 46 | 96 |
-| `slideup` `vertopen` | 16 | 32 | 48 | 99 |
-| `slideleft` `smoothup` `revealdown` | 16 | 32 | 48 | 100 |
-| `slidedown` `vertclose` | 17 | 34 | 51 | 106 |
-| `horzopen` `horzclose` | 18 | 34 | 52 | 108 |
-| `slideright` `smoothleft` | 18 | 35 | 53 | 110 |
+| `wipebr` | 5 | 10 | 15 | 30 |
+| `squeezeh` | 8 | 16 | 24 | 49 |
+| `squeezev` | 9 | 17 | 26 | 53 |
+| `rectcrop` | 11 | 22 | 33 | 68 |
+| `fadefast` `fadeslow` | 12 | 24 | 36 | 75 |
+| `dissolve` | 14 | 26 | 40 | 83 |
+| `revealleft` | 14 | 27 | 42 | 86 |
+| `revealup` | 14 | 28 | 42 | 87 |
+| `coverup` | 14 | 28 | 43 | 88 |
+| `coverleft` | 15 | 29 | 44 | 90 |
+| `coverright` | 15 | 29 | 44 | 91 |
+| `coverdown` | 15 | 30 | 45 | 94 |
+| `slideleft` `smoothup` | 16 | 30 | 46 | 95 |
+| `vertclose` `revealdown` `gl_randomNoisex` | 16 | 32 | 48 | 99 |
+| `horzclose` `revealright` | 16 | 32 | 48 | 100 |
+| `slideup` `slidedown` | 17 | 33 | 49 | 102 |
+| `slideright` | 17 | 33 | 50 | 104 |
+| `smoothleft` `horzopen` | 17 | 34 | 51 | 106 |
+| `vertopen` | 18 | 34 | 52 | 108 |
 | `diagtl` | 18 | 36 | 54 | 112 |
 | `smoothright` | 19 | 38 | 57 | 118 |
 | `smoothdown` | 20 | 38 | 58 | 120 |
-| `circlecrop` `diagbl` | 20 | 40 | 60 | 124 |
-| `diagtr` `diagbr` | 22 | 43 | 65 | 134 |
-| `gl_pinwheel` | 23 | 45 | 69 | 142 |
-| `radial` | 25 | 48 | 74 | 152 |
-| `hlslice` | 26 | 50 | 75 | 156 |
-| `gl_polar_function` | 26 | 50 | 76 | 158 |
-| `vuslice` | 26 | 51 | 77 | 160 |
+| `circlecrop` | 20 | 39 | 59 | 122 |
+| `diagbl` | 20 | 40 | 60 | 124 |
+| `diagtr` `radial` | 21 | 41 | 63 | 130 |
+| `diagbr` | 22 | 43 | 65 | 134 |
+| `gl_pinwheel` | 23 | 44 | 67 | 138 |
+| `hlslice` `gl_polar_function` | 26 | 50 | 75 | 156 |
+| `vuslice` | 27 | 52 | 78 | 162 |
 | `gl_Slides` | 27 | 53 | 80 | 166 |
-| `circleclose` | 29 | 56 | 84 | 174 |
-| `gl_angular` | 29 | 56 | 85 | 176 |
-| `circleopen` | 29 | 57 | 86 | 178 |
-| `vdslice` | 30 | 58 | 88 | 182 |
-| `hrslice` | 31 | 59 | 90 | 186 |
-| `hrwind` | 32 | 63 | 96 | 198 |
-| `hlwind` | 33 | 64 | 97 | 200 |
-| `gl_PolkaDotsCurtain` | 33 | 64 | 98 | 202 |
-| `vuwind` `vdwind` | 33 | 65 | 99 | 204 |
-| `gl_WaterDrop` | 35 | 69 | 104 | 216 |
-| `fadewhite` | 36 | 70 | 106 | 220 |
-| `fadeblack` | 38 | 73 | 112 | 230 |
-| `pixelize` | 41 | 80 | 122 | 252 |
-| `gl_randomsquares` | 43 | 84 | 126 | 262 |
-| `zoomin` | 44 | 86 | 130 | 270 |
-| `gl_rotateTransition` | 49 | 94 | 144 | 296 |
-| `gl_Dreamy` | 50 | 96 | 146 | 302 |
-| `fadegrays` | 51 | 98 | 150 | 308 |
-| `gl_crosswarp` | 54 | 106 | 160 | 330 |
-| `gl_BookFlip` | 55 | 106 | 162 | 334 |
-| `gl_Rolls` | 55 | 108 | 164 | 338 |
-| `gl_ripple` | 58 | 114 | 172 | 356 |
-| `gl_doorway` | 62 | 122 | 184 | 380 |
-| `gl_Swirl` | 66 | 130 | 196 | 405 |
-| `gl_RotateScaleVanish` | 68 | 132 | 200 | 415 |
-| `gl_Bounce` | 77 | 150 | 228 | 470 |
-| `gl_squareswire` | 80 | 156 | 238 | 490 |
-| `gl_InvertedPageCurl` | 81 | 158 | 240 | 495 |
-| `gl_DirectionalScaled` | 85 | 166 | 252 | 520 |
-| `gl_rotate_scale_fade` | 86 | 168 | 254 | 525 |
-| `gl_static_wipe` | 89 | 172 | 262 | 540 |
-| `gl_CrazyParametricFun` | 90 | 176 | 266 | 550 |
-| `gl_Mosaic` | 94 | 182 | 276 | 570 |
-| `gl_directionalwarp` | 98 | 192 | 290 | 600 |
-| `gl_cube` | 106 | 206 | 312 | 645 |
-| `gl_hexagonalize` | 110 | 214 | 324 | 670 |
-| `gl_swap` | 118 | 230 | 348 | 720 |
-| `gl_perlin` | 128 | 250 | 380 | 785 |
-| `gl_kaleidoscope` | 242 | 470 | 715 | 1480 |
-| `gl_powerKaleido` | 1030 | 2000 | 3030 | 6270 |
+| `circleclose` `vdslice` `gl_angular` | 29 | 56 | 84 | 174 |
+| `hrslice` `gl_Bounce` | 29 | 56 | 85 | 176 |
+| `circleopen` | 30 | 59 | 89 | 184 |
+| `vdwind` | 32 | 61 | 93 | 192 |
+| `hrwind` | 32 | 62 | 94 | 194 |
+| `gl_PolkaDotsCurtain` | 33 | 64 | 97 | 200 |
+| `hlwind` | 33 | 64 | 98 | 202 |
+| `vuwind` | 33 | 65 | 99 | 204 |
+| `gl_WaterDrop` | 35 | 68 | 102 | 212 |
+| `fadewhite` | 35 | 68 | 104 | 214 |
+| `fadeblack` | 36 | 71 | 108 | 222 |
+| `pixelize` | 42 | 81 | 122 | 254 |
+| `zoomin` `gl_randomsquares` | 43 | 84 | 128 | 264 |
+| `gl_Dreamy` | 47 | 92 | 140 | 288 |
+| `gl_rotateTransition` | 49 | 95 | 144 | 298 |
+| `gl_ripple` | 51 | 100 | 150 | 312 |
+| `fadegrays` `gl_BookFlip` | 53 | 102 | 156 | 322 |
+| `gl_crosswarp` | 53 | 104 | 156 | 324 |
+| `gl_Rolls` | 56 | 108 | 164 | 340 |
+| `gl_doorway` | 62 | 120 | 182 | 378 |
+| `gl_RotateScaleVanish` `gl_Swirl` | 68 | 132 | 200 | 415 |
+| `gl_InvertedPageCurl` `gl_squareswire` | 78 | 152 | 230 | 475 |
+| `gl_CrazyParametricFun` | 80 | 154 | 234 | 485 |
+| `gl_DirectionalScaled` | 86 | 168 | 254 | 525 |
+| `gl_static_wipe` | 87 | 170 | 256 | 530 |
+| `gl_rotate_scale_fade` | 90 | 176 | 266 | 550 |
+| `gl_directionalwarp` | 94 | 182 | 276 | 570 |
+| `gl_Mosaic` | 96 | 186 | 284 | 585 |
+| `gl_cube` | 100 | 196 | 298 | 615 |
+| `gl_hexagonalize` | 108 | 208 | 316 | 655 |
+| `gl_swap` | 112 | 218 | 332 | 685 |
+| `gl_perlin` | 136 | 264 | 400 | 830 |
+| `gl_kaleidoscope` | 248 | 480 | 730 | 1510 |
+| `gl_powerKaleido` | 1000 | 1950 | 2960 | 6120 |
 
 The slowest transition `gl_powerKaleido` is clearly impractical for most purposes!
 
@@ -493,7 +491,7 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script version 1.8.2 by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script version 1.8.3 by Raymond Luckhurst, scriptit.uk
 Generates custom xfade expressions for rendering transitions with easing
 See https://github.com/scriptituk/xfade-easing
 Usage: xfade-easing.sh [options] [video inputs]
@@ -521,7 +519,7 @@ Options:
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
        formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless), from file extension
-       if /dev/null then format is the null muxer (no output)
+       if - then format is the null muxer (no output)
        if gifsicle is available then gifs will be optimised
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z 300x scales H
@@ -549,7 +547,7 @@ Options:
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
     2. this script requires Bash 4 (2009), gawk, gsed, envsubst, ffmpeg, gnuplot, base64
-    3. use -filter_complex_threads 1 ffmpeg option (slower!) because xfade expressions
+    3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expressions
        are not thread-safe (the st() & ld() functions use contextual allocation)
     4. certain xfade transitions are not implemented because they perform aggregation
        (distance, hblur)
