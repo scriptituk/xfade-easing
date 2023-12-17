@@ -12,7 +12,7 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.8.3
+export VERSION=1.8.4
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/${CMD%.*}-$$
@@ -128,7 +128,7 @@ _deps() {
 # process CLI options
 _opts() {
     local OPTIND OPTARG opt
-    while getopts ':f:t:e:m:x:as:p:c:v:z:i:d:l:r:nu:k:LHVIPT:K' opt; do
+    while getopts ':f:t:e:m:x:as:p:c:v:z:d:i:l:jr:nu:k:LHVIPT:K' opt; do
         case $opt in
         f) o_format=$OPTARG ;;
         t) o_transition=$OPTARG ;;
@@ -144,6 +144,7 @@ _opts() {
         d) o_vtduration=$OPTARG ;;
         i) o_vtime=$OPTARG ;;
         l) o_vlength=$OPTARG ;;
+        j) o_voverlap=true ;;
         r) o_vfps=$OPTARG ;;
         n) o_vname=true ;;
         u) o_vfsmult=$OPTARG ;;
@@ -1737,7 +1738,7 @@ _video() { # path
     rm -f $script
     for i in $(seq 0 1 $m); do
         local start=0 stop=0 trim=$time type=$(_type "${inputs[i]}")
-        if [[ $type == image ]]; then
+        if [[ $type == image || -z $o_voverlap ]]; then
             [[ $i -ne 0 ]] && start=$duration
             stop=$(_calc "$time + $duration + 1 / $fps")
             [[ $i -eq $m ]] && stop=$(_calc "$stop - $duration")
@@ -2069,7 +2070,7 @@ va/hDXpd+JF0ekmo82GaP7R1wOPRDx+Z64asX/SPpP/6Xw8+Zv0XE31bwvXz5/4AAAAASUVORK5CYII=
 FFmpeg Xfade Easing script version $VERSION by Raymond Luckhurst, scriptit.uk
 Generates custom xfade expressions for rendering transitions with easing
 See https://github.com/scriptituk/xfade-easing
-Usage: $CMD [options] [video inputs]
+Usage: $CMD [options] [image/video inputs]
 Options:
     -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
     -t transition name (default: $TRANSITION); use -L for list
@@ -2103,6 +2104,8 @@ Options:
     -l video length (default: ${VIDEOLENGTH}s)
        note: options -d, -i, -l are interdependent: l = ni + (n - 1)d for n inputs
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
+    -j allow input videos to overlap into transitions (default: no overlap)
+       normally videos only play during the -i time but this sets them playing throughout
     -r video framerate (default: ${VIDEOFPS}fps)
     -n show effect name on video as text (requires the libfreetype library)
     -u video text font size multiplier (default: $VIDEOFSMULT)
