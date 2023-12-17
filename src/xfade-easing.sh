@@ -144,7 +144,7 @@ _opts() {
         d) o_vtduration=$OPTARG ;;
         i) o_vtime=$OPTARG ;;
         l) o_vlength=$OPTARG ;;
-        j) o_voverlap=true ;;
+        j) o_vplay=true ;;
         r) o_vfps=$OPTARG ;;
         n) o_vname=true ;;
         u) o_vfsmult=$OPTARG ;;
@@ -1738,7 +1738,7 @@ _video() { # path
     rm -f $script
     for i in $(seq 0 1 $m); do
         local start=0 stop=0 trim=$time type=$(_type "${inputs[i]}")
-        if [[ $type == image || -z $o_voverlap ]]; then
+        if [[ $type == image || -z $o_vplay ]]; then
             [[ $i -ne 0 ]] && start=$duration
             stop=$(_calc "$time + $duration + 1 / $fps")
             [[ $i -eq $m ]] && stop=$(_calc "$stop - $duration")
@@ -2104,7 +2104,7 @@ Options:
     -l video length (default: ${VIDEOLENGTH}s)
        note: options -d, -i, -l are interdependent: l = ni + (n - 1)d for n inputs
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
-    -j allow input videos to overlap into transitions (default: no overlap)
+    -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
     -r video framerate (default: ${VIDEOFPS}fps)
     -n show effect name on video as text (requires the libfreetype library)
