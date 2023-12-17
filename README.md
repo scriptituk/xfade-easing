@@ -491,10 +491,10 @@ It can also generate easing graphs via gnuplot and demo videos for testing.
 
 ### Usage
 ```
-FFmpeg Xfade Easing script version 1.8.3 by Raymond Luckhurst, scriptit.uk
+FFmpeg Xfade Easing script version 1.8.4 by Raymond Luckhurst, scriptit.uk
 Generates custom xfade expressions for rendering transitions with easing
 See https://github.com/scriptituk/xfade-easing
-Usage: xfade-easing.sh [options] [video inputs]
+Usage: xfade-easing.sh [options] [image/video inputs]
 Options:
     -f pixel format (default: rgb24): use ffmpeg -pix_fmts for list
     -t transition name (default: fade); use -L for list
@@ -528,6 +528,8 @@ Options:
     -l video length (default: 5s)
        note: options -d, -i, -l are interdependent: l = ni + (n - 1)d for n inputs
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
+    -j allow input videos to overlap into transitions (default: no overlap)
+       normally videos only play during the -i time but this sets them playing throughout
     -r video framerate (default: 25fps)
     -n show effect name on video as text (requires the libfreetype library)
     -u video text font size multiplier (default: 1.0)
