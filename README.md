@@ -528,7 +528,7 @@ Options:
     -l video length (default: 5s)
        note: options -d, -i, -l are interdependent: l = ni + (n - 1)d for n inputs
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
-    -j allow input videos to overlap into transitions (default: no overlap)
+    -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
     -r video framerate (default: 25fps)
     -n show effect name on video as text (requires the libfreetype library)
