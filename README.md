@@ -17,7 +17,11 @@ Usage involves setting the xfade `transition` parameter to `custom` and the `exp
 Pre-generated [expressions](expr) can be copied verbatim but a CLI [expression generator](#expression-generator-cli-script) is provided which can also produce test videos and visual media sequences.
 
 This solution for eased transitions works with standard ffmpeg, so it is at least convenient if somewhat clunky – see [Performance](#performance).
-The ported GL Transitions began as a brain-teasing pastime which proved useful.
+The ported GL Transitions began as a mental recreation but proved useful.
+
+> [!NOTE]
+> **Coming Soon**: fast native FFmpeg XFade support for Easings & GL Transitions with minimal libavfilter/vf_xfade.c patching  
+> **Example Usage**: `xfade=duration=3:offset=1:easing=cubic:mode=inout:transition=gltransition:expr='gl_cube=0.6,0.8,0.7,9,1'`
 
 ## Example
 
