@@ -20,8 +20,8 @@ This solution for eased transitions works with standard ffmpeg, so it is at leas
 The ported GL Transitions began as a mental recreation but proved useful.
 
 > [!NOTE]
-> **Coming Soon**: fast native FFmpeg XFade support for Easings & GL Transitions with minimal libavfilter/vf_xfade.c patching  
-> **Example Usage**: `xfade=duration=3:offset=1:easing=cubic:mode=inout:transition=gltransition:expr='gl_cube=0.6,0.8,0.7,9,1'`
+> **Coming Soon**: fast native FFmpeg XFade support for Easings & Extended Transitions (GL etc.) with minimal libavfilter/vf_xfade.c patching  
+> **Example Usage**: `xfade=duration=3:offset=1:easing=cubic:mode=inout:transition=xtransition:expr='gl_cube=persp=0.6,unzoom=0.8,reflection=0.7,floating=9'`
 
 ## Example
 
