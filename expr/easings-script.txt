@@ -1,52 +1,46 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 1.8.3
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 2.0.0
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
-# Script easing expressions for filter_complex_script filterchains
+# Script easing expressions for xfade filter_complex_script filterchains
 
-LINEAR-IN
-st(0, P)
-
-LINEAR-OUT
-st(0, P)
-
-LINEAR-INOUT
+LINEAR
 st(0, P)
 
 QUADRATIC-IN
 st(0, P * (2 - P))
 
 QUADRATIC-OUT
-st(0, P^2)
+st(0, P * P)
 
-QUADRATIC-INOUT
-st(0, if(gt(P, 0.5), 2 * P * (2 - P) - 1, 2 * P^2))
+QUADRATIC-IN-OUT
+st(0, if(lt(P, 0.5), 2 * P * P, 2 * P * (2 - P) - 1))
 
 CUBIC-IN
-st(0, 1 - (1 - P)^3)
+st(0, 1 - (1-P)^3)
 
 CUBIC-OUT
 st(0, P^3)
 
-CUBIC-INOUT
-st(0, if(gt(P, 0.5), 1 - 4 * (1 - P)^3, 4 * P^3))
+CUBIC-IN-OUT
+st(0, if(lt(P, 0.5), 4 * P^3, 1 - 4 * (1-P)^3))
 
 QUARTIC-IN
-st(0, 1 - (1 - P)^4)
+st(0, 1 - (1-P)^4)
 
 QUARTIC-OUT
 st(0, P^4)
 
-QUARTIC-INOUT
-st(0, if(gt(P, 0.5), 1 - 8 * (1 - P)^4, 8 * P^4))
+QUARTIC-IN-OUT
+st(0, if(lt(P, 0.5), 8 * P^4, 1 - 8 * (1-P)^4))
 
 QUINTIC-IN
-st(0, 1 - (1 - P)^5)
+st(0, 1 - (1-P)^5)
 
 QUINTIC-OUT
 st(0, P^5)
 
-QUINTIC-INOUT
-st(0, if(gt(P, 0.5), 1 - 16 * (1 - P)^5, 16 * P^5))
+QUINTIC-IN-OUT
+st(0, if(lt(P, 0.5), 16 * P^5, 1 - 16 * (1-P)^5))
 
 SINUSOIDAL-IN
 st(0, sin(P * PI / 2))
@@ -54,111 +48,130 @@ st(0, sin(P * PI / 2))
 SINUSOIDAL-OUT
 st(0, 1 - cos(P * PI / 2))
 
-SINUSOIDAL-INOUT
+SINUSOIDAL-IN-OUT
 st(0, (1 - cos(P * PI)) / 2)
 
 EXPONENTIAL-IN
-st(0, if(eq(P, 1), 1, 1 - 2^(-10 * P)))
+st(0, if(gte(P, 1), 1, 1 - pow(2, -10 * P)))
 
 EXPONENTIAL-OUT
-st(0, if(eq(P, 0), 0, 2^(-10 * (1 - P))))
+st(0, if(lte(P, 0), 0, pow(2, 10 * P - 10)))
 
-EXPONENTIAL-INOUT
-st(0, if(gt(P, 0.5), if(eq(P, 1), 1, 1 - 2^(9 - 20 * P)), if(eq(P, 0), 0, 2^(20 * P - 11))))
+EXPONENTIAL-IN-OUT
+st(0,
+ if(lt(P, 0.5),
+  if(lte(P, 0), 0, pow(2, 20 * P - 11)),
+  if(gte(P, 1), 1, 1 - pow(2, 9 - 20 * P))
+ )
+)
 
 CIRCULAR-IN
 st(0, sqrt(P * (2 - P)))
 
 CIRCULAR-OUT
-st(0, 1 - sqrt(1 - P^2))
+st(0, 1 - sqrt(1 - P * P))
 
-CIRCULAR-INOUT
-st(0, if(gt(P, 0.5), 1 + sqrt(1 - 4 * (1 - P)^2), 1 - sqrt(1 - 4 * P^2)) / 2)
+CIRCULAR-IN-OUT
+st(0,
+ if(lt(P, 0.5),
+  1 - sqrt(1 - 4 * P * P),
+  1 + sqrt(4 * P * (2 - P) - 3)
+ ) / 2
+)
 
 ELASTIC-IN
-st(0, 1 - cos(20 * P * PI / 3) / 2^(10 * P))
+st(0, 1 - cos(20 * P * PI / 3) / pow(2, 10 * P))
 
 ELASTIC-OUT
-st(0, cos(20 * (1 - P) * PI / 3) / 2^(10 * (1 - P)))
+st(0, cos(20 * (1-P) * PI / 3) / pow(2, 10 * (1-P)))
 
-ELASTIC-INOUT
-st(0, 1 - 2 * P);
-st(1, cos(40 * ld(0) * PI / 9) / 2);
-st(0, 2^(10 * ld(0)));
-st(0, if(gt(P, 0.5), 1 - ld(1) * ld(0), ld(1) / ld(0)))
+ELASTIC-IN-OUT
+st(0,
+ st(1, cos(40 * st(2, 2 * P - 1) * PI / 9) / 2);
+ st(2, pow(2, 10 * ld(2)));
+ if(lt(P, 0.5), ld(1) * ld(2), 1 - ld(1) / ld(2))
+)
 
 BACK-IN
-st(0, 1 - (1 - P)^2 * ((1 - P) * 2.70158 - 1.70158))
+st(0, 1 - (1-P)^2 * (1 - P * 2.70158))
 
 BACK-OUT
-st(0, P^2 * (P * 2.70158 - 1.70158))
+st(0, P * P * (P * 2.70158 - 1.70158))
 
-BACK-INOUT
-st(0, if(gt(P, 0.5), 1 - 2 * (1 - P)^2 * (2 * (1 - P) * 2.525 - 1.525), 2 * P^2 * (2 * P * 2.525 - 1.525)))
+BACK-IN-OUT
+st(0,
+ if(lt(P, 0.5),
+  2 * P * P * (2 * P * 3.59491 - 2.59491),
+  1 - 2 * (1-P)^2 * (4.59491 - 2 * P * 3.59491)
+ )
+)
 
 BOUNCE-IN
 st(0,
- st(1, 121 / 16);
- if(lt(P, 4 / 11),
-  ld(1) * P^2,
-  if(lt(P, 8 / 11),
-   ld(1) * (P - 6 / 11)^2 + 3 / 4,
-   if(lt(P, 10 / 11),
-    ld(1) * (P - 9 / 11)^2 + 15 / 16,
-    ld(1) * (P - 21 / 22)^2 + 63 / 64
+  st(1, 121/16);
+  if(lt(P, 4/11),
+   ld(1) * P * P,
+   if(lt(P, 8/11),
+    ld(1) * (P - 6/11)^2 + 3/4,
+    if(lt(P, 10/11),
+     ld(1) * (P - 9/11)^2 + 15/16,
+     ld(1) * (P - 21/22)^2 + 63/64
+    )
+   )
+  )
+)
+
+BOUNCE-OUT
+st(0,
+ st(0, 1 - P);
+ 1 - (
+  st(1, 121/16);
+  if(lt(ld(0), 4/11),
+   ld(1) * ld(0) * ld(0),
+   if(lt(ld(0), 8/11),
+    ld(1) * (ld(0) - 6/11)^2 + 3/4,
+    if(lt(ld(0), 10/11),
+     ld(1) * (ld(0) - 9/11)^2 + 15/16,
+     ld(1) * (ld(0) - 21/22)^2 + 63/64
+    )
    )
   )
  )
 )
 
-BOUNCE-OUT
-st(0, 1 - P);
+BOUNCE-IN-OUT
 st(0,
- st(1, 121 / 16);
- if(lt(ld(0), 4 / 11),
-  ld(1) * ld(0)^2,
-  if(lt(ld(0), 8 / 11),
-   ld(1) * (ld(0) - 6 / 11)^2 + 3 / 4,
-   if(lt(ld(0), 10 / 11),
-    ld(1) * (ld(0) - 9 / 11)^2 + 15 / 16,
-    ld(1) * (ld(0) - 21 / 22)^2 + 63 / 64
+ st(1,
+  st(0, st(2, lt(P, 0.5) * 2 - 1) * (1 - 2 * P));
+  st(1, 121/16);
+  if(lt(ld(0), 4/11),
+   ld(1) * ld(0) * ld(0),
+   if(lt(ld(0), 8/11),
+    ld(1) * (ld(0) - 6/11)^2 + 3/4,
+    if(lt(ld(0), 10/11),
+     ld(1) * (ld(0) - 9/11)^2 + 15/16,
+     ld(1) * (ld(0) - 21/22)^2 + 63/64
+    )
    )
   )
- )
-);
-st(0, 1 - ld(0))
-
-BOUNCE-INOUT
-st(0, st(2, sgn(P - 0.5)) * (2 * P - 1));
-st(0,
- st(1, 121 / 16);
- if(lt(ld(0), 4 / 11),
-  ld(1) * ld(0)^2,
-  if(lt(ld(0), 8 / 11),
-   ld(1) * (ld(0) - 6 / 11)^2 + 3 / 4,
-   if(lt(ld(0), 10 / 11),
-    ld(1) * (ld(0) - 9 / 11)^2 + 15 / 16,
-    ld(1) * (ld(0) - 21 / 22)^2 + 63 / 64
-   )
-  )
- )
-);
-st(0, (1 + ld(2) * ld(0)) / 2)
+ );
+ (1 - ld(2) * ld(1)) / 2
+)
 
 SQUAREROOT-IN
-st(0, 1 - sqrt((1 - P)))
+st(0, 1 - sqrt((1-P)))
 
 SQUAREROOT-OUT
 st(0, sqrt(P))
 
-SQUAREROOT-INOUT
-st(0, if(gt(P, 0.5), 2 - sqrt(2 * (1 - P)), sqrt(2 * P)) / 2)
+SQUAREROOT-IN-OUT
+st(0, if(lt(P, 0.5), sqrt(2 * P), 2 - sqrt(2 * (1-P))) / 2)
 
 CUBEROOT-IN
-st(0, 1 - pow((1 - P), 1 / 3))
+st(0, pow(P, 1/3))
 
 CUBEROOT-OUT
-st(0, pow(P, 1 / 3))
+st(0, 1 - pow((1-P), 1/3))
 
-CUBEROOT-INOUT
-st(0, if(gt(P, 0.5), 2 - pow(2 * (1 - P), 1 / 3), pow(2 * P, 1 / 3)) / 2)
+CUBEROOT-IN-OUT
+st(0, if(lt(P, 0.5), pow(2 * P, 1/3), 2 - pow(2 * (1-P), 1/3)) / 2)
