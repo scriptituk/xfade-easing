@@ -1,10 +1,10 @@
 #!/opt/local/bin/bash
 
-# FFmpeg Xfade easing expressions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
+# FFmpeg XFade easing and extensions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
 # GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
 #
-# This is a port of Robert Penner's easing equations for the FFmpeg expression evaluator
-# It also ports most xfade transitions and some GL Transitions for use with easing
+# This is a port of standard easing equations and CSS easing functions for the FFmpeg XFade filter
+# It also ports extended transitions, notably GL Transitions, for use with or without easing
 #
 # See https://github.com/scriptituk/xfade-easing for documentation or use the -H option
 # See https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation for FFmpeg expressions
@@ -12,10 +12,11 @@
 set -o posix
 
 export CMD=$(basename $0)
-export VERSION=1.8.4
+export REPO=${CMD%.*}
+export VERSION=2.0.0
 export TMPDIR=/tmp
 
-TMP=$TMPDIR/${CMD%.*}-$$
+TMP=$TMPDIR/$REPO-$$
 trap "rm -f $TMP-*" EXIT
 ERROR=64 # unreserved exit code
 N=$'\n'
@@ -26,9 +27,9 @@ T=$'\t'
 export FORMAT=rgb24
 export TRANSITION=fade
 export EASING=linear
-export MODE=inout
 export EXPRFORMAT="'%x'"
 export PLOTSIZE=640x480 # default for gnuplot (4:3)
+export PLOTTITLE=Easings
 export VIDEOSIZE=250x200 # sheep/goat png (5:4)
 export VIDEOTRANSITIONDURATION=3
 export VIDEOTIME=1
@@ -38,6 +39,7 @@ export VIDEOSTACK=,0,white,0 # orientation,gap,colour,padding
 export VIDEOFSMULT=1.0
 
 # pixel format
+p_alpha= # has alpha
 p_isrgb= # is RGB
 p_maxv= # maximum value
 p_midv= # mid value
@@ -53,34 +55,31 @@ _main() {
     _tmp || exit $ERROR # set tmp dir
     format=${o_format-$FORMAT}
     _format $format || exit $ERROR # set pix format vars
-    transition=${o_transition-$TRANSITION}
-    [[ $transition =~ = ]] && args=${transition#*=} && transition=${transition%=*}
-    easing=${o_easing-$EASING}
-    mode=${o_mode-$MODE}
+    easing=${o_easing-$EASING}; eargs=$(_args "$easing"); easing=${easing%%(*}
+    transition=${o_transition-$TRANSITION}; targs=$(_args "$transition"); transition=${transition%%(*}
     xformat=${o_xformat-$EXPRFORMAT}
 
     [[ -n $o_list ]] && _list && exit 0
     [[ -n $o_help ]] && _help && exit 0
     [[ -n $o_version ]] && _version && exit 0
 
-    [[ ! $mode =~ ^(in|out|inout)$ ]] && _error "unknown easing mode '$mode'" && exit $ERROR
+    p_easing_expr=$(_easing "$easing" "$eargs") # get easing expr
+    [[ -z $p_easing_expr ]] && _error "unknown easing '$easing'" && exit $ERROR
+    g_easing_expr=${p_easing_expr#*:} p_easing_expr=${p_easing_expr%:*}
 
-    easing_expr=$(_easing $easing $mode) # get easing expr
-    [[ -z $easing_expr ]] && _error "unknown easing '$easing'" && exit $ERROR
-
-    transition_expr=$(_transition $transition $args) # get transition expr
+    transition_expr=$(_transition $transition "$targs") # get transition expr
     [[ -z $transition_expr ]] && _error "unknown transition '$transition'" && exit $ERROR
 
     expr=$transition_expr # uneased (linear)
     transition_expr=$(gsed -e "s/\<P\>/ld(0)/g" <<<$transition_expr) # expects eased progress in ld(0)
     if [[ $easing != linear || -n $o_easing ]]; then
-        expr="$easing_expr%n;%n$transition_expr" # chained easing & transition
+        expr="$p_easing_expr%n;%n$transition_expr" # chained easing & transition
     fi
 
     [[ -n $o_logprogress ]] && expr="if(ld(9)-st(9,floor(time(0))),print(floor((1-P)*100)))%n;%n$expr"
 
     [[ -n $o_expr ]] && _expr "$o_expr" "$xformat" # output custom expression
-    [[ -n $o_plot ]] && _plot "$o_plot" $easing # output easing plot
+    [[ -n $o_plot ]] && _plot "$o_plot" "${o_pmultiple-$easing}" # output easing plot
     [[ -n $o_video ]] && _video "$o_video" "${vinputs[@]}" # output demo video
 }
 
@@ -89,9 +88,52 @@ _error() { # message
     echo "Error: $1" >&2
 }
 
+# emit warning message to stderr
+_warning() { # message
+    echo "Warning: $1" >&2
+}
+
+# emit debug message to stderr
+_debug() { # message
+    [[ -n $o_debug ]] && echo "Debug: $1" >&2
+}
+
 # extract document contained in this script
 _heredoc() { # delimiter
     gsed -n -e "/^@$1/,/^!$1/{//!p}" $0 | gsed '/^[ \t]*#/d'
+}
+
+# check dependency
+_dep() { # dep
+    local a=$(compgen -c $1) d
+    for d in $a; do
+        test $d == $1 && return 0
+    done
+    return $ERROR
+}
+
+# check dependencies
+_deps() {
+    local deps
+    [[ ${BASH_VERSINFO[0]} -ge 4 ]] || deps='bash-v4'
+    for s in gawk gsed ffmpeg seq; do
+        _dep $s || deps+=" $s"
+    done
+    [[ -n $deps ]] && _error "missing dependencies:$deps" && return $ERROR
+    return 0
+}
+
+# emit usage text
+_help() {
+    if _dep envsubst; then
+        _heredoc USAGE | envsubst
+    else
+        local h=$(_heredoc USAGE) e=$(compgen -e) v
+        for v in $e; do
+            h=$(gsed -e "s|\${\?$v\>}\?|${!v}|g" <<<$h)
+        done
+        printf '%s\n' "$h"
+    fi
 }
 
 # list all transitions
@@ -100,13 +142,8 @@ _list() {
         if (/:/ || /^$/)
             print
         else
-            print "\t" $1 ($2 ? sprintf(" [args: %s; default: =%s]", $2, $3) : "") ($4 ? sprintf(" (by: %s)", $4) : "")
+            print "\t" $1 ($2 ? sprintf(" [args: %s; default: (%s)]", $2, $3) : "") ($4 ? sprintf(" (by: %s)", $4) : "")
     }'
-}
-
-# emit usage text
-_help() {
-    _heredoc USAGE | envsubst
 }
 
 # emit version
@@ -114,30 +151,21 @@ _version() {
     echo $VERSION
 }
 
-# check dependencies
-_deps() {
-    local deps
-    [[ ${BASH_VERSINFO[0]} -ge 4 ]] || deps=' bash-v4'
-    for s in gawk gsed envsubst gnuplot ffmpeg seq base64; do
-        which -s $s || deps+=" $s"
-    done
-    [[ -n $deps ]] && _error "missing dependencies:$deps" && return $ERROR
-    return 0
-}
-
 # process CLI options
 _opts() {
+    ffmpeg -hide_banner --help filter=xfade | grep -q easing && o_native=true # detect native build
     local OPTIND OPTARG opt
-    while getopts ':f:t:e:m:x:as:p:c:v:z:d:i:l:jr:nu:k:LHVIPT:K' opt; do
+    while getopts ':f:t:e:x:as:p:m:q:c:v:z:d:i:l:jr:nu:k:LHVXIPT:KD' opt; do
         case $opt in
         f) o_format=$OPTARG ;;
         t) o_transition=$OPTARG ;;
         e) o_easing=$OPTARG ;;
-        m) o_mode=$OPTARG ;;
         x) o_expr=$OPTARG ;;
         a) o_xappend=true ;;
         s) o_xformat=$OPTARG ;;
         p) o_plot=$OPTARG ;;
+        m) o_pmultiple=$OPTARG ;;
+        q) o_ptitle=$OPTARG ;;
         c) o_psize=$OPTARG ;;
         v) o_video=$OPTARG ;;
         z) o_vsize=$OPTARG ;;
@@ -152,10 +180,12 @@ _opts() {
         L) o_list=true ;;
         H) o_help=true ;;
         V) o_version=true ;;
+        X) o_native= ;;
         I) o_loglevel=info ;;
         P) o_logprogress=true ; o_loglevel=info ;;
         T) o_tmp=$OPTARG ;;
         K) o_keep=true ;;
+        D) o_debug=true ;;
         :) _error 'missing argument'; _help; return $ERROR ;;
         \?) _error 'invalid option'; _help; return $ERROR ;;
         esac
@@ -168,8 +198,8 @@ _opts() {
 # set tmp dir
 _tmp() {
     [[ -z $o_tmp ]] && return 0
-    test ! -d $o_tmp && ! mkdir $o_tmp 2>/dev/null && _error "failed to make temp dir $o_tmp" && return $ERROR
-    TMP=$o_tmp/${CMD%.*}-$$
+    test ! -d $o_tmp && ! mkdir -p $o_tmp 2>/dev/null && _error "failed to make temp dir $o_tmp" && return $ERROR
+    TMP=$o_tmp/$REPO-$$
     trap - EXIT
     [[ -z $o_keep ]] && trap "rm -f $TMP-* && rmdir $o_tmp 2>/dev/null" EXIT
     return 0
@@ -178,12 +208,13 @@ _tmp() {
 # set pixel format
 _format() { # pix_fmt
     ffmpeg -hide_banner -pix_fmts > $TMP-pixfmts.txt
-    local depth=$(_heredoc PIXFMT | gawk -v format=$1 -f- $TMP-pixfmts.txt)
-    [[ -z $depth ]] && _error "unknown format: $1" && return $ERROR
-    p_isrgb=0
-    [[ $1 =~ (rgb|bgr|gbr|rbg|bggr|rggb) ]] && p_isrgb=1 # (from libavutil/pixdesc.c)
+    local pf=$(_heredoc PIXFMT | gawk -v format=$1 -f- $TMP-pixfmts.txt)
+    [[ -z $pf ]] && _error "unknown format: $1" && return $ERROR
+    local planes=${pf%,*} depth=${pf#*,}
     p_maxv=$(((1<<$depth)-1))
     p_midv=$((1<<($depth-1)))
+    p_alpha=0; [[ $planes -eq 4 ]] && p_alpha=1
+    p_isrgb=0; [[ $1 =~ (rgb|bgr|gbr|rbg|bggr|rggb) ]] && p_isrgb=1 # (from libavutil/pixdesc.c)
     if [[ $p_isrgb -ne 0 ]]; then
         p_black='if(lt(PLANE,3), 0, maxv)'
         p_white='maxv'
@@ -208,6 +239,11 @@ _type() { # file
     fi
 }
 
+# duration of AV file
+_duration() { # file
+    printf '%g' $(ffprobe -v quiet -show_entries format=duration -of csv='p=0' "$1")
+}
+
 # probe dimension
 _dims() { # file
     echo $(ffprobe -v error -i "$1" -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0)
@@ -225,29 +261,33 @@ _size() { # WxH original even
 # expand path placeholder tokens
 _expand() { # format expr
     local e="$1"
-    e=${e//%f/$format}
+    if [[ $e =~ %[fF] ]]; then
+        e=${e//%f/$format}
+        e=${e//%F/${format^^}}
+    fi
     e=${e//%t/$transition}
-    if [[ $e =~ %[aA] ]]; then
-        local a=$(_args $transition)
-        e=${e//%a/${args-$a}}
+    e=${e//%T/${transition^^}}
+    if [[ $e =~ %[caA] ]]; then
+        local a=$(_dtargs $transition)
+        e=${e//%a/${targs-$a}}
         e=${e//%A/$a}
+        e=${e//%c/$eargs}
     fi
     e=${e//%e/$easing}
-    e=${e//%m/$mode}
-    e=${e//%F/${format^^}}
-    e=${e//%T/${transition^^}}
     e=${e//%E/${easing^^}}
-    e=${e//%M/${mode^^}}
-    if [[ $e =~ %[xyzXYZ] ]]; then
-        local x=${2-$expr} y=$easing_expr z=$transition_expr
+    if [[ $e =~ %[xpgzXPGZ] ]]; then
+        local x=${2-$expr} p=$p_easing_expr g=$g_easing_expr z=$transition_expr
         e=${e/\%X/$x}
-        e=${e/\%Y/$y}
+        e=${e/\%P/$p}
+        e=${e/\%G/$g}
         e=${e/\%Z/$z}
-        x=${x//%n/} && x=${x// /} # inline
-        y=${y//%n/} && y=${y// /}
-        z=${z//%n/} && z=${z// /}
+        x=${x//%n/} x=${x// /} # inline
+        p=${p//%n/} p=${p// /}
+        g=${g//%n/} g=${g// /}
+        z=${z//%n/} z=${z// /}
         e=${e/\%x/$x}
-        e=${e/\%y/$y}
+        e=${e/\%p/$p}
+        e=${e/\%g/$g}
         e=${e/\%z/$z}
     fi
     e=${e//%n/$N}
@@ -255,13 +295,47 @@ _expand() { # format expr
 }
 
 # get default transition args
-_args() { # transition
+_dtargs() { # transition
     _heredoc LIST | gawk -f- $0 | gawk -F "$T" -v transition=$1 '$1 == transition { if ($3 != "") print $3 }'
 }
 
 # get transition author
 _author() { # transition
     _heredoc LIST | gawk -f- $0 | gawk -F "$T" -v transition=$1 '$1 == transition { if ($4 != "") print $4 }'
+}
+
+# get easing/transition args
+_args() { # easing/transition
+    local a
+    [[ $1 =~ \(.*\)$ ]] && a=${1#*(} && a=${a%*)}
+    [[ $a =~ ^\ *$ ]] && a=
+    echo "$a"
+}
+
+# get filter string
+_xfade() { # offset duration easing eargs transition targs expr
+    local xfade="offset=$1:duration=$2" e
+    if [[ -n $o_native ]]; then # use native build
+        if [[ $3 != linear || -n $4 ]]; then # CSS easing but not identity linear
+            e=$3
+            [[ -n $4 ]] && e+="($4)" && e="'$e'"
+            xfade+=":easing=$e"
+        fi
+        if [[ $5 =~ _ ]]; then # extended
+            e=$5
+            [[ -n $6 ]] && e+="($6)" && e="'$e'"
+            xfade+=":transition=$e"
+        else # vanilla
+            xfade+=":transition=$5"
+        fi
+    else # use custom expr
+        if [[ -n $7 ]]; then # have expr
+            xfade+=":transition=custom:expr='$7'"
+        else # vanilla
+            xfade+=":transition=$5"
+        fi
+    fi
+    echo "$xfade"
 }
 
 # calculate expression using awk
@@ -315,7 +389,7 @@ _smoothstep() { # edge0 edge1 x st
 # (not subexpression safe: group first)
 _frand() { # x y st
     [[ $# -ne 3 ]] && _error "_frand expects 3 args, got $#"
-    local e="st($3, sin($1 * 12.9898 + $2 * 78.233) * 43758.5453)"
+    local e="st($3, sin($1 * 12.9898 + $2 * 78.233) * 43758.545)"
     echo "$e - floor(ld($3))"
 }
 
@@ -333,10 +407,10 @@ _b() { # X Y
     echo "ifnot(PLANE, b0($1,$2), if(eq(PLANE,1), b1($1,$2), if(eq(PLANE,2), b2($1,$2), b3($1,$2))))"
 }
 
-# get black/white value
+# get black/white/transparent value
 # (not subexpression safe: group first)
-_mono() { # W
-    [[ $# -ne 1 ]] && _error "_mono expects 1 arg, got $#"
+_bwt() { # W
+    [[ $# -ne 1 ]] && _error "_bwt expects 1 arg, got $#"
     if [[ $p_isrgb -ne 0 ]]; then
         echo "if($1+eq(PLANE,3), maxv, 0)"
     else
@@ -383,147 +457,182 @@ _step() { # edge x
 
 # custom expressions for standard easings
 # (by Robert Penner; single arg version by Michael Pohoreski, optimised by me)
+# xfade progress P goes backwards in time, which is clearly daft, so we cater for that last
 # see http://robertpenner.com/easing/
 # see https://github.com/Michaelangel007/easing
 _rp_easing() { # easing mode
-    local i o io # mode expressions
-    local x # expr
+    local i o io x # mode expressions as functions of time (T)
     case $1 in
-        # note: P is xfade P; Q is 1-P (progress 0 to 1)
+        # note: T is time (0 to 1); R is reversed, 1 - T
     linear)
-        io='st(0, P)'
-        i="$io"
-        o="$io"
+        [[ $1 != linear ]] && return '' # CSS
+        io='T'
         ;;
     quadratic)
-        i='st(0, P * (2 - P))'
-        o='st(0, P^2)'
-        io='st(0, if(gt(P, 0.5), 2 * P * (2 - P) - 1, 2 * P^2))'
+        i='2 * T * T' o='2 * T * (2 - T) - 1'
+        io="if(lt(T, 0.5), $i, $o)"
+        i='T * T'
+        o='T * (2 - T)'
         ;;
     cubic)
-        i='st(0, 1 - Q^3)'
-        o='st(0, P^3)'
-        io='st(0, if(gt(P, 0.5), 1 - 4 * Q^3, 4 * P^3))'
+        i='4 * T^3' o='1 - 4 * R^3'
+        io="if(lt(T, 0.5), $i, $o)"
+        i='T^3'
+        o='1 - R^3'
         ;;
     quartic)
-        i='st(0, 1 - Q^4)'
-        o='st(0, P^4)'
-        io='st(0, if(gt(P, 0.5), 1 - 8 * Q^4, 8 * P^4))'
+        i='8 * T^4' o='1 - 8 * R^4'
+        io="if(lt(T, 0.5), $i, $o)"
+        i='T^4'
+        o='1 - R^4'
         ;;
     quintic)
-        i='st(0, 1 - Q^5)'
-        o='st(0, P^5)'
-        io='st(0, if(gt(P, 0.5), 1 - 16 * Q^5, 16 * P^5))'
+        i='16 * T^5' o='1 - 16 * R^5'
+        io="if(lt(T, 0.5), $i, $o)"
+        i='T^5'
+        o='1 - R^5'
         ;;
     sinusoidal)
-        i='st(0, sin(P * PI / 2))'
-        o='st(0, 1 - cos(P * PI / 2))'
-        io='st(0, (1 - cos(P * PI)) / 2)'
+        io='(1 - cos(T * PI)) / 2'
+        i='1 - cos(T * PI / 2)'
+        o='sin(T * PI / 2)'
         ;;
     exponential)
-        i='st(0, if(eq(P, 1), 1, 1 - 2^(-10 * P)))'
-        o='st(0, if(eq(P, 0), 0, 2^(-10 * Q)))'
-        io='st(0, if(gt(P, 0.5), if(eq(P, 1), 1, 1 - 2^(9 - 20 * P)), if(eq(P, 0), 0, 2^(20 * P - 11))))'
+        _make ''
+        _make 'if(lt(T, 0.5),'
+        _make ' if(lte(T, 0), 0, pow(2, 20 * T - 11)),'
+        _make ' if(gte(T, 1), 1, 1 - pow(2, 9 - 20 * T))'
+        _make ')'
+        io=$made
+        i='if(lte(T, 0), 0, pow(2, 10 * T - 10))'
+        o='if(gte(T, 1), 1, 1 - pow(2, -10 * T))'
         ;;
     circular)
-        i='st(0, sqrt(P * (2 - P)))'
-        o='st(0, 1 - sqrt(1 - P^2))'
-        io='st(0, if(gt(P, 0.5), 1 + sqrt(1 - 4 * Q^2), 1 - sqrt(1 - 4 * P^2)) / 2)'
+        _make ''
+        _make 'if(lt(T, 0.5),'
+        _make ' 1 - sqrt(1 - 4 * T * T),'
+        _make ' 1 + sqrt(4 * T * (2 - T) - 3)'
+        _make ') / 2'
+        io=$made
+        i='1 - sqrt(1 - T * T)'
+        o='sqrt(T * (2 - T))'
         ;;
     elastic)
-        i='st(0, 1 - cos(20 * P * PI / 3) / 2^(10 * P))'
-        o='st(0, cos(20 * Q * PI / 3) / 2^(10 * Q))'
+        i='ld(1) * ld(2)' o='1 - ld(1) / ld(2)'
         _make ''
-        _make 'st(0, 1 - 2 * P);'
-        _make 'st(1, cos(40 * ld(0) * PI / 9) / 2);'
-        _make 'st(0, 2^(10 * ld(0)));'
-        _make 'st(0, if(gt(P, 0.5), 1 - ld(1) * ld(0), ld(1) / ld(0)))'
+        _make 'st(1, cos(40 * st(2, 2 * T - 1) * PI / 9) / 2);'
+        _make 'st(2, pow(2, 10 * ld(2)));'
+        _make "if(lt(T, 0.5), $i, $o)"
         io=$made
+        i='cos(20 * R * PI / 3) / pow(2, 10 * R)'
+        o='1 - cos(20 * T * PI / 3) / pow(2, 10 * T)'
         ;;
     back)
-        local K=1.70158 # for -10% back
-        local K1=2.70158 # K+1
-        local H=1.525 # for back in-out
-        local H1=2.525 # H+1
-        i='st(0, 1 - Q^2 * (Q * K1 - K))'
-        o='st(0, P^2 * (P * K1 - K))'
-        io='st(0, if(gt(P, 0.5), 1 - 2 * Q^2 * (2 * Q * H1 - H), 2 * P^2 * (2 * P * H1 - H)))'
+        local K=1.70158 K1=2.70158 # K=1.70158 for 10% back; K1=K+1
+        local H=2.59491 H1=3.59491 H2=4.59491 # H=K*1.525 # for back in-out; H1=H+1; H2=H+2
+        _make ''
+        _make 'if(lt(T, 0.5),'
+        _make " 2 * T * T * (2 * T * $H1 - $H),"
+        _make " 1 - 2 * R^2 * ($H2 - 2 * T * $H1)"
+        _make ')'
+        io=$made
+        i="T * T * (T * $K1 - $K)"
+        o="1 - R^2 * (1 - T * $K1)"
         ;;
     bounce)
         _make ''
-        _make ' st(1, 121 / 16);'
-        _make ' if(lt(P, 4 / 11),'
-        _make '  ld(1) * P^2,'
-        _make '  if(lt(P, 8 / 11),'
-        _make '   ld(1) * (P - 6 / 11)^2 + 3 / 4,'
-        _make '   if(lt(P, 10 / 11),'
-        _make '    ld(1) * (P - 9 / 11)^2 + 15 / 16,'
-        _make '    ld(1) * (P - 21 / 22)^2 + 63 / 64'
+        _make ' st(1, 121/16);'
+        _make ' if(lt(T, 4/11),'
+        _make '  ld(1) * T * T,'
+        _make '  if(lt(T, 8/11),'
+        _make '   ld(1) * (T - 6/11)^2 + 3/4,'
+        _make '   if(lt(T, 10/11),'
+        _make '    ld(1) * (T - 9/11)^2 + 15/16,'
+        _make '    ld(1) * (T - 21/22)^2 + 63/64'
         _make '   )'
         _make '  )'
         _make ' )'
-        x=$made
-        _make '' 'st(0,' "$x" ')'
-        i=$made
-        x="${x//P/ld(0)}"
-        _make '' 'st(0, 1 - P);' 'st(0,' "$x" ');' 'st(0, 1 - ld(0))'
         o=$made
+        x="${o//T/ld(0)}"
+        _make '' 'st(0, 1 - T);' '1 - (' "$x" ')'
+        i=$made
         _make ''
-        _make 'st(0, st(2, sgn(P - 0.5)) * (2 * P - 1));'
-        _make 'st(0,' "$x" ');'
-        _make 'st(0, (1 + ld(2) * ld(0)) / 2)'
+        _make 'st(1,' ' st(0, st(2, lt(T, 0.5) * 2 - 1) * (1 - 2 * T));' "$x" ');'
+        _make '(1 - ld(2) * ld(1)) / 2'
         io=$made
         ;;
+    *)
+        echo '' && return
+        ;;
     esac
-    x="$io"
-    [[ $2 == in ]] && x="$i"
-    [[ $2 == out ]] && x="$o"
-    [[ $1 == back ]] && x="${x//H1/$H1}" && x="${x//H/$H}" && x="${x//K1/$K1}" && x="${x//K/$K}"
-    echo "$x"
+    local t=$io p=$io
+    [[ $2 == in ]] && t=$i p=$o
+    [[ $2 == out ]] && t=$o p=$i
+    t=${t//R/(1-T)} p=${p//R/(1-T)}
+    t=${t//T/ld(0)} # ld(0) is any normalised input value (0 to 1)
+    p=${p//T/P} # P is progress (1 to 0)
+    if [[ $t =~ %n ]]; then t=${t//%n/%n } t="st(0,%n $t%n)"; else t="st(0, $t)"; fi
+    if [[ $p =~ %n ]]; then p=${p//%n/%n } p="st(0,%n $p%n)"; else p="st(0, $p)"; fi
+    echo "$p:$t"
 }
 
 # custom expressions for supplementary easings
 _se_easing() { # easing mode
     local i o io # mode expressions
-    local x # expr
     case $1 in
     squareroot) # opposite to quadratic (not Pohoreski's sqrt)
-        i='st(0, 1 - sqrt(Q))'
-        o='st(0, sqrt(P))'
-        io='st(0, if(gt(P, 0.5), 2 - sqrt(2 * Q), sqrt(2 * P)) / 2)'
+        i='sqrt(2 * T)' o='2 - sqrt(2 * R)' io="if(lt(T, 0.5), $i, $o) / 2"
+        i='sqrt(T)'
+        o='1 - sqrt(R)'
     ;;
     cuberoot) # opposite to cubic
-        i='st(0, 1 - pow(Q, 1 / 3))'
-        o='st(0, pow(P, 1 / 3))'
-        io='st(0, if(gt(P, 0.5), 2 - pow(2 * Q, 1 / 3), pow(2 * P, 1 / 3)) / 2)'
+        i='pow(2 * T, 1/3)' o='2 - pow(2 * R, 1/3)' io="if(lt(T, 0.5), $i, $o) / 2"
+        i='1 - pow(R, 1/3)'
+        o='pow(T, 1/3)'
     ;;
-#   step) # steps at halfway point
-#       io='st(1, if(gt(P, 0.5), 0, 1))'
-#       i="$io"
-#       o="$io"
-#       ;;
+    *)
+        echo '' && return
+        ;;
     esac
-    x="$io"
-    [[ $2 == in ]] && x="$i"
-    [[ $2 == out ]] && x="$o"
+    local t=$io p=$io
+    [[ $2 == in ]] && t=$i p=$o
+    [[ $2 == out ]] && t=$o p=$i
+    t=${t//R/(1-T)} p=${p//R/(1-T)}
+    p="st(0, ${p//T/P})"
+    t="st(0, ${t//T/ld(0)})"
+    echo "$p:$t"
+}
+
+# custom expressions for CSS easings
+_css_easing() { # easing
+    local x # expr
+    case $1 in
+        cubic-bezier | ease | ease-in | ease-out | ease-in-out) ;&
+        steps | step-start | step-end) ;&
+        linear)
+        [[ -z $o_native ]] && _error "CSS easings only supported natively with -N option"
+        x=CSS
+    ;;
+    esac
     echo "$x"
 }
 
 # get easing expression
-_easing() { # easing mode
-    local x=$(_rp_easing $1 $2) # try RP
-    [[ -z $x ]] && x=$(_se_easing $1 $2) # try supplementary
+_easing() { # easing args
+    local e="$1" m=''
+    [[ -z $2 && ! $e =~ ^ease && ! $e =~ ^step && $e =~ - ]] && m=${e#*-} && e=${e%%-*}
+    local x=$(_rp_easing $e $m) # try standard
+    [[ -z $x ]] && x=$(_se_easing $e $m) # try supplementary
+    [[ -z $x ]] && x=$(_css_easing "$e") # try CSS
     [[ -z $x ]] && exit $ERROR # unknown easing name
-    x="${x//Q/(1 - P)}" # xfade progress goes from 1 to 0
     echo "$x" # f(P) in ld(0)
     exit 0
 }
 
-# custom expressions for Xfade transitions
+# custom expressions for XFade transitions
 # see https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c
-_xf_transition() { # transition args
+_xf_transition() { # transition
     local x # expr
-    local a=(${2//,/ }) # args
     local s r
     _make ''
     case $1 in
@@ -628,20 +737,18 @@ _xf_transition() { # transition args
         _make 'mix(B, A, ld(1))'
         ;;
     circlecrop)
-        _make "st(1, ${a[0]-0});" # backWhite
-        _make 'st(2, (2 * abs(P - 0.5))^3 * hypot(W / 2, H / 2));' # z
-        _make 'st(3, hypot(X - W / 2, Y - H / 2));' # dist
-        _make 'if(lt(ld(2), ld(3)),'
-        _make ' mono(ld(1)),' # bg
+        _make 'st(1, (2 * abs(P - 0.5))^3 * hypot(W / 2, H / 2));' # z
+        _make 'st(2, hypot(X - W / 2, Y - H / 2));' # dist
+        _make 'if(lt(ld(1), ld(2)),'
+        _make ' black,' # bg
         _make ' if(lt(P, 0.5), B, A)' # val
         _make ')'
         ;;
     rectcrop)
-        _make "st(1, ${a[0]-0});" # backWhite
-        _make 'st(2, abs(P - 0.5));'
-        _make 'if(lt(abs(X - W / 2), ld(2) * W) * lt(abs(Y - H / 2), ld(2) * H),' # dist
+        _make 'st(1, abs(P - 0.5));'
+        _make 'if(lt(abs(X - W / 2), ld(1) * W) * lt(abs(Y - H / 2), ld(1) * H),' # dist
         _make ' if(lt(P, 0.5), B, A),' # val
-        _make ' mono(ld(1))' # bg
+        _make ' black' # bg
         _make ')'
         ;;
     circleopen|circleclose)
@@ -763,14 +870,14 @@ _xf_transition() { # transition args
 # # see https://github.com/gl-transitions/gl-transitions/tree/master/transitions
 _gl_transition() { # transition args
     local x # expr
-    local a=(${2//,/ }) # args
+    readarray -d , -t a <<<$2,,,,,,,,,, # args
     _make ''
     case $1 in
     # NOTE 1: never use P after st(0) as it will break easing
     # NOTE 2: if st(9) is needed restore its time value as in gl_powerKaleido
     gl_angular) # by Fernando Kuteken
-        _make "st(1, ${a[0]-90});" # startingAngle
-        _make "st(2, ${a[1]-0});" # goClockwise
+        _make "st(1, ${a[0]:-90});" # startingAngle
+        _make "st(2, ${a[1]:-0});" # goClockwise
         _make 'st(3, 1 - P);' # progress
         _make 'st(1, ld(1) * PI / 180);' # offset
         _make 'st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(1));' # angle
@@ -782,37 +889,42 @@ _gl_transition() { # transition args
     gl_BookFlip) # by hong
         _make 'st(1, X / W - 0.5);'
         _make 'st(2, 0.5 - Y / H);'
-        _make 'st(3, gte(X / W, P));' # pr
-        _make 'if(lt(ld(1), 0),'
-        _make ' st(4, ld(1) / (1 - 2 * P) + 0.5);' # skewLeft skewX
-        _make ' st(5, ld(2) / (1 - 4 * P * ld(1)) + 0.5);' # skewLeft skewY
-        _make ' st(4, ld(4) * W);'
-        _make ' st(5, (1 - ld(5)) * H);'
-        _make ' st(5, b(ld(4), ld(5)));'
-        _make ' st(4, A);'
+        _make 'st(3, step(P, X / W));' # pr
+        _make 'st(4,' # shadeVal
         if [[ $p_isrgb -ne 0 ]]; then
-        _make ' if(st(6, lt(PLANE, 3)),'
+        _make ' if(lt(PLANE, 3),'
         else
-        _make ' if(st(6, not(PLANE)),'
+        _make ' if(not(PLANE),'
         fi
-        _make '  st(5, ld(5) * max(0.7, abs(P - 0.5) * 2))' # shadeVal
-        _make ' ),'
-        _make ' st(4, (ld(1) - 0.5 + P) / (2 * P - 1));' # skewRight skewX
-        _make ' st(5, ld(2) / (1 + 4 * (1 - P) * ld(1)) + 0.5);' # skewRight skewY
-        _make ' st(4, ld(4) * W);'
-        _make ' st(5, (1 - ld(5)) * H);'
-        _make ' st(4, a(ld(4), ld(5)));'
-        _make ' st(5, B);'
-        _make ' if(ld(6),'
-        _make '  st(4, ld(4) * max(0.7, abs(P - 0.5) * 2))' # shadeVal
+        _make '  max(0.7, abs(P - 0.5) * 2),'
+        _make '  1'
         _make ' )'
         _make ');'
-        _make 'mix(ld(4), ld(5), ld(3))'
+        _make 'if(lt(ld(1), 0),'
+        _make ' ifnot(ld(3),'
+        _make '  A,'
+        _make '  st(5, ld(1) / (1 - 2 * P) + 0.5);' # skewLeft skewX
+        _make '  st(6, ld(2) / (1 - 4 * P * ld(1)) + 0.5);' # skewLeft skewY
+        _make '  st(5, ld(5) * W);'
+        _make '  st(6, (1 - ld(6)) * H);'
+        _make '  st(3, b(ld(5), ld(6)));'
+        _make '  ld(3) * ld(4)'
+        _make ' ),'
+        _make ' if(ld(3),'
+        _make '  B,'
+        _make '  st(5, (ld(1) - 0.5 + P) / (2 * P - 1));' # skewRight skewX
+        _make '  st(6, ld(2) / (1 + 4 * (1 - P) * ld(1)) + 0.5);' # skewRight skewY
+        _make '  st(5, ld(5) * W);'
+        _make '  st(6, (1 - ld(6)) * H);'
+        _make '  st(3, a(ld(5), ld(6)));'
+        _make '  ld(3) * ld(4)'
+        _make ' )'
+        _make ')'
         ;;
     gl_Bounce) # by Adrian Purser
-        _make "st(1, ${a[0]-0.6});" # shadow_alpha
-        _make "st(2, ${a[1]-0.075});" # shadow_height
-        _make "st(3, ${a[2]-3});" # bounces
+        _make "st(1, ${a[0]:-0.6});" # shadow_alpha
+        _make "st(2, ${a[1]:-0.075});" # shadow_height
+        _make "st(3, ${a[2]:-3});" # bounces
         _make 'st(4, 1 - P);' # progress
         _make 'st(3, ld(4) * PI * ld(3));' # phase
         _make 'st(3, abs(cos(ld(3))) * (1 - sin(ld(4) * PI / 2)));' # y
@@ -831,10 +943,10 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_CrazyParametricFun) # by mandubian
-        _make "st(1, ${a[0]-4});" # a
-        _make "st(2, ${a[1]-1});" # b
-        _make "st(3, ${a[2]-120});" # amplitude
-        _make "st(4, ${a[3]-0.1});" # smoothness
+        _make "st(1, ${a[0]:-4});" # a
+        _make "st(2, ${a[1]:-1});" # b
+        _make "st(3, ${a[2]:-120});" # amplitude
+        _make "st(4, ${a[3]:-0.1});" # smoothness
         _make 'st(5, 1 - P);' # progress
         _make 'st(6, ld(1) - ld(2));'
         _make 'st(7, ld(1) / ld(2) - 1);'
@@ -865,12 +977,12 @@ _gl_transition() { # transition args
         _make 'mix(ld(6), ld(7), ld(1))'
         ;;
     gl_cube) # by gre
-        _make "st(1, ${a[0]-0.7});" # persp
-        _make "st(2, ${a[1]-0.3});" # unzoom
-        _make "st(3, ${a[2]-0.4});" # reflection
-        _make "st(4, ${a[3]-3});" # floating
+        _make "st(1, ${a[0]:-0.7});" # persp
+        _make "st(2, ${a[1]:-0.3});" # unzoom
+        _make "st(3, ${a[2]:-0.4});" # reflection
+        _make "st(4, ${a[3]:-3});" # floating
         _make 'st(0, 1 - P);' # progress
-        _make 'st(2, ld(2) * 2 * (0.5 - abs(0.5 - ld(0))));' # ux
+        _make 'st(2, ld(2) * 2 * (0.5 - abs(0.5 - ld(0))));' # uz
         _make 'st(7, X / W * (1 + ld(2)) - ld(2) / 2);' # p.x
         _make 'st(8, (1 - Y / H) * (1 + ld(2)) - ld(2) / 2);' # p.y
         _make 'st(2, ld(0) * (1 - ld(1)));' # persp2
@@ -888,7 +1000,7 @@ _gl_transition() { # transition args
         _make '  )'
         _make ' )'
         _make ');'
-        _make "st(4, ${a[4]-0});" # backWhite
+        _make "st(4, ${a[4]:-0});" # bgBkWhTr
         _make 'if(ld(0),'
         _make ' if(lt(ld(0), 0), st(1, ld(5)); st(2, ld(6)));'
         _make ' st(5, ld(1) * W);'
@@ -899,40 +1011,39 @@ _gl_transition() { # transition args
         _make ' );'
         _make ' if(eq(abs(ld(0)), 2),'
         _make '  st(3, ld(3) * (1 - ld(2)));'
-        _make '  st(4, mono(ld(4)));'
+        _make '  st(4, bwt(ld(4)));'
         _make '  mix(ld(4), ld(1), ld(3)),'
         _make '  ld(1)'
         _make ' ),'
-        _make ' mono(ld(4))'
+        _make ' bwt(ld(4))'
         _make ')'
         ;;
     gl_DirectionalScaled) # by Thibaut Foussard
-        _make "st(1, ${a[0]-0});" # direction.x
-        _make "st(2, ${a[1]-1});" # direction.y
-        _make "st(3, ${a[2]-0.7});" # scale
-        _make "st(4, ${a[3]-0});" # backWhite
+        _make "st(1, ${a[0]:-0});" # direction.x
+        _make "st(2, ${a[1]:-1});" # direction.y
+        _make "st(3, ${a[2]:-0.7});" # scale
+        _make "st(4, ${a[3]:-0});" # bgBkWhTr
         _make 'st(5, 1 - P);' # progress
         _make 'st(3, 1 - (1 - 1 /ld(3)) * sin(ld(5) * PI));' # s
         _make 'st(5, pow(sin(ld(5) * PI / 2), 3));' # easedProgress
         _make 'st(1, X / W + ld(5) * sgn(ld(1)));' # p.x
-        _make 'st(2, (1 - Y / H) + ld(5) * sgn(ld(2)));' # p.y
-        _make 'st(5, (fract(ld(2)) - 0.5) * ld(3) + 0.5);' # f.y
-        _make 'st(3, (fract(ld(1)) - 0.5) * ld(3) + 0.5);' # f.x
-        _make 'st(6, step(0, ld(2)) * step(ld(2), 1) * step(0, ld(1)) * step(ld(1), 1));' # mixer
-        _make 'st(7, ld(3) * W);'
-        _make 'st(8, (1 - ld(5)) * H);'
-        _make 'st(1, a(ld(7), ld(8)));'
-        _make 'st(2, b(ld(7), ld(8)));'
-        _make 'st(6, if(ld(6), ld(1), ld(2)));' # col
-        _make 'st(1, 1 - ld(3));'
-        _make 'st(2, 1 - ld(5));'
-        _make 'st(1, step(0, ld(3)) * step(0, ld(1)) * step(0, ld(5)) * step(0, ld(2)));' # border
-        _make 'if(ld(1), ld(6), mono(ld(4)))'
+        _make 'st(2, 1 - Y / H + ld(5) * sgn(ld(2)));' # p.y
+        _make 'st(5, (fract(ld(1)) - 0.5) * ld(3) + 0.5);' # f.x
+        _make 'st(6, (fract(ld(2)) - 0.5) * ld(3) + 0.5);' # f.y
+        _make 'if(between(ld(5), 0, 1) * between(ld(6), 0, 1),'
+        _make ' st(5, ld(5) * W);'
+        _make ' st(6, (1 - ld(6)) * H);'
+        _make ' if(between(ld(1), 0, 1) * between(ld(2), 0, 1),'
+        _make '  a(ld(5), ld(6)),'
+        _make '  b(ld(5), ld(6))'
+        _make ' ),'
+        _make ' bwt(ld(4))'
+        _make ')'
         ;;
     gl_directionalwarp) # by pschroen
-        _make "st(1, ${a[0]-0.1});" # smoothness
-        _make "st(2, ${a[1]--1});" # direction.x
-        _make "st(3, ${a[2]-1});" # direction.y
+        _make "st(1, ${a[0]:-0.1});" # smoothness
+        _make "st(2, ${a[1]:--1});" # direction.x
+        _make "st(3, ${a[2]:-1});" # direction.y
         _make 'st(4, hypot(ld(2), ld(3)));'
         _make 'st(2, ld(2) / ld(4));' # v.x
         _make 'st(3, ld(3) / ld(4));' # v.y
@@ -953,10 +1064,10 @@ _gl_transition() { # transition args
         _make 'mix(ld(6), ld(7), ld(1))'
         ;;
     gl_doorway) # by gre
-        _make "st(1, ${a[0]-0.4});" # reflection
-        _make "st(2, ${a[1]-0.4});" # perspective
-        _make "st(3, ${a[2]-3});" # depth
-        _make "st(4, ${a[3]-0});" # backWhite
+        _make "st(1, ${a[0]:-0.4});" # reflection
+        _make "st(2, ${a[1]:-0.4});" # perspective
+        _make "st(3, ${a[2]:-3});" # depth
+        _make "st(4, ${a[3]:-0});" # bgBkWhTr
         _make 'st(0, 1 - P);' # progress
         _make 'st(5, X / W);' # p.x
         _make 'st(6, 1 - Y / H);' # p.y
@@ -984,32 +1095,31 @@ _gl_transition() { # transition args
         _make '  st(3, b(ld(2), ld(3)));'
         _make '  if(eq(ld(7), 2),'
         _make '   ld(3),'
-        _make '   st(4, mono(ld(4)));'
+        _make '   st(4, bwt(ld(4)));'
         _make '   st(1, ld(1) * (1 - ld(6)));'
         _make '   mix(ld(4), ld(3), ld(1))'
         _make '  )'
         _make ' ),'
-        _make ' mono(ld(4))'
+        _make ' bwt(ld(4))'
         _make ')'
         ;;
     gl_Dreamy) # by mikolalysenko
         _make 'st(1, X / W);' # p.x
         _make 'st(2, 1 - Y / H);' # p.y
         _make 'st(3, 1 - P);' # progress
-        _make 'st(4, cos(10 * (ld(3) + ld(1))));'
-        _make 'st(5, 0.03 * ld(3) * ld(4));' # shifty
+        _make 'st(4, 0.03 * ld(3) * cos(10 * (ld(3) + ld(1))));' # shifty
+        _make 'st(4, ld(2) + ld(4));'
+        _make 'st(4, (1 - ld(4)) * H);'
+        _make 'st(4, a(X, ld(4)));'
+        _make 'st(5, 0.03 * (1 - ld(3)) * cos(10 * (1 - ld(3) + ld(1))));' # shifty
         _make 'st(5, ld(2) + ld(5));'
         _make 'st(5, (1 - ld(5)) * H);'
-        _make 'st(5, a(X, ld(5)));'
-        _make 'st(6, 0.03 * (1 - ld(3)) * ld(4));' # shifty
-        _make 'st(6, ld(2) + ld(6));'
-        _make 'st(6, (1 - ld(6)) * H);'
-        _make 'st(6, b(X, ld(6)));'
-        _make 'mix(ld(5), ld(6), ld(3))'
+        _make 'st(5, b(X, ld(5)));'
+        _make 'mix(ld(4), ld(5), ld(3))'
         ;;
     gl_hexagonalize) # by Fernando Kuteken
-        _make "st(1, ${a[0]-50});" # steps
-        _make "st(2, ${a[1]-20});" # horizontalHexagons
+        _make "st(1, ${a[0]:-50});" # steps
+        _make "st(2, ${a[1]:-20});" # horizontalHexagons
         _make 'st(0, 1 - P);' # progress
         _make 'st(3, 2 * min(ld(0), 1 - ld(0)));' # dist
         _make 'if(gt(ld(1), 0), st(3, ceil(ld(3) * ld(1)) / ld(1)));'
@@ -1044,7 +1154,7 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_InvertedPageCurl) # by Hewlett-Packard
-        # see https://github.com/scriptituk/xfade-easing/blob/main/src/InvertedPageCurl-simplified.glsl
+        # antiAlias deactivated to simplify implementation - see src/xfade-easing.c
         local MIN_AMOUNT=-0.16;
         local MAX_AMOUNT=1.5;
         local ANGLE=$(_calc "100 * atan2(0, -1) / 180"); # 100 * PI / 180
@@ -1055,7 +1165,7 @@ _gl_transition() { # transition args
         _make 'st(2, ld(0) / ld(1));' # cylinderAngle
         _make 'st(3, X / W);' # p.x
         _make 'st(4, 1 - Y / H);' # p.y
-        _make "st(6, -$S * ld(3) + $C * ld(4) + 0.89);" # point.y
+        _make "st(6, $C * ld(4) + 0.89 - $S * ld(3));" # point.y
         _make 'st(7, ld(6) - ld(0));' # yc
         _make 'if(gt(ld(7), ld(1)),' # flat surface
         _make ' st(3, A),' # colour
@@ -1134,9 +1244,9 @@ _gl_transition() { # transition args
         _make 'ld(3)'
         ;;
     gl_kaleidoscope) # by nwoeanhinnogaehr
-        _make "st(1, ${a[0]-1});" # speed
-        _make "st(2, ${a[1]-1});" # angle
-        _make "st(3, ${a[2]-1.5});" # power
+        _make "st(1, ${a[0]:-1});" # speed
+        _make "st(2, ${a[1]:-1});" # angle
+        _make "st(3, ${a[2]:-1.5});" # power
         _make 'st(0, 1 - P);' # progress
         _make 'st(4, X / W - 0.5);' # p.x
         _make 'st(5, 0.5 - Y / H);' # p.y
@@ -1161,27 +1271,27 @@ _gl_transition() { # transition args
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
     gl_Mosaic) # by Xaychru
-        _make "st(1, ${a[0]-2});" # endx
-        _make "st(2, ${a[1]--1});" # endy
+        _make "st(1, ${a[0]:-2});" # endx
+        _make "st(2, ${a[1]:--1});" # endy
         _make 'st(5, 1 - 2 * P);' # rpr
         _make 'st(5, abs(3 - ld(5) * ld(5) * 2));' # az
-        _make 'st(6, pow(cos(P * PI) / 2 + 0.5, 2));'
-        _make 'st(3, (X / W - 0.5) * ld(5) + ld(1) * ld(6) + 0.5);' # rp.x
-        _make 'st(4, (0.5 - Y / H) * ld(5) + ld(2) * ld(6) + 0.5);' # rp.y
+        _make 'st(6, pow(cos(P * PI) / 2 + 0.5, 2));' # CosInterpolation^2
+        _make 'st(3, mix(0.5, (ld(1) + 0.5), ld(6)));'
+        _make 'st(4, mix(0.5, (ld(2) + 0.5), ld(6)));'
+        _make 'st(3, (X / W - 0.5) * ld(5) + ld(3));' # rp.x
+        _make 'st(4, (0.5 - Y / H) * ld(5) + ld(4));' # rp.y
         _make 'st(5, floor(ld(3)));'
         _make 'st(6, floor(ld(4)));'
-        _make 'st(3, ld(3) - ld(5));'
-        _make 'st(4, ld(4) - ld(6));'
+        _make 'st(3, ld(3) - ld(5));' # mrp.x
+        _make 'st(4, ld(4) - ld(6));' # mrp.y
         _make 'st(1, eq(ld(5), ld(1)) * eq(ld(6), ld(2)));' # onEnd
         _make 'st(2, frand(ld(5), ld(6), 2));'
         _make 'ifnot(ld(1),'
-        _make ' st(7, floor(ld(2) * 4) * PI / 2);' # ang
+        _make ' st(7, trunc(ld(2) * 4) * PI / 2);' # ang
         _make ' st(5, cos(ld(7)));'
         _make ' st(6, sin(ld(7)));'
-        _make ' st(7, ld(3) - 0.5);'
-        _make ' st(4, ld(4) - 0.5);'
-        _make ' st(3, 0.5 + ld(5) * ld(7) + ld(6) * ld(4));'
-        _make ' st(4, 0.5 - ld(6) * ld(7) + ld(5) * ld(4))'
+        _make ' st(3, ld(5) * st(7, ld(3) - 0.5) + ld(6) * st(4, ld(4) - 0.5) + 0.5);'
+        _make ' st(4, ld(5) * ld(4) - ld(6) * ld(7) + 0.5)'
         _make ');'
         _make 'st(3, ld(3) * W);'
         _make 'st(4, (1 - ld(4)) * H);'
@@ -1191,8 +1301,8 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_perlin) # by Rich Harris
-        _make "st(1, ${a[0]-4});" # scale
-        _make "st(2, ${a[1]-0.01});" # smoothness
+        _make "st(1, ${a[0]:-4});" # scale
+        _make "st(2, ${a[1]:-0.01});" # smoothness
         _make 'st(3, X / W * ld(1));' # st.x
         _make 'st(4, (1 - Y / H) * ld(1));' # st.y
         _make 'st(5, floor(ld(3)));' # i.x
@@ -1202,31 +1312,27 @@ _gl_transition() { # transition args
         _make 'st(3, ld(3) * ld(3) * (3 - 2 * ld(3)));' # u.x
         _make 'st(4, ld(4) * ld(4) * (3 - 2 * ld(4)));' # u.y
         _make 'st(1, frand(ld(5), ld(6), 1));' # a
-        _make 'st(5, ld(5) + 1);'
-        _make 'st(7, frand(ld(5), ld(6), 7));' # b
-        _make 'st(6, ld(6) + 1);'
-        _make 'st(8, frand(ld(5), ld(6), 8));' # d
-        _make 'st(5, ld(5) - 1);'
-        _make 'st(5, frand(ld(5), ld(6), 5));' # c
-        _make 'st(4, mix(ld(1), ld(7), ld(3)) + (ld(5) - ld(1)) * ld(4) * (1 - ld(3)) + (ld(8) - ld(7)) * ld(3) * ld(4));' # n
+        _make 'st(8, frand((ld(5) + 1), ld(6), 8));' # b
+        _make 'st(7, frand(ld(5), (ld(6) + 1), 7));' # c
+        _make 'st(6, frand((ld(6) + 1), (ld(6) + 1), 6));' # d
+        _make 'st(5, mix(ld(1), ld(8), ld(3)));'
+        _make 'st(5, ld(5) + (ld(7) - ld(1)) * ld(4) * (1 - ld(3)) + (ld(6) - ld(8)) * ld(3) * ld(4));' # n
         _make 'st(1, 1 - P);' # progress
-        _make 'st(3, 1 + ld(2));'
-        _make 'st(1, mix(-ld(2), ld(3), ld(1)));' # p
+        _make 'st(1, mix(-ld(2), (1 + ld(2)), ld(1)));' # p
         _make 'st(3, ld(1) + ld(2));' # higher
         _make 'st(2, ld(1) - ld(2));' # lower
-        _make 'st(1, 1 - smoothstep(ld(2), ld(3), ld(4), 1));' # 1 - q
+        _make 'st(1, 1 - smoothstep(ld(2), ld(3), ld(5), 1));' # 1 - q
         _make 'mix(A, B, ld(1))'
         ;;
     gl_pinwheel) # by Mr Speaker
-        _make "st(1, ${a[0]-2});" # speed
+        _make "st(1, ${a[0]:-2});" # speed
         _make 'st(2, 1 - P);' # progress
         _make 'st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(2) * ld(1));' # circPos
         _make 'st(1, mod(ld(1), PI / 4));' # modPos
-        _make 'st(1, sgn(ld(2) - ld(1)));' # signed
-        _make 'if(step(ld(1), 0.5), A, B)'
+        _make 'if(lte(ld(2), ld(1)), A, B)'
         ;;
     gl_polar_function) # by Fernando Kuteken
-        _make "st(1, ${a[0]-5});" # segments
+        _make "st(1, ${a[0]:-5});" # segments
         _make 'st(2, X / W - 0.5);'
         _make 'st(3, 0.5 - Y / H);'
         _make 'st(4, atan2(ld(3), ld(2)) - PI / 2);' # angle
@@ -1235,9 +1341,9 @@ _gl_transition() { # transition args
         _make 'if(gt(ld(1), ld(4) * (1 - P)), A, B)'
         ;;
     gl_PolkaDotsCurtain) # by bobylito
-        _make "st(1, ${a[0]-20});" # dots
-        _make "st(2, ${a[1]-0});" # centre.x
-        _make "st(3, ${a[2]-0});" # centre.y
+        _make "st(1, ${a[0]:-20});" # dots
+        _make "st(2, ${a[1]:-0});" # centre.x
+        _make "st(3, ${a[2]:-0});" # centre.y
         _make 'st(4, X / W * ld(1));'
         _make 'st(4, fract(ld(4)));'
         _make 'st(5, (1 - Y / H) * ld(1));'
@@ -1247,42 +1353,41 @@ _gl_transition() { # transition args
         _make 'if(lt(ld(1), ld(2)), B, A)'
         ;;
     gl_powerKaleido) # by Boundless
-        _make "st(1, ${a[0]-2});" # scale
-        _make "st(2, ${a[1]-1.5});" # z
-        _make "st(3, ${a[2]-5});" # speed
+        _make "st(1, ${a[0]:-2});" # scale
+        _make "st(2, ${a[1]:-1.5});" # z
+        _make "st(3, ${a[2]:-5});" # speed
         _make 'st(1, ld(1) / 10);' # dist
         _make 'st(3, ld(3) * (1 - P));'
+        _make 'st(6, cos(ld(3)));' # rot c
+        _make 'st(7, sin(ld(3)));' # rot s
         _make 'st(4, (X / W - 0.5) * W / H * ld(2));' # uv.x
-        _make 'st(5, (0.5 - Y / H) * ld(2));' # uv.y
-        _make 'st(6, sin(ld(3)));' # rot s
-        _make 'st(7, cos(ld(3)));' # rot c
-        _make 'st(4, ld(7) * st(2, ld(4)) + ld(6) * ld(5));'
-        _make 'st(5, -ld(6) * ld(2) + ld(7) * ld(5));'
+        _make 'st(2, (0.5 - Y / H) * ld(2));'
+        _make 'st(5, ld(6) * ld(2) - ld(7) * ld(4));' # uv.y
+        _make 'st(4, ld(6) * ld(4) + ld(7) * ld(2));'
         _make 'st(8, 0);' # iter
         _make 'while(lte(st(8, ld(8) + 1), 10),'
         _make ' st(2, 0);' # i
         _make ' while(lt(ld(2), 2 * PI),'
-        _make '  st(6, sin(ld(2)));'
-        _make '  st(7, cos(ld(2)));'
+        _make '  st(6, cos(ld(2)));'
+        _make '  st(7, sin(ld(2)));'
         _make '  if(eq('
-        _make '    gt(asin(ld(7)), 0),' # ts
-        _make '    gt(ld(5) - ld(1) * ld(7), ld(6) / ld(7) * (ld(4) + ld(1) * ld(6)))'
+        _make '    gt(asin(ld(6)), 0),' # ts
+        _make '    gt(ld(5) - ld(6) * ld(1), ld(7) / ld(6) * (ld(4) + ld(7) * ld(1)))'
         _make '   ),'
-        _make '   st(4, ld(4) + ld(6) * ld(1) * 2);'
-        _make '   st(5, ld(5) - ld(7) * ld(1) * 2);'
-        _make '   st(9, dot(ld(4), ld(5), ld(7), ld(6)));'
-        _make '   st(4, 2 * ld(7) * ld(9) - ld(4));'
-        _make '   st(5, 2 * ld(6) * ld(9) - ld(5))'
+        _make '   st(4, ld(4) + ld(7) * ld(1) * 2);'
+        _make '   st(5, ld(5) - ld(6) * ld(1) * 2);'
+        _make '   st(9, dot(ld(4), ld(5), ld(6), ld(7)));'
+        _make '   st(4, 2 * ld(6) * ld(9) - ld(4));'
+        _make '   st(5, 2 * ld(7) * ld(9) - ld(5))'
         _make '  );'
         _make '  st(2, ld(2) + 120 / 180 * PI)' # change 120 to get different mirror effects
         _make ' )'
         _make ');'
-        _make 'st(6, sin(-ld(3)));'
-        _make 'st(7, cos(-ld(3)));'
-        _make 'st(4, ld(7) * st(2, ld(4)) + ld(6) * ld(5));'
-        _make 'st(5, -ld(6) * ld(2) + ld(7) * ld(5));'
-        _make 'st(4, ld(4) / W * H);'
-        _make 'st(4, (ld(4) + 0.5) / 2);'
+        _make 'st(6, cos(-ld(3)));'
+        _make 'st(7, sin(-ld(3)));'
+        _make 'st(2, ld(6) * ld(4) + ld(7) * ld(5));'
+        _make 'st(5, ld(6) * ld(5) - ld(7) * ld(2));'
+        _make 'st(4, (ld(2) / W * H + 0.5) / 2);'
         _make 'st(5, (ld(5) + 0.5) / 2);'
         _make 'st(4, 2 * abs(ld(4) - floor(ld(4) + 0.5)));'
         _make 'st(5, 2 * abs(ld(5) - floor(ld(5) + 0.5)));'
@@ -1305,9 +1410,9 @@ _gl_transition() { # transition args
         _make 'mix(A, B, ld(1))'
         ;;
     gl_randomsquares) # by gre
-        _make "st(1, ${a[0]-10});" # size.x
-        _make "st(2, ${a[1]-10});" # size.y
-        _make "st(3, ${a[2]-0.5});" # smoothness
+        _make "st(1, ${a[0]:-10});" # size.x
+        _make "st(2, ${a[1]:-10});" # size.y
+        _make "st(3, ${a[2]:-0.5});" # smoothness
         _make 'st(1, floor(ld(1) * X / W));'
         _make 'st(2, floor(ld(2) * (1 - Y / H)));'
         _make 'st(4, frand(ld(1), ld(2), 4));' # r (frand(...) == fract(sin(dot(... algorithm)
@@ -1316,8 +1421,8 @@ _gl_transition() { # transition args
         _make 'mix(A, B, ld(4))'
         ;;
     gl_ripple) # by gre
-        _make "st(1, ${a[0]-100});" # amplitude
-        _make "st(2, ${a[1]-50});" # speed
+        _make "st(1, ${a[0]:-100});" # amplitude
+        _make "st(2, ${a[1]:-50});" # speed
         _make 'st(3, X / W - 0.5);' # dir.x
         _make 'st(4, 0.5 - Y / H);' # dir.y
         _make 'st(5, hypot(ld(3), ld(4)));' # dist
@@ -1332,8 +1437,8 @@ _gl_transition() { # transition args
         _make 'mix(ld(1), B, ld(2))'
         ;;
     gl_Rolls) # by Mark Craig
-        _make "st(1, ${a[0]-0});" # type
-        _make "st(2, ${a[1]-0});" # RotDown
+        _make "st(1, ${a[0]:-0});" # type
+        _make "st(2, ${a[1]:-0});" # RotDown
         _make 'st(3, PI / 2 * (1 - P));' # theta
         _make 'if(eq(gte(ld(1), 2), ld(2)), st(3, -ld(3)));'
         _make 'st(6, cos(ld(3)));' # c1
@@ -1356,9 +1461,9 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_RotateScaleVanish) # by Mark Craig
-        _make "st(1, ${a[0]-1});" # FadeInSecond
-        _make "st(2, ${a[1]-0});" # ReverseEffect
-        _make "st(3, ${a[2]-0});" # ReverseRotation
+        _make "st(1, ${a[0]:-1});" # FadeInSecond
+        _make "st(2, ${a[1]:-0});" # ReverseEffect
+        _make "st(3, ${a[2]:-0});" # ReverseRotation
         _make 'st(0, if(ld(2), P, 1 - P));' # t
         _make 'st(4, (X / W - 0.5) * W / H);' # xc1
         _make 'st(5, 0.5 - Y / H);' # yc1
@@ -1379,8 +1484,8 @@ _gl_transition() { # transition args
         _make '  a(ld(3), ld(4))'
         _make ' )),'
         _make ' st(2, if(ld(1),' # col3
-        _make "  st(2, ${a[3]-0});" # backWhite
-        _make '  mono(ld(2)),'
+        _make "  st(2, ${a[3]:-0});" # bgBkWhTr
+        _make '  bwt(ld(2)),'
         _make '  ld(5))'
         _make ' )'
         _make ');'
@@ -1404,10 +1509,10 @@ _gl_transition() { # transition args
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
     gl_rotate_scale_fade) # by Fernando Kuteken
-        _make "st(1, ${a[0]-0.5});" # centre.x
-        _make "st(2, ${a[1]-0.5});" # centre.y
-        _make "st(3, ${a[2]-1});" # rotations
-        _make "st(4, ${a[3]-8});" # scale
+        _make "st(1, ${a[0]:-0.5});" # centre.x
+        _make "st(2, ${a[1]:-0.5});" # centre.y
+        _make "st(3, ${a[2]:-1});" # rotations
+        _make "st(4, ${a[3]:-8});" # scale
         _make 'st(5, X / W - ld(1));' # difference.x
         _make 'st(6, 1 - Y / H - ld(2));' # difference.y
         _make 'st(7, hypot(ld(5), ld(6)));' # dist
@@ -1427,15 +1532,15 @@ _gl_transition() { # transition args
         _make ' st(4, b(ld(1), ld(2)));'
         _make ' st(5, 1 - P);'
         _make ' mix(ld(3), ld(4), ld(5)),'
-        _make " st(1, ${a[4]-0.15});" # backGray
+        _make " st(1, ${a[4]:-0.15});" # backGray
         _make ' grey(ld(1))'
         _make ')'
         ;;
     gl_Slides) # by Mark Craig
-        _make "st(1, ${a[0]-0});" # type
-        _make "st(2, ${a[1]-0});" # In
-        _make 'st(5, st(4, 1 - st(3, if(ld(2), 1 - P, P))) / 2);' # rad 1-rad (1-rad)/2
-        _make 'ifnot(ld(1), st(6, ld(5)); st(7, 0),' # xc1 yc1
+        _make "st(1, ${a[0]:-0});" # type
+        _make "st(2, ${a[1]:-0});" # In
+        _make 'st(5, st(4, 1 - st(3, if(ld(2), 1 - P, P))) / 2);' # 3:rad 4:1-rad 5:(1-rad)/2
+        _make 'ifnot(ld(1), st(6, ld(5)); st(7, 0),' # 6:xc1 7:yc1
         _make ' if(eq(ld(1), 1), st(6, ld(4)); st(7, ld(5)),'
         _make '  if(eq(ld(1), 2), st(6, ld(5)); st(7, ld(4)),'
         _make '   if(eq(ld(1), 3), st(6, 0); st(7, ld(5)),'
@@ -1458,11 +1563,11 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_squareswire) # by gre
-        _make "st(1, ${a[0]-10});" # squares.h
-        _make "st(2, ${a[1]-10});" # squares.v
-        _make "st(3, ${a[2]-1.0});" # direction.x
-        _make "st(4, ${a[3]--0.5});" # direction.y
-        _make "st(5, ${a[4]-1.6});" # smoothness
+        _make "st(1, ${a[0]:-10});" # squares.h
+        _make "st(2, ${a[1]:-10});" # squares.v
+        _make "st(3, ${a[2]:-1.0});" # direction.x
+        _make "st(4, ${a[3]:--0.5});" # direction.y
+        _make "st(5, ${a[4]:-1.6});" # smoothness
         _make 'st(6, hypot(ld(3), ld(4)));'
         _make 'st(3, ld(3) / ld(6));' # v.x
         _make 'st(4, ld(4) / ld(6));' # v.y
@@ -1478,22 +1583,22 @@ _gl_transition() { # transition args
         _make 'st(2, fract(ld(2)));' # squarep.y
         _make 'st(5, ld(6) / 2);' # squaremin
         _make 'st(6, 1 - ld(5));' # squaremax
-        _make 'if(step(ld(5), ld(1)) * step(ld(5), ld(2)) * step(ld(1), ld(6)) * step(ld(2), ld(6)), B, A)'
+        _make 'if(between(ld(1), ld(5), ld(6)) * between(ld(2), ld(5), ld(6)), B, A)'
         ;;
     gl_static_wipe) # by Ben Lucas
-        _make "st(1, ${a[0]-1});" # transitionUpToDown
-        _make "st(2, ${a[1]-0.5});" # max_static_span
+        _make "st(1, ${a[0]:-1});" # u_transitionUpToDown
+        _make "st(2, ${a[1]:-0.5});" # u_max_static_span
         _make 'st(3, 1 - P);' # progress
         _make 'st(2, ld(2) * sqrt(sin(PI * ld(3))));' # span
         _make 'st(4, X / W);' # uv.x
         _make 'st(5, 1 - Y / H);' # uv.y
         _make 'st(1, if(ld(1), 1 - ld(5), ld(5)));' # transitionEdge
         _make 'st(6, ld(3) - ld(2));'
-        _make 'st(6, smoothstep(ld(6), ld(3), ld(1), 6));'
+        _make 'st(6, smoothstep(ld(6), ld(3), ld(1), 6));' # ss1
         _make 'st(7, ld(3) + ld(2));'
-        _make 'st(7, smoothstep(ld(3), ld(7), ld(1), 7));'
-        _make 'st(6, ld(6) * (1 - ld(7)));' # noiseEnvelope
-        _make 'st(7, if(1 - step(ld(3), ld(1)), B, A));' # transitionMix
+        _make 'st(7, 1 - smoothstep(ld(3), ld(7), ld(1), 7));' # ss2
+        _make 'st(6, ld(6) * ld(7));' # noiseEnvelope
+        _make 'st(7, if(step(ld(3), ld(1)), A, B));' # transitionMix
         if [[ $p_isrgb -ne 0 ]]; then
         _make 'if(lt(PLANE, 3),'
         else
@@ -1512,10 +1617,10 @@ _gl_transition() { # transition args
         _make 'mix(ld(7), ld(1), ld(6))'
         ;;
     gl_swap) # by gre
-        _make "st(1, ${a[0]-0.4});" # reflection
-        _make "st(2, ${a[1]-0.2});" # perspective
-        _make "st(3, ${a[2]-3});" # depth
-        _make "st(4, ${a[3]-0});" # backWhite
+        _make "st(1, ${a[0]:-0.4});" # reflection
+        _make "st(2, ${a[1]:-0.2});" # perspective
+        _make "st(3, ${a[2]:-3});" # depth
+        _make "st(4, ${a[3]:-0});" # bgBkWhTr
         _make 'st(0, 1 - P);' # progress
         _make 'st(7, mix(1, ld(3), ld(0)));' # size
         _make 'st(8, ld(2) * ld(0));' # persp
@@ -1545,11 +1650,11 @@ _gl_transition() { # transition args
         _make ' );'
         _make ' if(eq(abs(ld(0)), 2),'
         _make '  st(1, ld(1) * (1 - ld(3)));'
-        _make '  st(4, mono(ld(4)));'
+        _make '  st(4, bwt(ld(4)));'
         _make '  mix(ld(4), ld(2), ld(1)),'
         _make '  ld(2)'
         _make ' ),'
-        _make ' mono(ld(4))'
+        _make ' bwt(ld(4))'
         _make ')'
         ;;
     gl_Swirl) # by Sergey Kosarevsky
@@ -1575,8 +1680,8 @@ _gl_transition() { # transition args
         _make 'mix(ld(5), ld(6), ld(2))'
         ;;
     gl_WaterDrop) # by Paweł Płóciennik
-        _make "st(1, ${a[0]-30});" # amplitude
-        _make "st(2, ${a[1]-30});" # speed
+        _make "st(1, ${a[0]:-30});" # amplitude
+        _make "st(2, ${a[1]:-30});" # speed
         _make 'st(3, 1 - P);' # progress
         _make 'st(4, X / W - 0.5);' # dir.x
         _make 'st(5, 0.5 - Y / H);' # dir.y
@@ -1598,9 +1703,8 @@ _gl_transition() { # transition args
 }
 
 # custom expressions for supplementary transitions
-_st_transition() { # transition args
+_st_transition() { # transition
     local x # expr
-    local a=(${2//,/ }) # args
     _make ''
 #   case $1 in
 #   x_screen_blend) # modelled on gl_multiply_blend
@@ -1631,18 +1735,18 @@ _st_transition() { # transition args
 }
 
 # get transition expression
-_transition() { # transition
-    local x=$(_xf_transition $1 $2) # try Xfade
+_transition() { # transition args
+    local x=$(_xf_transition $1 $2) # try XFade
     [[ -n $x ]] && is_xf=true
     [[ -z $x ]] && x=$(_gl_transition $1 $2) # try GL
     [[ -z $x ]] && x=$(_st_transition $1 $2) # try supplementary
     [[ -z $x ]] && exit $ERROR # unknown transition name
     local s r
-    for s in rem mix fract smoothstep frand a b mono grey dot step; do # expand pseudo functions
+    for s in rem mix fract smoothstep frand a b bwt grey dot step; do # expand pseudo functions
         while [[ $x =~ $s\( ]]; do
             r=$(_heredoc FUNC | gawk -v e="$x" -v f=$s -f-)
             x=${r%%:*} # search
-            readarray -d : -t a < <(printf %s "${r#*:}") # args
+            readarray -d : -t a < <(echo -n "${r#*:}") # args
             [[ $s == mix && -n $is_xf ]] && a+=(xf) # xfade mix args are different
             r=$(_$s "${a[@]}") # replace
             x=${x/@/$r} # expand
@@ -1670,35 +1774,57 @@ _expr() { # path expr
 }
 
 # output easing plot
-_plot() { # path easing
+_plot() { # path easings
+    _dep gnuplot || return $ERROR
     local path=$(_expand "$1")
+    local m=$(_heredoc EASINGS | gawk -v m="$2" -f-)
+    readarray -d : -t easings < <(echo -n $m) # (here-string <<< adds \n)
+    local title=${o_ptitle-$PLOTTITLE} legends
+    [[ -z $o_ptitle && ${#easings[@]} -eq 1 ]] && title=${easings[0]}
+    local easing expr e
     local ll=24 # log level = warning
-    local expr mode
-    for mode in in out inout; do
-        expr=$(_easing $2 $mode)
-        expr="$expr; ifnot(PLANE+X+Y,print(-1,$ll);print(1-P,$ll);print(1-ld(0),$ll))"
+    local logs log plot=0
+    rm -f $TMP-plot-*.log
+    for easing in "${easings[@]}"; do
+        local legend=${easing%%=*}
+        [[ $legend =~ \( ]] && legend=${legend%%(*}-$((plot+1))
+        legends+=,$legend
+        easing=${easing#*=}
+        if [[ -n $o_native ]]; then # use native build
+            e=":easing='$easing'"
+            expr="ifnot(PLANE+X+Y, print(-1, $ll); print(1-ld(0), $ll); print(1-P, $ll)); 0"
+        else
+            expr=$(_easing $easing) expr=${expr%:*}
+            [[ -z $expr ]] && exit $ERROR # CSS?
+            expr+="; ifnot(PLANE+X+Y, print(-1, $ll); print(1-P, $ll); print(1-ld(0), $ll)); 0"
+        fi
         expr=$(_expand '%x' "$expr")
-        local log=$TMP-plot-$mode.log
-        export FFREPORT="file=$log:level=$ll" # prints to log file
-        ffmpeg -hide_banner -loglevel level+repeat+error -filter_complex_threads 1 \
+        plot=$((plot+1))
+        log=$TMP-plot-$plot.log
+        logs+=" $log"
+        export FFREPORT="file=$log:level=$ll" # prints to log file (doesn't append)
+        local ffopts='-hide_banner -loglevel level+repeat+error'
+        [[ -z $o_native ]] && ffopts+=' -filter_complex_threads 1'
+        ffmpeg $ffopts \
             -f lavfi -i "color=c=black:s=1x1:r=100:d=3,format=gray" \
             -f lavfi -i "color=c=white:s=1x1:r=100:d=3,format=gray" \
-            -filter_complex "[0][1]xfade=duration=1:offset=1:transition=custom:expr='$expr'" -f null -
+            -filter_complex "[0][1]xfade=duration=1:offset=1$e:transition=custom:expr='$expr'" -f null -
     done
     unset FFREPORT # prevent further logging
     local size=$(_size ${o_psize-$PLOTSIZE} $PLOTSIZE)
     local plt=$TMP-plot.plt # gnuplot script
-    _heredoc PLOT | gawk -v title=$2 -v size=$size -v h=${PLOTSIZE#*x} -v output="$path" -v RS="[$N$R]" -f- $TMP-plot-*.log > $plt
+    _heredoc PLOT | gawk -v title="$title" -v legends="${legends/,/}" -v size=$size -v defh=${PLOTSIZE#*x} -v output="$path" -v RS="[$N$R]" -f- $logs > $plt
     gnuplot $plt
 }
 
 # output demo video
 _video() { # path
-    local path=$(_expand "$1") file enc
+    local path=$(_expand "$1") file enc pf
     shift
     local inputs=("$@")
     local n=${#inputs[@]} m i j
     if [[ $n -lt 2 ]]; then
+        _dep base64 || return $ERROR
         n=2
         inputs=(sheep goat)
         for i in 0 1; do
@@ -1708,16 +1834,18 @@ _video() { # path
         done
     fi
     m=$((n-1))
-    local duration=${o_vtduration-$VIDEOTRANSITIONDURATION} time=${o_vtime-$VIDEOTIME} length=$o_vlength err offset
+    local duration=${o_vtduration-$VIDEOTRANSITIONDURATION} time=${o_vtime-$VIDEOTIME} length=$o_vlength offset
+    local xfade warn
     if [[ -n $o_vtime && -n $o_vlength ]]; then
         duration=$(_calc "($length - $n * $time) / $m")
-        [[ $duration =~ ^- ]] && err="calculated duration = $duration, using 0" && duration=0 && length=
+        [[ $duration =~ ^- ]] && warn="calculated duration = $duration, using 0" && duration=0 && length=
     elif [[ -n $o_vlength ]]; then
         time=$(_calc "($length - $m * $duration) / $n")
-        [[ $time =~ ^- ]] && err="calculated time = $time, using 0" && time=0 && length=
+        [[ $time =~ ^- ]] && warn="calculated time = $time, using 0" && time=0 && length=
     fi
     [[ -z $length ]] && length=$(_calc "$n * $time + $m * $duration")
-    [[ -n $err ]] && _error "$err, adjusted length = $length"
+    [[ -n $warn ]] && _warning "$warn, adjusted length = $length"
+    _debug "video: length=$length duration=$duration time=$time"
     local expr=$(_expand '%n%X')
     local fps=${o_vfps-$VIDEOFPS}
     [[ $path =~ .gif && $fps -gt 50 ]] && fps=50 # max for browser support
@@ -1729,25 +1857,35 @@ _video() { # path
     local fs=$(_calc "int(16 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled fontsize
     local drawtext="drawtext=x='(w-text_w)/2':y='(h-text_h)/2':box=1:boxborderw=$bb:text_align=C:fontsize=$fs:text='TEXT'"
     local text1=$transition text2=$transition
-    [[ -n $args ]] && text1+=$(_expand '=%A') && text2+=$(_expand '=%a')
-    [[ $easing != linear ]] && text1+=$(_expand '%nno easing') && text2+=$(_expand '%n%e-%m')
+    [[ -n $targs ]] && text1+=$(_expand '=%A') && text2+=$(_expand '=%a')
+    [[ $easing != linear ]] && text1+=$(_expand '%nno easing') && text2+=$(_expand '%n%e')
     readarray -d , -n 4 -t d <<<$VIDEOSTACK, # defaults
     readarray -d , -n 4 -t o <<<$o_vstack,,,, # options
     local stack=${o[0]:-${d[0]}} gap=${o[1]:-${d[1]}} fill=${o[2]:-${d[2]}} pad=${o[3]:-${d[3]}}
     local script=$TMP-script.txt # filter_complex_script
     rm -f $script
     for i in $(seq 0 1 $m); do
-        local start=0 stop=0 trim=$time type=$(_type "${inputs[i]}")
+        local in="${inputs[i]}"
+        local start=0 stop=0 trim=$time type=$(_type "$in")
         if [[ $type == image || -z $o_vplay ]]; then
             [[ $i -ne 0 ]] && start=$duration
-            stop=$(_calc "$time + $duration + 1 / $fps")
+            stop=$(_calc "$time + $duration")
             [[ $i -eq $m ]] && stop=$(_calc "$stop - $duration")
-        else # video
-            trim=$(_calc "$time + $duration * 2 + 1 / $fps")
+        else
+            trim=$(_calc "$time + $duration * 2")
             [[ $i -eq 0 || $i -eq $m ]] && trim=$(_calc "$trim - $duration")
         fi
+        if [[ $type == video ]]; then
+            local d=$(_duration "$in")
+            local vpad=$(_calc "$trim - $d")
+            if test $(_calc "$vpad > 0") -ne 0; then
+                _warning "padding video from ${d}s to ${trim}s for input $in"
+                stop=$vpad
+            fi
+        fi
+        stop=$(_calc "$stop + 1 / $fps") # guard frame
         cat << EOT >> $script
-movie='${inputs[i]}',
+movie='$in',
 format=pix_fmts=$format,
 scale=width=$width:height=$height:flags=lanczos,
 loop=loop=1:size=1,
@@ -1759,7 +1897,7 @@ EOT
     done
     # alt: testsrc=size=$size:rate=$fps:duration=$duration:decimals=3
     #      testsrc2=size=$size:rate=$fps:duration=$duration
-    if [[ -z $stack || $stack == 1 || ( $easing == linear && -z $o_easing && -z $args ) ]]; then # unstacked
+    if [[ -z $stack || $stack == 1 || ( $easing == linear && -z $o_easing && -z $targs ) ]]; then # unstacked
         if [[ -n $o_vname ]]; then
             for i in $(seq 0 1 $m); do
                 echo "[v$i]${drawtext/TEXT/$text2}[v$i];" >> $script
@@ -1769,18 +1907,14 @@ EOT
         for j in $(seq $m); do
             i=$((j-1))
             offset=$(_calc "$j * $time + $i * $duration")
-            echo "[v][v$j]xfade=offset=$offset:duration=$duration:transition=custom:expr='$expr'[v];" >> $script
+            xfade=$(_xfade $offset $duration $easing "$eargs" $transition "$targs" "$expr")
+            echo "[v][v$j]xfade=$xfade[v];" >> $script
         done
     else # stacked
         [[ $stack == a ]] && stack=v && [[ $transition =~ (up|down|vu|vd|squeezeh|horz) ]] && stack=h
         local cell2="$gap+w0_0"
         [[ $stack == v ]] && cell2="0_h0+$gap"
-        local expr0=$transition # xfade transition
-        if [[ $transition =~ _ ]]; then # custom transition
-            expr0=$(_transition $transition)
-            expr0=$(_expand "%n%X" "$expr0")
-            expr0="custom:expr='$expr0'" # default args
-        fi
+        local expr0; [[ $transition =~ _ ]] && expr0=$(_expand '%n%X' "$(_transition $transition)")
         for i in $(seq 0 1 $m); do
             echo "[v$i]split[v${i}a][v${i}b];" >> $script
         done
@@ -1795,25 +1929,33 @@ EOT
         for j in $(seq $m); do
             i=$((j-1))
             offset=$(_calc "$j * $time + $i * $duration")
-            echo "[va][v${j}a]xfade=offset=$offset:duration=$duration:transition=$expr0[va];" >> $script
-            echo "[vb][v${j}b]xfade=offset=$offset:duration=$duration:transition=custom:expr='$expr'[vb];" >> $script
+            xfade=$(_xfade $offset $duration linear '' $transition '' "$expr0")
+            echo "[va][v${j}a]xfade=$xfade[va];" >> $script
+            xfade=$(_xfade $offset $duration $easing "$eargs" $transition "$targs" "$expr")
+            echo "[vb][v${j}b]xfade=$xfade[vb];" >> $script
         done
         echo "[va][vb]xstack=inputs=2:fill=$fill:layout=0_0|$cell2[v];" >> $script
     fi
     if [[ $pad -gt 0 ]]; then
         echo "[v]pad=x=$pad:y=$pad:w=iw+$pad*2:h=ih+$pad*2:color=$fill[v];" >> $script
     fi
+    pf=yuv420p; [[ $p_alpha -ne 0 ]] && pf=yuva420p
     if [[ $path == - ]]; then # no output
         enc='-f null'
     elif [[ $path =~ .gif ]]; then # animated for .md
         echo '[v]split[s0][s1]; [s0]palettegen[s0]; [s1][s0]paletteuse[v]' >> $script
     elif [[ $path =~ .mkv ]]; then # lossless - see https://trac.ffmpeg.org/wiki/Encode/FFV1
-        enc="-c:v ffv1 -level 3 -coder 1 -context 1 -g 1 -pix_fmt yuv420p -r $fps"
-    else # x264 - see https://trac.ffmpeg.org/wiki/Encode/H.264
+        enc="-c:v ffv1 -level 3 -coder 1 -context 1 -g 1 -pix_fmt $pf -r $fps"
+    elif [[ $path =~ .webm ]]; then # WebM - see https://trac.ffmpeg.org/wiki/Encode/VP9
+        enc="-c:v libvpx-vp9 -pix_fmt $pf -r $fps"
+    elif [[ $path =~ .mp4 ]]; then # x264 - see https://trac.ffmpeg.org/wiki/Encode/H.264
         enc="-c:v libx264 -preset medium -tune stillimage -pix_fmt yuv420p -r $fps"
+    else
+        _error 'unknown video type' && exit $ERROR
     fi
     local ffopts="-y -hide_banner -loglevel ${o_loglevel-warning} -stats_period 1"
-    ffmpeg $ffopts -filter_complex_threads 1 -filter_complex_script $script -map [v]:v -an -t $length $enc "$path"
+    [[ -z $o_native ]] && ffopts+=' -filter_complex_threads 1'
+    ffmpeg $ffopts -filter_complex_script $script -map [v]:v -an -t $length $enc "$path"
     [[ $path =~ .gif ]] && which -s gifsicle && mv "$path" $TMP-video.gif && gifsicle -O3 -o "$path" $TMP-video.gif
 }
 
@@ -1822,8 +1964,8 @@ _main "$@" # run
 exit 0 # heredocs follow
 
 @PIXFMT # parse pix_fmts
-/BIT_DEPTHS/ { getline; go = 1}
-$2 == format { split($NF, a, "-"); print a[1] }
+/^-----/ { parse = 1; next }
+parse && $2 == format { split($NF, a, "-"); print $3 "," a[1] }
 !PIXFMT
 
 @FUNC # expr pseudo function substitution
@@ -1850,29 +1992,40 @@ BEGIN {
 }
 !FUNC
 
+@EASINGS
+BEGIN {
+    while (match(m, /^ *([^=]+=)?[a-z-]+(\([^)]*\))?,? */)) {
+        e = substr(m, RSTART, RLENGTH)
+        sub(/^ +/, "", e)
+        sub(/, *$/, "", e)
+        s = s sprintf("%s:", e)
+        m = substr(m, RLENGTH+1)
+    }
+    sub(/:$/, "", s)
+    print s
+}
+!EASINGS
+
 @PLOT # gnuplot script
 # this assumes 1s transition duration at 100 fps
 BEGIN {
-    split(size, a, "x")
-    fs = 12 * a[1] / h
-    blw = lw = 1.5 * a[1] / h
+    plots = split(legends, legend, ",")
+    sub(/x/, ",", size)
+    split(size, a, ",")
+    fs = 16 * a[2] / defh
+    lw = 3 * a[2] / defh
+    blw = lw * 2 / 3
     ext = tolower(output)
-    if (ext ~ /\.pdf$/ || ext ~ /\.eps$/) { # inches! (default 5x3.5")
-        a[1] /= 96
-        a[2] /= 96
-        fs *= 1.5
-        lw *= 2.5 / 1.5
-        if (ext ~ /\.eps$/)
-            lw *= 2
-    }
-    size = a[1] "," a[2]
+    if (ext ~ /\.pdf$/ || ext ~ /\.eps$/) # inches! (default 5x3.5")
+        { a[1] /= 96; a[2] /= 96; fs *= 1.5; lw *= 2.5 / 1.5; if (ext ~ /\.eps$/) lw *= 2 }
+    # https://eepower.com/resistor-guide/resistor-standards-and-codes/resistor-color-code/
+    split("993300,ff0000,ff9900,fdee00,99cc00,3366ff,7030a0,8c8c8c", lc, ",") # Aureolin yellow
 }
 $1 != "[warning]" || $2 !~ /^[-0-9]/ { next } # non-data
 $2 ~ /^-1\.0+$/ { # start of data pair
     if (FILENAME != fn) { # new file
         fn = FILENAME
-        match(fn, /-([inout]+)\.log$/, a)
-        mode = a[1]
+        leg = (++plot <= plots) ? legend[plot] : ""
     }
     col = "p" # progress
     next
@@ -1881,27 +2034,19 @@ $2 ~ /^[-0-9.]+$/ { # data
     if (col == "p")
         p = int($2 * 100 + 0.5) # (always integral anyway)
     else
-        val[mode,p] = +$2
+        val[leg,p] = +$2
     col = "e" # easing
 }
 END {
     OFS = "\t"
-    if (ext ~ /\.gif$/)
-        terminal = "gif"
-    else if (ext ~ /\.jpe?g$/)
-        terminal = "jpeg"
-    else if (ext ~ /\.png$/)
-        terminal = "pngcairo"
-    else if (ext ~ /\.svg$/)
-        terminal = "svg"
-    else if (ext ~ /\.pdf$/)
-        terminal = "pdfcairo"
-    else if (ext ~ /\.eps$/)
-        terminal = "epscairo"
-    else if (ext ~ /\.x?html?$/)
-        terminal = "canvas"
-    else
-        terminal = "unknown"
+    if (ext ~ /\.gif$/) terminal = "gif"
+    else if (ext ~ /\.jpe?g$/) terminal = "jpeg"
+    else if (ext ~ /\.png$/) terminal = "pngcairo"
+    else if (ext ~ /\.svg$/) terminal = "svg"
+    else if (ext ~ /\.pdf$/) terminal = "pdfcairo"
+    else if (ext ~ /\.eps$/) terminal = "epscairo"
+    else if (ext ~ /\.x?html?$/) terminal = "canvas"
+    else terminal = "unknown"
     printf("set terminal %s size %s\n", terminal, size)
     printf("set termoption enhanced\n")
     printf("set termoption font 'Helvetica,%g'\n", fs)
@@ -1912,22 +2057,37 @@ END {
     printf("set grid\n")
     printf("set border 3 linewidth %g\n", blw)
     printf("set tics nomirror out\n")
-    printf("set object 1 rectangle from screen -1.1,-1.1 to screen 1.1,1.1 fillcolor rgb'#FCFCFC' behind\n")
-    printf("set object 2 rect from graph 0, graph 0 to graph 1, graph 1 fillcolor rgb '#E8FFE8' behind\n")
+    printf("set object 1 rectangle from screen -1.1,-1.1 to screen 1.1,1.1 fillcolor rgb'#F4F4F4' behind\n")
+    printf("set object 2 rect from graph 0, graph 0 to graph 1, graph 1 fillcolor rgb '#FFFFFF' behind\n")
     printf("set key left top\n")
-    printf("set style line 1 linewidth %g linecolor rgb 'red'\n", lw)
-    printf("set style line 2 linewidth %g linecolor rgb 'green'\n", lw)
-    printf("set style line 3 linewidth %g linecolor rgb 'blue'\n", lw)
+    for (i = 1; i <= 8; i++)
+        printf("set style line %d linewidth %g linecolor rgbcolor '#%s'\n", i, lw, lc[i])
+    printf("set yrange [*<0:1<*]") # show y=0 & y=1
     print ""
     print "$data << EOD"
-    print "progress", "in", "out", "inout"
-    for (p = 0; p <= 100; p++)
-        print p / 100, val["in",p], val["out",p], val["inout",p]
+    line = "progress"
+    for (i = 1; i <= plots; i++)
+        line = line OFS legend[i]
+    print line
+    for (p = 0; p <= 100; p++) {
+        line = sprintf("%4.2f", p / 100)
+        for (i = 1; i <= plots; i++)
+            line = line OFS sprintf("%9.6f", val[legend[i],p])
+        print line
+    }
     print "EOD"
     print ""
-    print "plot $data using 'progress':'in' with lines linestyle 1 title 'in', \\"
-    print "     $data using 'progress':'out' with lines linestyle 2 title 'out', \\"
-    print "     $data using 'progress':'inout' with lines linestyle 3 title 'inout'"
+    line = "plot"
+    for (i = 1; i <= plots; i++) {
+        l = legend[i]
+        t = (plots == 1) ? "notitle" : sprintf("title '%s'", l);
+        c = (i - 1) % 8 + 1 # wrap colours
+        line = sprintf("%s $data using 'progress':'%s' with lines linestyle %d %s", line, l, c, t)
+        if (i < plots)
+            line = line ", \\"
+        print line
+        line = "    "
+    }
 }
 !PLOT
 
@@ -1936,7 +2096,7 @@ BEGIN {
     OFS = "\t"
     title["rp"] = "Standard Easings (Robert Penner):"
     title["se"] = "Supplementary Easings:"
-    title["xf"] = "Xfade Transitions:"
+    title["xf"] = "XFade Transitions:"
     title["gl"] = "GL Transitions:"
     title["st"] = "Supplementary Transitions:"
 }
@@ -2067,35 +2227,45 @@ va/hDXpd+JF0ekmo82GaP7R1wOPRDx+Z64asX/SPpP/6Xw8+Zv0XE31bwvXz5/4AAAAASUVORK5CYII=
 !GOAT
 
 @USAGE # CLI usage for -H option
-FFmpeg Xfade Easing script version $VERSION by Raymond Luckhurst, scriptit.uk
-Generates custom xfade expressions for rendering transitions with easing
+FFmpeg XFade easing and extensions version $VERSION by Raymond Luckhurst, https://scriptit.uk
+Generates custom expressions for rendering eased transitions and easing in other filters,
+also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
 Usage: $CMD [options] [image/video inputs]
 Options:
     -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
-    -t transition name (default: $TRANSITION); use -L for list
-    -e easing function (default: $EASING); see -L for list
-    -m easing mode (default: $MODE): in out inout
+    -t transition name and arguments, if any (default: $TRANSITION); use -L for list
+       args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)'
+    -e easing function and arguments, if any (default: $EASING)
+       CSS args in parenthesis as CSV, e.g.: 'cubic-bezier(0.17,0.67,0.83,0.67)'
     -x expr output filename (default: no expr), accepts expansions, - for stdout
     -a append to expr output file
-    -s expr output format string (default: $EXPRFORMAT)
-       %t expands to the transition name; %e easing name; %m easing mode
-       %T, %E, %M upper case expansions of above
-       %a expands to the transition arguments; %A to the default arguments (if any)
+    -s expr output format string with text expansion (default: $EXPRFORMAT)
+       %f expands to pixel format, %F to format in upper case
+       %e expands to the easing name
+       %t expands to the transition name
+       %T, %E upper case expansions of above
+       %c expands to the CSS easing arguments
+       %a expands to the GL transition arguments; %A to the default arguments (if any)
        %x expands to the generated expr, condensed, intended for inline filterchains
        %X does too but is not condensed, intended for -filter_complex_script files
-       %y expands to the easing expression only, inline; %Y script
-       %z expands to the eased transition expression only, inline; %Z script
+       %p expands to the progress easing expression only, for inline filterchains
+       %g expands to the generic easing expression, for inline filterchains
+       %z expands to the eased transition expression only, for inline filterchains
           for the uneased transition expression only, omit -e option and use %x or %X
+       %P, %G, %Z, uncondensed versions of the above for -filter_complex_script files
        %n inserts a newline
-    -p easing plot output filename (default: no plot)
-       accepts expansions but %m/%M are pointless as plots show all easing modes
+    -p easing plot filename (default: no plot), accepts expansions
        formats: gif, jpg, png, svg, pdf, eps, html <canvas>, from file extension
+    -m multiple easings to plot on one graph (default: the -e easing)
+       CSV easings with optional legend prefix, e.g. in=cubic-in,out=cubic-out,in-out=cubic
+    -q plot title (default: easing name, or $PLOTTITLE for multiple plots)
     -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for PDF/EPS)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: animated gif, mp4 (x264 yuv420p), mkv (FFV1 lossless), from file extension
+       formats: animated gif, mp4 (x264), webm, mkv (FFV1 lossless), from file extension
        if - then format is the null muxer (no output)
+       if -f format has alpha then webm and mkv generate transparent video output
        if gifsicle is available then gifs will be optimised
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z 300x scales H
@@ -2118,20 +2288,30 @@ Options:
     -L list all transitions and easings
     -H show this usage text
     -V show this script version
-    -I set ffmpeg loglevel info for -v (default: warning)
+    -X use custom expressions, not the xfade API that supports xfade-easing natively
+       by default native support is detected automatically using ffmpeg --help filter=xfade
+       the native API adds an easing option and runs much faster
+       e.g. xfade=duration=4:offset=1:easing=quintic-out:transition=wiperight
+       e.g. xfade=duration=5:offset=2.5:easing='cubic-bezier(.17,.67,.83,.67)' \
+            transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
+    -I set ffmpeg loglevel to info for -v (default: warning)
     -P log xfade progress percentage using print() (implies -I)
     -T temporary file directory (default: $TMPDIR)
     -K keep temporary files if temporary directory is not $TMPDIR
+    -D dump debug messages to stderr
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
-    2. this script requires Bash 4 (2009), gawk, gsed, envsubst, ffmpeg, gnuplot, base64
-    3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expressions
-       are not thread-safe (the st() & ld() functions use contextual allocation)
-    4. certain xfade transitions are not implemented because they perform aggregation
-       (distance, hblur)
+    2. this script requires Bash 4 (2009), ffmpeg, gawk, gsed, seq
+       also gnuplot and base64 for certain functions
+    3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expression
+       vars used by st() & ld() are shared across slices, therefore not thread-safe,
+       but -filter_complex_threads 1 is not necessary for the custom ffmpeg build
+    4. CSS easings are supported in the custom ffmpeg build but not as custom expressions
+    4. certain xfade transitions are not implemented as custom expressions because
+       they perform aggregation (distance, hblur)
     5. many GL Transitions are also ported, some of which take customisation parameters
-       to override defaults append parameters as CSV after an = sign,
-       e.g. -t gl_PolkaDotsCurtain=10,0.5,0.5 for 10 dots centred
+       to override defaults append parameters as CSV in parenthesis,
+       e.g. -t 'gl_PolkaDotsCurtain(10,0.5,0.5)' for 10 dots centred
     6. many transitions do not lend themselves well to easing, and easings that overshoot
        (back & elastic) may cause weird effects!
 !USAGE

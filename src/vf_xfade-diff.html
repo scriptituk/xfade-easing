@@ -1,0 +1,436 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+
+<html>
+<head>
+  <meta name="generator" content=
+  "HTML Tidy for Mac OS X (vers 31 October 2006 - Apple Inc. build 15.18.4), see www.w3.org">
+
+  <title>libavfilter/vf_xfade.c diff for xfade-easing</title>
+  <style type="text/css">
+<!--
+  BODY { font-family: Versana,Arial,Helvetica }
+  TH { font-family : Verdana, Arial, Helvetica;font-size : 8pt;color : White; }
+  TD { font-family : Verdana, Arial, Helvetica;font-size : 7pt;color : Black; }
+  -->
+  </style>
+  <style type="text/css">
+body {
+  background-color: #EEEEEE;
+  }
+  p.c4 {text-align: center}
+  span.c3 {font-size: 80%}
+  span.c2 {color: #FFFFFF}
+  div.c1 {text-align: center}
+  </style>
+</head>
+
+<body>
+  <div class="c1">
+    <h2>libavfilter/vf_xfade.c diff for xfade-easing</h2>
+  </div>
+
+  <table border="0" cellspacing="0" cellpadding="0" width="100%">
+    <tr bgcolor="#000000">
+      <th width="50%" valign="top"><span class="c2">Original vf_xfade.c</span></th>
+
+      <th width="50%" valign="top"><span class="c2">Amended vf_xfade.c</span></th>
+    </tr>
+
+    <tr>
+      <td>
+      127:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void&nbsp;(*transitionf)(AVFilterContext&nbsp;*ctx,&nbsp;const&nbsp;AVFrame&nbsp;*a,&nbsp;const&nbsp;AVFrame&nbsp;*b,&nbsp;AVFrame&nbsp;*out,&nbsp;float&nbsp;progress,</td>
+
+      <td>
+      127:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void&nbsp;(*transitionf)(AVFilterContext&nbsp;*ctx,&nbsp;const&nbsp;AVFrame&nbsp;*a,&nbsp;const&nbsp;AVFrame&nbsp;*b,&nbsp;AVFrame&nbsp;*out,&nbsp;float&nbsp;progress,</td>
+    </tr>
+
+    <tr>
+      <td>
+      128:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_start,&nbsp;int&nbsp;slice_end,&nbsp;int&nbsp;jobnr);</td>
+
+      <td>
+      128:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_start,&nbsp;int&nbsp;slice_end,&nbsp;int&nbsp;jobnr);</td>
+    </tr>
+
+    <tr>
+      <td>129:&nbsp;</td>
+
+      <td>129:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      130:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char&nbsp;*easing_str;&nbsp;//&nbsp;easing&nbsp;name&nbsp;with&nbsp;optional&nbsp;args</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      131:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char&nbsp;*transition_str;&nbsp;//&nbsp;transition&nbsp;name&nbsp;with&nbsp;optional&nbsp;args</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      132:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;XFadeEasingContext&nbsp;*k;&nbsp;//&nbsp;xfade-easing&nbsp;data</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">133:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>130:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVExpr&nbsp;*e;</td>
+
+      <td>134:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVExpr&nbsp;*e;</td>
+    </tr>
+
+    <tr>
+      <td>131:&nbsp;}&nbsp;XFadeContext;</td>
+
+      <td>135:&nbsp;}&nbsp;XFadeContext;</td>
+    </tr>
+
+    <tr>
+      <td>132:&nbsp;</td>
+
+      <td>136:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>158:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AV_PIX_FMT_NONE</td>
+
+      <td>162:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AV_PIX_FMT_NONE</td>
+    </tr>
+
+    <tr>
+      <td>159:&nbsp;};</td>
+
+      <td>163:&nbsp;};</td>
+    </tr>
+
+    <tr>
+      <td>160:&nbsp;</td>
+
+      <td>164:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      165:&nbsp;static&nbsp;void&nbsp;xe_data_free(struct&nbsp;XFadeEasingContext&nbsp;*k);</td>
+    </tr>
+
+    <tr>
+      <td>161:&nbsp;static&nbsp;av_cold&nbsp;void&nbsp;uninit(AVFilterContext&nbsp;*ctx)</td>
+
+      <td>166:&nbsp;static&nbsp;av_cold&nbsp;void&nbsp;uninit(AVFilterContext&nbsp;*ctx)</td>
+    </tr>
+
+    <tr>
+      <td>162:&nbsp;{</td>
+
+      <td>167:&nbsp;{</td>
+    </tr>
+
+    <tr>
+      <td>163:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;ctx-&gt;priv;</td>
+
+      <td>168:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;ctx-&gt;priv;</td>
+    </tr>
+
+    <tr>
+      <td>164:&nbsp;</td>
+
+      <td>169:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>165:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;av_expr_free(s-&gt;e);</td>
+
+      <td>170:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;av_expr_free(s-&gt;e);</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">171:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xe_data_free(s-&gt;k);</td>
+    </tr>
+
+    <tr>
+      <td>166:&nbsp;}</td>
+
+      <td>172:&nbsp;}</td>
+    </tr>
+
+    <tr>
+      <td>167:&nbsp;</td>
+
+      <td>173:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>168:&nbsp;#define&nbsp;OFFSET(x)&nbsp;offsetof(XFadeContext,&nbsp;x)</td>
+
+      <td>174:&nbsp;#define&nbsp;OFFSET(x)&nbsp;offsetof(XFadeContext,&nbsp;x)</td>
+    </tr>
+
+    <tr>
+      <td>
+      169:&nbsp;#define&nbsp;FLAGS&nbsp;(AV_OPT_FLAG_FILTERING_PARAM&nbsp;|&nbsp;AV_OPT_FLAG_VIDEO_PARAM)</td>
+
+      <td>
+      175:&nbsp;#define&nbsp;FLAGS&nbsp;(AV_OPT_FLAG_FILTERING_PARAM&nbsp;|&nbsp;AV_OPT_FLAG_VIDEO_PARAM)</td>
+    </tr>
+
+    <tr>
+      <td>170:&nbsp;</td>
+
+      <td>176:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>171:&nbsp;static&nbsp;const&nbsp;AVOption&nbsp;xfade_options[]&nbsp;=&nbsp;{</td>
+
+      <td>177:&nbsp;static&nbsp;const&nbsp;AVOption&nbsp;xfade_options[]&nbsp;=&nbsp;{</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#99FF99">
+      172:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;"transition",&nbsp;"set&nbsp;cross&nbsp;fade&nbsp;transition",&nbsp;OFFSET(transition),&nbsp;AV_OPT_TYPE_INT,&nbsp;{.i64=FADE},&nbsp;-1,&nbsp;NB_TRANSITIONS-1,&nbsp;FLAGS,&nbsp;"transition"&nbsp;},</td>
+
+      <td bgcolor="#99FF99">
+      178:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;"easing",&nbsp;"set&nbsp;cross&nbsp;fade&nbsp;easing",&nbsp;OFFSET(easing_str),&nbsp;AV_OPT_TYPE_STRING,&nbsp;{.str=NULL},&nbsp;0,&nbsp;0,&nbsp;FLAGS&nbsp;},</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#99CC99">&nbsp;</td>
+
+      <td bgcolor="#99FF99">
+      179:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;"transition",&nbsp;"set&nbsp;cross&nbsp;fade&nbsp;transition",&nbsp;OFFSET(transition_str),&nbsp;AV_OPT_TYPE_STRING,&nbsp;{.str=NULL},&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;"transition"&nbsp;},</td>
+    </tr>
+
+    <tr>
+      <td>
+      173:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"custom",&nbsp;&nbsp;&nbsp;&nbsp;"custom&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=CUSTOM},&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;"transition"&nbsp;},</td>
+
+      <td>
+      180:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"custom",&nbsp;&nbsp;&nbsp;&nbsp;"custom&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=CUSTOM},&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;"transition"&nbsp;},</td>
+    </tr>
+
+    <tr>
+      <td>
+      174:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"fade",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"fade&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=FADE},&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;"transition"&nbsp;},</td>
+
+      <td>
+      181:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"fade",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"fade&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=FADE},&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;"transition"&nbsp;},</td>
+    </tr>
+
+    <tr>
+      <td>
+      175:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"wipeleft",&nbsp;&nbsp;"wipe&nbsp;left&nbsp;transition",&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=WIPELEFT},&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;"transition"&nbsp;},</td>
+
+      <td>
+      182:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"wipeleft",&nbsp;&nbsp;"wipe&nbsp;left&nbsp;transition",&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=WIPELEFT},&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;"transition"&nbsp;},</td>
+    </tr>
+
+    <tr>
+      <td>
+      2036:&nbsp;static&nbsp;double&nbsp;b2(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y)&nbsp;{&nbsp;return&nbsp;getpix(priv,&nbsp;x,&nbsp;y,&nbsp;2,&nbsp;1);&nbsp;}</td>
+
+      <td>
+      2043:&nbsp;static&nbsp;double&nbsp;b2(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y)&nbsp;{&nbsp;return&nbsp;getpix(priv,&nbsp;x,&nbsp;y,&nbsp;2,&nbsp;1);&nbsp;}</td>
+    </tr>
+
+    <tr>
+      <td>
+      2037:&nbsp;static&nbsp;double&nbsp;b3(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y)&nbsp;{&nbsp;return&nbsp;getpix(priv,&nbsp;x,&nbsp;y,&nbsp;3,&nbsp;1);&nbsp;}</td>
+
+      <td>
+      2044:&nbsp;static&nbsp;double&nbsp;b3(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y)&nbsp;{&nbsp;return&nbsp;getpix(priv,&nbsp;x,&nbsp;y,&nbsp;3,&nbsp;1);&nbsp;}</td>
+    </tr>
+
+    <tr>
+      <td>2038:&nbsp;</td>
+
+      <td>2045:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      2046:&nbsp;#include&nbsp;"xfade-easing.h"&nbsp;//&nbsp;easing&nbsp;&amp;&nbsp;extended&nbsp;transitions</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">2047:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>2039:&nbsp;static&nbsp;int&nbsp;config_output(AVFilterLink&nbsp;*outlink)</td>
+
+      <td>2048:&nbsp;static&nbsp;int&nbsp;config_output(AVFilterLink&nbsp;*outlink)</td>
+    </tr>
+
+    <tr>
+      <td>2040:&nbsp;{</td>
+
+      <td>2049:&nbsp;{</td>
+    </tr>
+
+    <tr>
+      <td>
+      2041:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVFilterContext&nbsp;*ctx&nbsp;=&nbsp;outlink-&gt;src;</td>
+
+      <td>
+      2050:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVFilterContext&nbsp;*ctx&nbsp;=&nbsp;outlink-&gt;src;</td>
+    </tr>
+
+    <tr>
+      <td>2100:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(s-&gt;duration)</td>
+
+      <td>2109:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(s-&gt;duration)</td>
+    </tr>
+
+    <tr>
+      <td>
+      2101:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;duration_pts&nbsp;=&nbsp;av_rescale_q(s-&gt;duration,&nbsp;AV_TIME_BASE_Q,&nbsp;outlink-&gt;time_base);</td>
+
+      <td>
+      2110:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;duration_pts&nbsp;=&nbsp;av_rescale_q(s-&gt;duration,&nbsp;AV_TIME_BASE_Q,&nbsp;outlink-&gt;time_base);</td>
+    </tr>
+
+    <tr>
+      <td>2102:&nbsp;</td>
+
+      <td>2111:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      2112:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;ret&nbsp;=&nbsp;config_xfade_easing(ctx);</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      2113:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;=&nbsp;0)&nbsp;return&nbsp;ret;&nbsp;//&nbsp;error&nbsp;or&nbsp;extended&nbsp;transition</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">2114:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>2103:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch&nbsp;(s-&gt;transition)&nbsp;{</td>
+
+      <td>2115:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch&nbsp;(s-&gt;transition)&nbsp;{</td>
+    </tr>
+
+    <tr>
+      <td>
+      2104:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;CUSTOM:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;custom8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;custom16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
+
+      <td>
+      2116:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;CUSTOM:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;custom8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;custom16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
+    </tr>
+
+    <tr>
+      <td>
+      2105:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;FADE:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;fade8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;fade16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
+
+      <td>
+      2117:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;FADE:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;fade8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;fade16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
+    </tr>
+
+    <tr>
+      <td>
+      2194:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_start&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;&nbsp;jobnr&nbsp;&nbsp;&nbsp;)&nbsp;/&nbsp;nb_jobs;</td>
+
+      <td>
+      2206:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_start&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;&nbsp;jobnr&nbsp;&nbsp;&nbsp;)&nbsp;/&nbsp;nb_jobs;</td>
+    </tr>
+
+    <tr>
+      <td>
+      2195:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_end&nbsp;&nbsp;&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;(jobnr+1))&nbsp;/&nbsp;nb_jobs;</td>
+
+      <td>
+      2207:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_end&nbsp;&nbsp;&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;(jobnr+1))&nbsp;/&nbsp;nb_jobs;</td>
+    </tr>
+
+    <tr>
+      <td>2196:&nbsp;</td>
+
+      <td>2208:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#99FF99">
+      2197:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf(ctx,&nbsp;td-&gt;xf[0],&nbsp;td-&gt;xf[1],&nbsp;td-&gt;out,&nbsp;td-&gt;progress,&nbsp;slice_start,&nbsp;slice_end,&nbsp;jobnr);</td>
+
+      <td bgcolor="#99FF99">
+      2209:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf(ctx,&nbsp;td-&gt;xf[0],&nbsp;td-&gt;xf[1],&nbsp;td-&gt;out,&nbsp;ease(s,&nbsp;td-&gt;progress),&nbsp;slice_start,&nbsp;slice_end,&nbsp;jobnr);</td>
+    </tr>
+
+    <tr>
+      <td>2198:&nbsp;</td>
+
+      <td>2210:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>2199:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</td>
+
+      <td>2211:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</td>
+    </tr>
+
+    <tr>
+      <td>2200:&nbsp;}</td>
+
+      <td>2212:&nbsp;}</td>
+    </tr>
+  </table><br>
+  <br>
+
+  <table border="0" cellspacing="0" cellpadding="1">
+    <tr>
+      <th align="center" bgcolor="#000000" colspan="2"><span class="c2">legend</span></th>
+    </tr>
+
+    <tr>
+      <td align="center" bgcolor="#CCCCFF">Lines Added</td>
+
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+    </tr>
+
+    <tr bgcolor="#99FF99">
+      <td align="center" colspan="2">Lines changed</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td align="center" bgcolor="#FF9999">Lines Removed</td>
+    </tr>
+  </table>
+
+  <p class="c4"><a href="http://www.ginini.com/software/hdiff/"><span class="c3">hdiff - version:
+  2.1.0</span></a></p>
+</body>
+</html>

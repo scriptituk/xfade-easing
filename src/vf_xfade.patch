@@ -1,0 +1,64 @@
+--- ffmpeg-6.1.1/libavfilter/vf_xfade-dist.c	2023-11-11 00:25:17.000000000 +0000
++++ ffmpeg-6.1.1/libavfilter/vf_xfade.c	2024-01-27 15:18:56.000000000 +0000
+@@ -127,6 +127,10 @@
+     void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
+                         int slice_start, int slice_end, int jobnr);
+ 
++    char *easing_str; // easing name with optional args
++    char *transition_str; // transition name with optional args
++    struct XFadeEasingContext *k; // xfade-easing data
++
+     AVExpr *e;
+ } XFadeContext;
+ 
+@@ -158,18 +162,21 @@
+     AV_PIX_FMT_NONE
+ };
+ 
++static void xe_data_free(struct XFadeEasingContext *k);
+ static av_cold void uninit(AVFilterContext *ctx)
+ {
+     XFadeContext *s = ctx->priv;
+ 
+     av_expr_free(s->e);
++    xe_data_free(s->k);
+ }
+ 
+ #define OFFSET(x) offsetof(XFadeContext, x)
+ #define FLAGS (AV_OPT_FLAG_FILTERING_PARAM | AV_OPT_FLAG_VIDEO_PARAM)
+ 
+ static const AVOption xfade_options[] = {
+-    { "transition", "set cross fade transition", OFFSET(transition), AV_OPT_TYPE_INT, {.i64=FADE}, -1, NB_TRANSITIONS-1, FLAGS, "transition" },
++    { "easing", "set cross fade easing", OFFSET(easing_str), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, FLAGS },
++    { "transition", "set cross fade transition", OFFSET(transition_str), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, FLAGS, "transition" },
+     {   "custom",    "custom transition",     0, AV_OPT_TYPE_CONST, {.i64=CUSTOM},    0, 0, FLAGS, "transition" },
+     {   "fade",      "fade transition",       0, AV_OPT_TYPE_CONST, {.i64=FADE},      0, 0, FLAGS, "transition" },
+     {   "wipeleft",  "wipe left transition",  0, AV_OPT_TYPE_CONST, {.i64=WIPELEFT},  0, 0, FLAGS, "transition" },
+@@ -2036,6 +2043,8 @@
+ static double b2(void *priv, double x, double y) { return getpix(priv, x, y, 2, 1); }
+ static double b3(void *priv, double x, double y) { return getpix(priv, x, y, 3, 1); }
+ 
++#include "xfade-easing.h" // easing & extended transitions
++
+ static int config_output(AVFilterLink *outlink)
+ {
+     AVFilterContext *ctx = outlink->src;
+@@ -2100,6 +2109,9 @@
+     if (s->duration)
+         s->duration_pts = av_rescale_q(s->duration, AV_TIME_BASE_Q, outlink->time_base);
+ 
++    int ret = config_xfade_easing(ctx);
++    if (ret <= 0) return ret; // error or extended transition
++
+     switch (s->transition) {
+     case CUSTOM:     s->transitionf = s->depth <= 8 ? custom8_transition     : custom16_transition;     break;
+     case FADE:       s->transitionf = s->depth <= 8 ? fade8_transition       : fade16_transition;       break;
+@@ -2194,7 +2206,7 @@
+     int slice_start = (outlink->h *  jobnr   ) / nb_jobs;
+     int slice_end   = (outlink->h * (jobnr+1)) / nb_jobs;
+ 
+-    s->transitionf(ctx, td->xf[0], td->xf[1], td->out, td->progress, slice_start, slice_end, jobnr);
++    s->transitionf(ctx, td->xf[0], td->xf[1], td->out, ease(s, td->progress), slice_start, slice_end, jobnr);
+ 
+     return 0;
+ }

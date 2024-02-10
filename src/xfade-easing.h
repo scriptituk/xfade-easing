@@ -1,0 +1,1645 @@
+// FFmpeg XFade easing and extensions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
+// GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
+//
+// This is a port of standard easing equations and CSS easing functions for the FFmpeg XFade filter
+// It also ports extended transitions, notably GL Transitions, for use with or without easing
+//
+// See https://github.com/scriptituk/xfade-easing/blob/main/README.md for documentation
+
+#include <stdbool.h>
+#include <float.h>
+#include "libavutil/avstring.h"
+
+////////////////////////////////////////////////////////////////////////////////
+// aggregate types
+////////////////////////////////////////////////////////////////////////////////
+
+// normalised pixel position
+typedef struct {
+    float x, y;
+} vec2;
+
+// normalised plane data
+typedef union {
+    struct { float p0, p1, p2, p3; };
+    float p[4];
+} vec4;
+
+// easing arguments
+typedef struct {
+    enum { STANDARD, LINEAR, BEZIER, STEPS } type; // easing type
+    union {
+        struct Standard { // Robert Penner & supplementary easings
+            enum { EASE_INOUT, EASE_IN, EASE_OUT } mode;
+        } e;
+        struct Linear { // CSS linear
+            int stops;
+            vec2 *points; // alloc
+        } l;
+        union Bezier { // CSS cubic-bezier
+            struct { float x1, y1, x2, y2; };
+            float p[4];
+        } b;
+        struct Steps { // CSS steps
+            int steps;
+            enum { JUMP_START, JUMP_END, JUMP_NONE, JUMP_BOTH } position;
+        } s;
+    };
+} EasingArgs;
+
+// extended transition arguments
+typedef struct {
+    int argc;
+    struct Argv {
+        char *param; // optional name
+        float value;
+    } *argv; // alloc
+} XTransitionArgs;
+
+// transition thread data, modelled on GL Transition Specification v1
+typedef struct {
+    const float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
+    const float ratio; // viewport width / height (cf. W / H)
+    vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
+    vec4 a, b; // plane data at p (cf. A, B)
+    const struct XFadeContext *s; // link back to XFadeContext with its XFadeEasingContext
+} XTransition;
+
+// xfade-easing context, member of XFadeContext
+typedef struct XFadeEasingContext {
+    float (*easingf)(const struct XFadeEasingContext *k, float progress);
+    vec4 (*xtransitionf)(const XTransition *e);
+    EasingArgs eargs;
+    XTransitionArgs targs;
+    float duration; // seconds
+    vec4 black, white, transparent;
+} XFadeEasingContext;
+
+// ubiquitous point 5 float
+#define P5f 0.5f
+
+////////////////////////////////////////////////////////////////////////////////
+// easing functions 
+////////////////////////////////////////////////////////////////////////////////
+
+static float rp_pow(const XFadeEasingContext *k, float t, int power)
+{
+    const int mode = k->eargs.e.mode;
+    float a, m;
+    --power;
+    if (mode == EASE_IN)       a = 0, m = 1;
+    else if (mode == EASE_OUT) a = 1, m = -1, t = 1 - t;
+    else if (t < P5f)          a = 0, m = 1 << power;
+    else                       a = 1, m = -(1 << power), t = 1 - t;
+    do m *= t; while (power--);
+    return a + m;
+}
+
+static float rp_quadratic(const XFadeEasingContext *k, float t) { return rp_pow(k, t, 2); }
+
+static float rp_cubic(const XFadeEasingContext *k, float t) { return rp_pow(k, t, 3); }
+
+static float rp_quartic(const XFadeEasingContext *k, float t) { return rp_pow(k, t, 4); }
+
+static float rp_quintic(const XFadeEasingContext *k, float t) { return rp_pow(k, t, 5); }
+
+static float rp_sinusoidal(const XFadeEasingContext *k, float t)
+{
+    const int mode = k->eargs.e.mode;
+    return (mode == EASE_IN) ? 1 - cosf(t * M_PI_2f)
+         : (mode == EASE_OUT) ? sinf(t * M_PI_2f)
+         : (1 - cosf(t * M_PIf)) / 2;
+}
+
+static float rp_exponential(const XFadeEasingContext *k, float t)
+{
+    const int mode = k->eargs.e.mode;
+    return (t == 0 || t == 1) ? t
+         : (mode == EASE_IN) ? powf(2, -10 * (1 - t))
+         : (mode == EASE_OUT) ? 1 - powf(2, -10 * t)
+         : (t < P5f) ? powf(2, 20 * t - 11) : 1 - powf(2, 9 - 20 * t);
+}
+
+static float rp_circular(const XFadeEasingContext *k, float t)
+{
+    const int mode = k->eargs.e.mode;
+    return (mode == EASE_IN) ? 1 - sqrtf(1 - t * t)
+         : (mode == EASE_OUT) ? sqrtf(t * (2 - t))
+         : (t < P5f) ? (1 - sqrtf(1 - 4 * t * t)) / 2
+                     : (--t, (1 + sqrtf(1 - 4 * t * t)) / 2);
+}
+
+static float rp_elastic(const XFadeEasingContext *k, float t)
+{
+    const int mode = k->eargs.e.mode;
+    if (mode == EASE_IN) return --t, cosf(20 * t * M_PIf / 3) * powf(2, 10 * t);
+    if (mode == EASE_OUT) return 1 - cosf(20 * t * M_PIf / 3) / powf(2, 10 * t);
+    float p = 2 * t - 1, c = cosf(40 * p * M_PIf / 9) / 2;
+    p = powf(2, 10 * p);
+    return (t < P5f) ? c * p : 1 - c / p;
+}
+
+static float rp_back(const XFadeEasingContext *k, float t)
+{
+    const int mode = k->eargs.e.mode;
+    float b = 1.70158f; // for 10% back
+    if (mode == EASE_IN) return t * t * (t * (b + 1) - b);
+    float r = 1 - t;
+    if (mode == EASE_OUT) return 1 - r * r * (r * (b + 1) - b);
+    b *= 1.525f;
+    return (t < P5f) ? 2 * t * t * (2 * t * (b + 1) - b)
+                     : 1 - 2 * r * r * (2 * r * (b + 1) - b);
+}
+
+static float rp_bounce(const XFadeEasingContext *k, float t)
+{
+    const int mode = k->eargs.e.mode;
+    float s;
+    if (mode == EASE_IN) t = 1 - t;
+    else if (mode == EASE_INOUT) s = (t < P5f) ? 1 : -1, t = s * (1 - 2 * t);
+    const float f = 121.f / 16.f;
+    t = (t < 4.f / 11.f) ? f * t * t
+      : (t < 8.f / 11.f) ? f * powf(t - 6.f / 11.f, 2) + 3.f / 4.f
+      : (t < 10.f / 11.f) ? f * powf(t - 9.f / 11.f, 2) + 15.f / 16.f
+      : f * powf(t - 21.f / 22.f, 2) + 63.f / 64.f;
+    return (mode == EASE_IN) ? 1 - t
+         : (mode == EASE_INOUT) ? (1 - s * t) / 2
+         : t;
+}
+
+// supplementary easings
+
+static float se_squareroot(const XFadeEasingContext *k, float t)
+{
+    const int mode = k->eargs.e.mode;
+    return (mode == EASE_IN) ? sqrtf(t)
+         : (mode == EASE_OUT) ? 1 - sqrtf(1 - t)
+         : (t < P5f) ? sqrtf(2 * t) / 2 : 1 - sqrtf(2 * (1 - t)) / 2;
+}
+
+static float se_cuberoot(const XFadeEasingContext *k, float t)
+{
+    const int mode = k->eargs.e.mode;
+    return (mode == EASE_IN) ? powf(t, 1.f / 3.f)
+         : (mode == EASE_OUT) ? 1 - powf(1 - t, 1.f / 3.f)
+         : (t < P5f) ? powf(2 * t, 1.f / 3.f) / 2 : 1 - powf(2 * (1 - t), 1.f / 3.f) / 2;
+}
+
+// CSS easings
+
+// see https://drafts.csswg.org/css-easing-2/
+// WebKit: https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/animation/TimingFunction.cpp
+// Gecko: https://github.com/mozilla/gecko-dev/blob/master/servo/components/style/piecewise_linear.rs
+static float css_linear(const XFadeEasingContext *k, float t)
+{
+    const struct Linear *a = &k->eargs.l;
+    vec2 *p = a->points;
+    int i, n = a->stops;
+    if (n == 0)
+        return t;
+    if (n == 1) // ? see https://searchfox.org/mozilla-central/source/servo/components/style/piecewise_linear.rs
+        return 1 - p[0].y; // y is constant (I can't see this in the spec)
+    for (i = n - 1; i; i--)
+        if (p[i].x <= t)
+            break;
+    if (i < 0)
+        i = 0;
+    else if (i == n - 1)
+        --i;
+    p += i;
+    if (p[1].x - p[0].x < 1e-6) // approx eq
+        return p[1].y;
+    return p[0].y + (t - p[0].x) / (p[1].x - p[0].x) * (p[1].y - p[0].y);
+}
+
+// see https://drafts.csswg.org/css-easing-2/
+//     https://cubic-bezier.com/#.17,.67,.83,.67
+//     solve_cubic_bezier() at end of this file
+// WebKit: https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/animation/TimingFunction.cpp
+static float solve_cubic_bezier(float x1, float y1, float x2, float y2, float x, float epsilon);
+static float css_cubic_bezier(const XFadeEasingContext *k, float t)
+{
+    const union Bezier *a = &k->eargs.b;
+    float epsilon = 1 / (1000 * k->duration); // as per TimingFunction.cpp
+    return solve_cubic_bezier(a->x1, a->y1, a->x2, a->y2, t, epsilon);
+}
+
+// see https://drafts.csswg.org/css-easing-2/
+// WebKit: https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/animation/TimingFunction.cpp
+static float css_steps(const XFadeEasingContext *k, float t)
+{
+    const struct Steps *a = &k->eargs.s;
+    bool before = 0; // TODO: CSS before flag, if needed
+    int n = a->steps, s = floorf(t * n);
+    if (a->position == JUMP_START || a->position == JUMP_BOTH)
+        ++s;
+    if (before && !fmodf(t * n, 1))
+        s--;
+    if (t >= 0 && s < 0)
+        s = 0;
+    if (a->position == JUMP_NONE)
+        --n;
+    else if (a->position == JUMP_BOTH)
+        ++n;
+    if (t <= 1 && s > n)
+        s = n;
+    return (float) s / n;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// extended transitions
+////////////////////////////////////////////////////////////////////////////////
+
+// FF functions
+// mix() fract() smoothstep()(clamped) in libavfilter/vf_xfade.c
+// av_clip() av_clipf() in libavutil/common.h
+// av_isspace() av_str*() in libavutil/avstring.h
+// various in libavutil/mem.h libavutil/log.h
+// FFDIFFSIGN in libavutil/macros.h
+
+#define VEC2(x, y) ((vec2) { (x), (y) })
+#define VEC4(a, b, c, d) ((vec4) { .p0 = (a), .p1 = (b), .p2 = (c), .p3 = (d) })
+
+typedef struct {
+    int x, y;
+} ivec2;
+
+#define sign(x) FFDIFFSIGN((x), 0)
+
+static inline bool betweenf(float x, float min, float max)
+{
+    return x >= min && x <= max;
+}
+
+static inline bool between2(vec2 v, float min, float max)
+{
+    return v.x >= min && v.x <= max && v.y >= min && v.y <= max;
+}
+
+static inline float length(vec2 v)
+{
+    return hypotf(v.x, v.y);
+}
+
+static inline vec2 normalize(vec2 v)
+{
+    const float l = length(v);
+    v.x /= l, v.y /= l;
+    return v;
+}
+
+static inline float distance(vec2 p, vec2 q)
+{
+    p.x -= q.x, p.y -= q.y;
+    return length(p);
+}
+
+static inline float dot(vec2 p, vec2 q)
+{
+    return p.x * q.x + p.y * q.y;
+}
+
+static inline vec2 roto(vec2 v, float angle, vec2 o) // retate with offsets
+{
+    const float c = cosf(angle), s = sinf(angle);
+    return VEC2(v.x * c + v.y * s + o.x, v.y * c - v.x * s + o.y);
+}
+
+static inline vec2 rot(vec2 v, float angle)
+{
+    return roto(v, angle, VEC2(0,0));
+}
+
+static inline float mixf(float a, float b, float m)
+{
+    return mix(b, a, m); // vf_xfade.c mix() args are swapped
+}
+
+static inline vec2 mix2(vec2 a, vec2 b, float m)
+{
+    return VEC2(mix(b.x, a.x, m), mix(b.y, a.y, m));
+}
+
+static inline vec4 mix4(vec4 a, vec4 b, float m)
+{
+    return VEC4(mix(b.p0, a.p0, m), mix(b.p1, a.p1, m), mix(b.p2, a.p2, m), mix(b.p3, a.p3, m));
+}
+
+static inline float glmod(float x, float y)
+{
+    return x - y * floorf(x / y); // C fmod uses trunc
+}
+
+static inline int step(float edge, float x)
+{
+    return (x < edge) ? 0 : 1;
+}
+
+static inline float frandf(float x, float y)
+{
+    return fract(sin(x * 12.9898 + y * 78.233) * 43758.5453); // doubles render like GL Transitions
+}
+
+static inline float frand2(vec2 v)
+{
+    return frandf(v.x, v.y);
+}
+
+#define LINE(type, frame, plane, y) ((type*)(frame->data[plane] + (y) * frame->linesize[plane]))
+
+#define _getFromColor1(v) getColor(e, (v.x), (v.y), 0)
+#define _getFromColor2(x, y) getColor(e, (x), (y), 0)
+#define _getFromColor_VA(_1,_2,NAME,...) NAME
+#define getFromColor(...) _getFromColor_VA(__VA_ARGS__, _getFromColor2, _getFromColor1)(__VA_ARGS__)
+#define _getToColor1(v) getColor(e, (v.x), (v.y), 1)
+#define _getToColor2(x, y) getColor(e, (x), (y), 1)
+#define _getToColor_VA(_1,_2,NAME,...) NAME
+#define getToColor(...) _getToColor_VA(__VA_ARGS__, _getToColor2, _getToColor1)(__VA_ARGS__)
+static vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_xfade.c getpix()
+{
+    const XFadeContext *s = e->s;
+    const AVFrame *in = s->xf[nb];
+    const int w = in->width, h = in->height;
+    const int xi = av_clip(x * w, 0, w - 1), yi = av_clip((1 - y) * h, 0, h - 1);
+    const float max_value = s->max_value; // as float
+    vec4 ret;
+    for (int p = 0; p < 4; p++) {
+        if (p < s->nb_planes) {
+            uint16_t d = (s->depth > 8) ? LINE(uint16_t, in, p, yi)[xi] : LINE(uint8_t, in, p, yi)[xi];
+            ret.p[p] = d / max_value;
+            continue;
+        }
+        ret.p[p] = ret.p[p - 1];
+    }
+    return ret;
+}
+
+static inline vec4 bwt(const XTransition *e, int bwt) // black/white/transparent texture
+{
+    const XFadeEasingContext *k = e->s->k;
+    return (bwt < 0) ? k->transparent : bwt ? k->white : k->black;
+}
+
+static inline vec4 gray(const XTransition *e, float amount) // US spelling for consistency!
+{
+    const float p12 = e->s->is_rgb ? amount : P5f;
+    return VEC4(amount, p12, p12, 1);
+}
+
+#define _1PARAM(type, param, def) const type param = arg(e, &argi, #param, def)
+#define _2PARAM(type, param, defx, defy) const type param = { \
+    arg(e, &argi, #param ".x", defx),                         \
+    arg(e, &argi, #param ".y", defy)                          \
+}
+#define _PARAM_VA(_1, _2, NAME, ...) NAME
+#define PARAM(type, param, ...) _PARAM_VA(__VA_ARGS__, _2PARAM, _1PARAM)(type, param, __VA_ARGS__)
+static float arg(const XTransition *e, int *argi, const char *param, float def) // get arg or default
+{
+    const XTransitionArgs *a = &e->s->k->targs;
+    const int i = (*argi)++;
+    for (int j = 0; j < a->argc; j++)
+        if (a->argv[j].param && !av_strcasecmp(a->argv[j].param, param))
+            return a->argv[j].value; // named param
+    if (a->argc > i && !a->argv[i].param && !isnan(a->argv[i].value))
+        return a->argv[i].value; // positional param
+    return def; // default
+}
+
+// extended transitions
+
+// GL transition names, algorithms, variable names & credits are replicated from the gl-transitions repo
+
+static vec4 gl_angular(const XTransition *e) // by Fernando Kuteken
+{
+    int argi = 0;
+    PARAM(float, startingAngle, 90);
+    PARAM(bool, goClockwise, 0);
+    float offset = startingAngle * M_PIf / 180;
+    float angle = atan2f(e->p.y - P5f, e->p.x - P5f) + offset;
+    float normalizedAngle = angle * M_1_PIf / 2 + P5f;
+    if (goClockwise)
+        normalizedAngle *= -1;
+    normalizedAngle = fract(normalizedAngle);
+    return step(normalizedAngle, e->progress) ? e->b : e->a;
+}
+
+static vec4 gl_BookFlip(const XTransition *e) // by hong
+{
+    bool pr = step(1 - e->progress, e->p.x);
+    vec4 colour;
+    if (e->p.x < P5f) {
+        if (!pr)
+            return e->a;
+        vec2 skewLeft = {
+            (e->p.x - P5f) / (e->progress - P5f) / 2 + P5f,
+            (e->p.y - P5f) / (P5f + (1 - e->progress) * (P5f - e->p.x) * 2) / 2 + P5f
+        };
+        colour = getToColor(skewLeft);
+    } else {
+        if (pr)
+            return e->b;
+        vec2 skewRight = {
+             (e->p.x - e->progress) / (P5f - e->progress) / 2,
+             (e->p.y - P5f) / (P5f + e->progress * (e->p.x - P5f) * 2) / 2 + P5f
+        };
+        colour = getFromColor(skewRight);
+    }
+    float shadeVal = fmaxf(0.7f, fabsf(e->progress - P5f) * 2);
+    colour.p0 *= shadeVal;
+    if (e->s->is_rgb)
+        colour.p1 *= shadeVal, colour.p2 *= shadeVal;
+    return colour;
+}
+
+static vec4 gl_Bounce(const XTransition *e) // by Adrian Purser
+{
+    int argi = 0;
+    PARAM(float, shadow_alpha, 0.6);
+    PARAM(float, shadow_height, 0.075);
+    PARAM(float, bounces, 3);
+    float phase = e->progress * M_PIf * bounces;
+    float y = fabsf(cosf(phase)) * (1 - sinf(e->progress * M_PI_2f));
+    float d = e->p.y - y;
+    if (step(d, 0))
+        return getFromColor(e->p.x, e->p.y + (1 - y));
+    if (!step(d, shadow_height))
+        return e->b;
+    float m = mixf(
+        d / shadow_height * shadow_alpha + (1 - shadow_alpha),
+        1,
+        smoothstep(0.95f, 1, e->progress) // fade-out the shadow at the end
+    );
+    return mix4(e->b, e->s->k->black, 1 - m);
+}
+
+static vec4 gl_CrazyParametricFun(const XTransition *e) // by mandubian
+{
+    int argi = 0;
+    PARAM(float, a, 4);
+    PARAM(float, b, 1);
+    PARAM(float, amplitude, 120);
+    PARAM(float, smoothness, 0.1);
+    float x = (a - b) * cosf(e->progress) + b * cosf(e->progress * ((a / b) - 1));
+    float y = (a - b) * sinf(e->progress) - b * sinf(e->progress * ((a / b) - 1));
+    vec2 dir = { e->p.x - P5f, e->p.y - P5f };
+    float z = e->progress * length(dir) * amplitude;
+    vec2 offset = {
+        dir.x * sinf(z * x) / smoothness,
+        dir.y * sinf(z * y) / smoothness
+    };
+    vec4 f = getFromColor(e->p.x + offset.x, e->p.y + offset.y);
+    return mix4(f, e->b, smoothstep(0.2f, 1, e->progress));
+}
+
+static vec4 gl_crosswarp(const XTransition *e) // by Eke Péter
+{
+    float x = smoothstep(0, 1, e->progress * 2 + e->p.x - 1);
+    vec2 c = { e->p.x - P5f, e->p.y - P5f };
+    vec4 a = getFromColor(c.x * (1 - x) + P5f, c.y * (1 - x) + P5f);
+    vec4 b = getToColor(c.x * x + P5f, c.y * x + P5f);
+    return mix4(a, b, x);
+}
+
+static vec4 gl_cube(const XTransition *e) // by gre
+{
+    int argi = 0;
+    PARAM(float, persp, 0.7);
+    PARAM(float, unzoom, 0.3);
+    PARAM(float, reflection, 0.4);
+    PARAM(float, floating, 3);
+    PARAM(int, bgBkWhTr, 0);
+    float uz = unzoom * 2 * (P5f - fabsf(P5f - e->progress));
+    vec2 p = { e->p.x * (1 + uz) - uz / 2, e->p.y * (1 + uz) - uz / 2 };
+    float persp2 = e->progress * (1 - persp);
+    vec2 fromP = {
+        (p.x - e->progress) / (1 - e->progress),
+        (p.y - persp2 * fromP.x / 2) / (1 - persp2 * fromP.x)
+    };
+    if (between2(fromP, 0, 1))
+        return getFromColor(fromP);
+    persp2 = 1 - mixf(e->progress * e->progress, 1, persp);
+    vec2 toP = {
+        p.x / e->progress,
+        (p.y - persp2 * (1 - toP.x) / 2) / (1 - persp2 * (1 - toP.x))
+    };
+    if (between2(toP, 0, 1))
+        return getToColor(toP);
+    vec4 back = bwt(e, bgBkWhTr), c = back;
+    fromP.y = fromP.y * -1.2f - floating / 100;
+    if (between2(fromP, 0, 1))
+        c = mix4(back, getFromColor(fromP), reflection * (1 - fromP.y));
+    toP.y = toP.y * -1.2f - floating / 100;
+    if (between2(toP, 0, 1))
+        c = mix4(back, getToColor(toP), reflection * (1 - toP.y));
+    return c;
+}
+
+static vec4 gl_DirectionalScaled(const XTransition *e) // by Thibaut Foussard
+{
+    int argi = 0;
+    PARAM(vec2, direction, 0, 1);
+    PARAM(float, scale, 0.7);
+    PARAM(int, bgBkWhTr, 0);
+    float easedProgress = powf(sinf(e->progress * M_PI_2f), 3);
+    vec2 p = {
+        e->p.x + easedProgress * sign(direction.x),
+        e->p.y + easedProgress * sign(direction.y)
+    };
+    float s = 1 - (1 - 1 / scale) * sinf(e->progress * M_PIf);
+    vec2 f = {
+        (fract(p.x) - P5f) * s + P5f,
+        (fract(p.y) - P5f) * s + P5f
+    };
+    if (between2(f, 0, 1))
+        return between2(p, 0, 1) ? getFromColor(f) : getToColor(f);
+    return bwt(e, bgBkWhTr);
+}
+
+static vec4 gl_directionalwarp(const XTransition *e) // by pschroen
+{
+    int argi = 0;
+    PARAM(float, smoothness, 0.1);
+    PARAM(vec2, direction, -1, 1);
+    vec2 v = normalize(direction);
+    float m = fabsf(v.x) + fabsf(v.y);
+    v.x /= m, v.y /= m;
+    float d = (v.x + v.y) / 2;
+    m = v.x * e->p.x + v.y * e->p.y - (d - P5f + e->progress * (1 + smoothness));
+    m = 1 - smoothstep(-smoothness, 0, m);
+    v = VEC2(e->p.x - P5f, e->p.y - P5f);
+    vec4 a = getFromColor(v.x * (1 - m) + P5f, v.y * (1 - m) + P5f);
+    vec4 b = getToColor(v.x * m + P5f, v.y * m + P5f);
+    return mix4(a, b, m);
+}
+
+static vec4 gl_doorway(const XTransition *e) // by gre
+{
+    int argi = 0;
+    PARAM(float, reflection, 0.4);
+    PARAM(float, perspective, 0.4);
+    PARAM(float, depth, 3);
+    PARAM(int, bgBkWhTr, 0);
+    float middleSlit = 2 * fabsf(e->p.x - P5f) - e->progress;
+    if (middleSlit > 0) {
+        float d = 1 / (1 + perspective * e->progress * (1 - middleSlit));
+        vec2 pfr = {
+            e->p.x + (e->p.x > P5f ? -P5f : P5f) * e->progress,
+            (e->p.y + (1 - d) / 2) * d
+        };
+        if (between2(pfr, 0, 1))
+            return getFromColor(pfr);
+    }
+    float size = mixf(1, depth, 1 - e->progress);
+    vec2 pto = { (e->p.x - P5f) * size + P5f, (e->p.y - P5f) * size + P5f };
+    if (between2(pto, 0, 1))
+        return getToColor(pto);
+    vec4 c = bwt(e, bgBkWhTr);
+    pto.y = pto.y * -1.2f - 0.02f;
+    if (between2(pto, 0, 1))
+        c = mix4(c, getToColor(pto), reflection * (1 - pto.y));
+    return c;
+}
+
+static vec4 gl_Dreamy(const XTransition *e) // by mikolalysenko
+{
+    float shifty = 0.03f * e->progress * cosf(10 * (e->progress + e->p.x));
+    vec4 a = getFromColor(e->p.x, e->p.y + shifty);
+    shifty = 0.03f * (1 - e->progress) * cosf(10 * ((1 - e->progress) + e->p.x));
+    vec4 b = getToColor(e->p.x, e->p.y + shifty);
+    return mix4(a, b, e->progress);
+}
+
+static vec4 gl_hexagonalize(const XTransition *e) // by Fernando Kuteken
+{
+    int argi = 0;
+    PARAM(int, steps, 50);
+    PARAM(float, horizontalHexagons, 20);
+    float dist = 2 * fminf(e->progress, 1 - e->progress);
+    if (steps > 0)
+        dist = ceilf(dist * steps) / steps;
+    if (dist > 0) {
+        typedef struct { float q; float r; float s; } Hexagon;
+        float sqrt3 = sqrtf(3), size = sqrt3 / 3 * dist / horizontalHexagons;
+        // hexagonFromPoint
+        vec2 point = { (e->p.x - P5f) / size, (e->p.y / e->ratio - P5f) / size };
+        Hexagon hex = { .q = (sqrt3 * point.x - point.y) / 3, .r = 2.f / 3.f * point.y };
+        hex.s = -hex.q - hex.r;
+        // roundHexagon
+        Hexagon f = { floorf(hex.q + P5f), floorf(hex.r + P5f), floorf(hex.s + P5f) };
+        float deltaQ = fabsf(f.q - hex.q), deltaR = fabsf(f.r - hex.r), deltaS = fabsf(f.s - hex.s);
+        if (deltaQ > deltaR && deltaQ > deltaS)
+            f.q = -f.r - f.s;
+        else if (deltaR > deltaS)
+            f.r = -f.q - f.s;
+        // pointFromHexagon
+        point = VEC2(
+            (sqrt3 * f.q + sqrt3 / 2 * f.r) * size + P5f,
+            (3.f / 2.f * f.r * size + P5f) * e->ratio
+        );
+        return mix4(getFromColor(point), getToColor(point), e->progress);
+    }
+    return mix4(e->a, e->b, e->progress);
+}
+
+static vec4 gl_InvertedPageCurl(const XTransition *e) // by Hewlett-Packard
+{ // omits antiAlias() code
+    const float MIN_AMOUNT = -0.16f;
+    const float MAX_AMOUNT = 1.5f;
+    const float amount = e->progress * (MAX_AMOUNT - MIN_AMOUNT) + MIN_AMOUNT;
+    const float cylinderAngle = 2 * M_PIf * amount;
+    const float cylinderRadius = M_1_PIf / 2;
+    const float angle = 100 * M_PIf / 180.f;
+    vec2 o = { -0.801f, 0.89f };
+    vec2 point = roto(e->p, angle, o);
+    float hitAngle, yc = point.y - amount;
+
+    if (yc > cylinderRadius) // flat surface
+        return e->a;
+    o = VEC2(0.985f, 0.985f);
+    if (yc < -cylinderRadius) { // behind surface
+        // behindSurface()
+        yc = -cylinderRadius - cylinderRadius - yc;
+        hitAngle = acosf(yc / cylinderRadius) + cylinderAngle - M_PIf;
+        vec2 p = { point.x, hitAngle / 2 / M_PIf };
+        point = roto(p, -angle, o);
+        vec4 colour = e->b;
+        if (yc < 0 && between2(point, 0, 1) && (hitAngle < M_PIf || amount > P5f)) { // shadow over to page
+            float shadow = (1 - hypotf(point.x - P5f, point.y - P5f) * M_SQRT2f) * powf(-yc / cylinderRadius, 3) / 2;
+            colour.p0 -= shadow; // (can go -ve)
+            if (e->s->is_rgb)
+                colour.p1 -= shadow, colour.p2 -= shadow;
+        }
+        return colour;
+        // end behindSurface()
+    }
+    // seeThrough()
+    hitAngle = M_PIf - acosf(yc / cylinderRadius) + cylinderAngle;
+    vec4 colour = e->a;
+    if (yc < 0) { // get from colour going through its turn
+        vec2 p = { point.x, hitAngle / 2 / M_PIf };
+        vec2 q = roto(p, -angle, o);
+        colour = between2(q, 0, 1) ? getFromColor(q) : e->b;
+    }
+    // end seeThrough()
+    hitAngle = cylinderAngle + cylinderAngle - hitAngle;
+    float hitAngleMod = glmod(hitAngle, 2 * M_PIf);
+    if ((hitAngleMod > M_PIf && amount < P5f) || (hitAngleMod > M_PI_2f && amount < 0))
+        return colour;
+    vec2 p = { point.x, hitAngle / 2 / M_PIf };
+    point = roto(p, -angle, o);
+    // seeThroughWithShadow()
+    // distanceToEdge()
+    float dx = (point.x < 0) ? -point.x : (point.x > 1) ? point.x - 1 : (point.x > P5f) ? 1 - point.x : point.x;
+    float dy = (point.y < 0) ? -point.y : (point.y > 1) ? point.y - 1 : (point.y > P5f) ? 1 - point.y : point.y;
+    float dist = (betweenf(point.x, 0, 1) || betweenf(point.y, 0, 1)) ? fminf(dx, dy) : hypotf(dx, dy);
+    // end distanceToEdge()
+    float shadow = (1 - dist * 30) / 3;
+    if (shadow > 0) { // shadow over from page
+        shadow *= amount;
+        colour.p0 -= shadow;
+        if (e->s->is_rgb)
+            colour.p1 -= shadow, colour.p2 -= shadow;
+    }
+    // end seeThroughWithShadow()
+    if (!between2(point, 0, 1))
+        return colour;
+    // backside
+    colour = getFromColor(point);
+    float grey = colour.p0;
+    if (e->s->is_rgb)
+        grey = (grey + colour.p1 + colour.p2) / 3; // simple average
+    grey /= 5;
+    grey += 0.8f * (powf(1 - fabsf(yc / cylinderRadius), 0.2f) / 2 + P5f);
+    colour.p0 = grey;
+    if (!e->s->is_rgb)
+        grey = P5f;
+    colour.p1 = colour.p2 = grey;
+    return colour;
+}
+
+static vec4 gl_kaleidoscope(const XTransition *e) // by nwoeanhinnogaehr
+{
+    int argi = 0;
+    PARAM(float, speed, 1);
+    PARAM(float, angle, 1);
+    PARAM(float, power, 1.5);
+    float t = powf(e->progress, power) * speed;
+    vec2 p = { e->p.x - P5f, e->p.y - P5f };
+    for (int i = 0; i < 7; i++) {
+        vec2 q = rot(p, M_PI_2f - t);
+        p = VEC2(fabsf(glmod(q.x, 2) - 1), fabsf(glmod(q.y, 2) - 1));
+        t += angle;
+    }
+    vec4 m = mix4(e->a, e->b, e->progress);
+    vec4 n = mix4(getFromColor(p), getToColor(p), e->progress);
+    return mix4(m, n, 1 - 2 * fabsf(e->progress - P5f));
+}
+
+static vec4 gl_Mosaic(const XTransition *e) // by Xaychru
+{
+    int argi = 0;
+    PARAM(int, endx, 2);
+    PARAM(int, endy, -1);
+    float rpr = e->progress * 2 - 1;
+    float az = fabsf(3 - rpr * rpr * 2);
+    float ci = P5f - cosf(e->progress * M_PIf) / 2; // CosInterpolation
+    vec2 ps = {
+        (e->p.x - P5f) * az + mixf(P5f, endx + P5f, ci * ci),
+        (e->p.y - P5f) * az + mixf(P5f, endy + P5f, ci * ci)
+    };
+    vec2 crp = { floorf(ps.x), floorf(ps.y) }; // floor(crp)
+    vec2 mrp = { ps.x - crp.x, ps.y - crp.y }; // == glmod(ps, 1)
+    float r = frand2(crp);
+    bool onEnd = crp.x == endx && crp.y == endy;
+    if(!onEnd) {
+        float ang = truncf(r * 4) * M_PI_2f;
+        mrp = roto(VEC2(mrp.x - P5f, mrp.y - P5f), ang, VEC2(P5f, P5f));
+    }
+    return (onEnd || r > P5f) ? getToColor(mrp) : getFromColor(mrp);
+}
+
+static vec4 gl_perlin(const XTransition *e) // by Rich Harris
+{
+    int argi = 0;
+    PARAM(float, scale, 4);
+    PARAM(float, smoothness, 0.01);
+    vec2 s = { e->p.x * scale, e->p.y * scale };
+    vec2 i = { floorf(s.x), floorf(s.y) };
+    vec2 f = { s.x - i.x, s.y - i.y }; // fract
+    vec2 u = { smoothstep(0, 1, f.x), smoothstep(0, 1, f.y) };
+    float a = frandf(i.x, i.y);
+    float b = frandf(i.x + 1, i.y);
+    float c = frandf(i.x, i.y + 1);
+    float d = frandf(i.x + 1, i.y + 1);
+    float n = mixf(a, b, u.x) + (c - a) * u.y * (1 - u.x) + (d - b) * u.x * u.y;
+    float p = mixf(-smoothness, 1 + smoothness, e->progress);
+    float q = smoothstep(p - smoothness, p + smoothness, n);
+    return mix4(e->a, e->b, 1 - q);
+}
+
+static vec4 gl_pinwheel(const XTransition *e) // by Mr Speaker
+{
+    int argi = 0;
+    PARAM(float, speed, 1);
+    float circPos = atan2f(e->p.y - P5f, e->p.x - P5f) + e->progress * speed;
+    float modPos = glmod(circPos, M_PIf / 4);
+    return (e->progress <= modPos) ? e->a : e->b;
+}
+
+static vec4 gl_polar_function(const XTransition *e) // by Fernando Kuteken
+{
+    int argi = 0;
+    PARAM(int, segments, 5);
+    float angle = atan2f(e->p.y - P5f, e->p.x - P5f) - P5f * M_PIf;
+    float radius = cosf(segments * angle) / 4 + 1;
+    vec2 p = { e->p.x - P5f, e->p.y - P5f };
+    float difference = length(p);
+    return (difference > radius * e->progress) ? e->a : e->b;
+}
+
+static vec4 gl_PolkaDotsCurtain(const XTransition *e) // by bobylito
+{
+    int argi = 0;
+    PARAM(float, dots, 20);
+    PARAM(vec2, center, 0, 0);
+    vec2 p = { fract(e->p.x * dots), fract(e->p.y * dots) };
+    vec2 c = { P5f, P5f };
+    return (distance(p, c) < e->progress / distance(e->p, center)) ? e->b : e->a;
+}
+
+static vec4 gl_powerKaleido(const XTransition *e) // by Boundless
+{
+    int argi = 0;
+    PARAM(float, scale, 2);
+    PARAM(float, z, 1.5);
+    PARAM(float, speed, 5);
+    const float rad = 120; // change this value to get different mirror effects
+    const float deg = rad / 180 * M_PIf;
+    float dist = scale / 10;
+    vec2 uv = { (e->p.x - P5f) * e->ratio * z, (e->p.y - P5f) * e->ratio * z };
+    float a = e->progress * speed;
+    uv = rot(uv, a);
+    for (int iter = 0; iter < 10; iter++) {
+        for (float i = 0; i < 2 * M_PIf; i += deg) {
+            float c = cosf(i), s = sinf(i);
+            bool b = asinf(c) > 0; // == glmod(i + M_PI_2f, 2 * M_PIf) < M_PIf
+            bool d = uv.y - c * dist > s / c * (uv.x + s * dist);
+            if (b == d) {
+                vec2 p = { uv.x + s * dist * 2, uv.y - c * dist * 2 };
+                float f = dot(p, VEC2(c, s));
+                uv = VEC2(2 * c * f - p.x, 2 * s * f - p.y);
+            }
+        }
+    }
+    uv = rot(uv, -a);
+    uv.x /= e->ratio;
+    uv = VEC2((uv.x + P5f) / 2, (uv.y + P5f) / 2);
+    uv = VEC2(2 * fabsf(uv.x - floorf(uv.x + P5f)), 2 * fabsf(uv.y - floorf(uv.y + P5f)));
+    float m = cosf(e->progress * M_PIf * 2) / 2 + P5f;
+    vec2 uvMix = mix2(uv, e->p, m);
+    m = cosf((e->progress - 1) * M_PIf) / 2 + P5f;
+    return mix4(getFromColor(uvMix), getToColor(uvMix), m);
+}
+
+static vec4 gl_randomNoisex(const XTransition *e) // by towrabbit
+{
+    float uvz = floorf(frand2(e->p) + e->progress);
+    return mix4(e->a, e->b, uvz);
+}
+
+static vec4 gl_randomsquares(const XTransition *e) // by gre
+{
+    int argi = 0;
+    PARAM(vec2, size, 10, 10);
+    PARAM(float, smoothness, 0.5);
+    vec2 f = { floorf(size.x * e->p.x), floorf(size.y * e->p.y) };
+    float r = frand2(f);
+    float m = smoothstep(0, -smoothness, r - e->progress * (1 + smoothness));
+    return mix4(e->a, e->b, m);
+}
+
+static vec4 gl_ripple(const XTransition *e) // by gre
+{
+    int argi = 0;
+    PARAM(float, amplitude, 100);
+    PARAM(float, speed, 50);
+    vec2 dir = { e->p.x - P5f, e->p.y - P5f };
+    float dist = length(dir);
+    float s = (sinf(e->progress * (dist * amplitude - speed)) + P5f) / 30;
+    vec2 poffset = { e->p.x + dir.x * s, e->p.y + dir.y * s };
+    return mix4(getFromColor(poffset), e->b, smoothstep(0.2f, 1, e->progress));
+}
+
+static vec4 gl_Rolls(const XTransition *e) // by Mark Craig
+{
+    int argi = 0;
+    PARAM(int, type, 0);
+    PARAM(bool, RotDown, 0);
+    float theta = M_PI_2f * e->progress;
+    if (type >= 2 == !RotDown)
+        theta = -theta;
+    vec2 uvi = e->p;
+    if (!(type == 1 || type == 2))
+        uvi.x = 1 - uvi.x;
+    if (type >= 2)
+        uvi.y = 1 - uvi.y;
+    vec2 uv2 = rot(VEC2(uvi.x * e->ratio, uvi.y), theta);
+    if (betweenf(uv2.x, 0, e->ratio) && betweenf(uv2.y, 0, 1)) {
+        uv2.x /= e->ratio;
+        if (!(type == 1 || type == 2))
+            uv2.x = 1 - uv2.x;
+        if (type >= 2)
+            uv2.y = 1 - uv2.y;
+        return getFromColor(uv2);
+    }
+    return e->b;
+}
+
+static vec4 gl_RotateScaleVanish(const XTransition *e) // by Mark Craig
+{
+    int argi = 0;
+    PARAM(bool, FadeInSecond, 1);
+    PARAM(bool, ReverseEffect, 0);
+    PARAM(bool, ReverseRotation, 0);
+    PARAM(int, bgBkWhTr, 0);
+    float t = ReverseEffect ? 1 - e->progress : e->progress;
+    float theta = (ReverseRotation ? -t : t) * 2 * M_PIf;
+    vec2 c2 = rot(VEC2((e->p.x - P5f) * e->ratio, e->p.y - P5f), theta);
+    float rad = fmax(0.00001f, 1 - t);
+    vec2 uv2 = { c2.x / rad + e->ratio / 2, c2.y / rad + P5f };
+    vec4 col3, ColorTo = ReverseEffect ? e->a : e->b;
+    if (betweenf(uv2.x, 0, e->ratio) && betweenf(uv2.y, 0, 1)) {
+        uv2.x /= e->ratio;
+        col3 = ReverseEffect ? getToColor(uv2) : getFromColor(uv2);
+    } else if (FadeInSecond) {
+        col3 = bwt(e, bgBkWhTr);
+    } else {
+        col3 = ColorTo;
+    }
+    return mix4(col3, ColorTo, t);
+}
+
+static vec4 gl_rotateTransition(const XTransition *e) // by haiyoucuv
+{
+    vec2 p = roto(VEC2(e->p.x - P5f, e->p.y - P5f), e->progress * 2 * M_PIf, VEC2(P5f, P5f));
+    return mix4(getFromColor(p), getToColor(p), e->progress);
+}
+
+static vec4 gl_rotate_scale_fade(const XTransition *e) // by Fernando Kuteken
+{
+    int argi = 0;
+    PARAM(vec2, center, 0.5, 0.5);
+    PARAM(float, rotations, 1);
+    PARAM(float, scale, 8);
+    PARAM(float, backGray, 0.15);
+    vec2 difference = { e->p.x - center.x, e->p.y - center.y };
+    float dist = length(difference);
+    vec2 dir = { difference.x / dist, difference.y / dist };
+    float angle = -2 * M_PIf * rotations * e->progress;
+    vec2 rotatedDir = rot(dir, angle);
+    float m = dist / mixf(scale, 1, 2 * fabsf(e->progress - P5f));
+    vec2 rotatedUv = { center.x + rotatedDir.x * m, center.y + rotatedDir.y * m };
+    if (between2(rotatedUv, 0, 1))
+        return mix4(getFromColor(rotatedUv), getToColor(rotatedUv), e->progress);
+    return gray(e, backGray);
+}
+
+static vec4 gl_Slides(const XTransition *e) // by Mark Craig
+{
+    int argi = 0;
+    PARAM(int, type, 0);
+    PARAM(bool, In, 0);
+    float rad = In ? e->progress : 1 - e->progress, rrad = 1 - rad, rrad2 = rrad / 2;
+    float xc1, yc1;
+         if (type == 0) xc1 = rrad2, yc1 = 0;     // up
+    else if (type == 1) xc1 = rrad,  yc1 = rrad2; // right
+    else if (type == 2) xc1 = rrad2, yc1 = rrad;  // down
+    else if (type == 3) xc1 = 0,     yc1 = rrad2; // left
+    else if (type == 4) xc1 = rrad,  yc1 = 0;     // t-r
+    else if (type == 5) xc1 =        yc1 = rrad;  // b-r
+    else if (type == 6) xc1 = 0,     yc1 = rrad;  // b-l
+    else if (type == 7) xc1 =        yc1 = 0;     // t-l
+    else                xc1 =        yc1 = rrad2; // default centre
+    vec2 uv = { e->p.x, 1 - e->p.y };
+    if (betweenf(uv.x, xc1, xc1 + rad) && betweenf(uv.y, yc1, yc1 + rad)) {
+        vec2 uv2 = { (uv.x - xc1) / rad, 1.0 - (uv.y - yc1) / rad };
+        return In ? getToColor(uv2) : getFromColor(uv2);
+    }
+    return In ? e->a : e->b;
+}
+
+static vec4 gl_squareswire(const XTransition *e) // by gre
+{
+    int argi = 0;
+    PARAM(ivec2, squares, 10, 10);
+    PARAM(vec2, direction, 1.0, 0.5);
+    PARAM(float, smoothness, 1.6);
+    vec2 v = normalize(direction);
+    float a = v.x / fabsf(v.x) + v.y / fabsf(v.y);
+    v = VEC2(v.x / a, v.y / a);
+    float d = v.x / 2 + v.y / 2;
+    float pr = smoothstep(-smoothness, 0, v.x * e->p.x + v.y * e->p.y - (d - P5f + e->progress * (1 + smoothness)));
+    vec2 squarep = { fract(e->p.x * squares.x), fract(e->p.y * squares.y) };
+    return between2(squarep, pr / 2, 1 - pr / 2) ? getToColor(e->p) : getFromColor(e->p);
+}
+
+static vec4 gl_static_wipe(const XTransition *e) // by Ben Lucas
+{
+    int argi = 0;
+    PARAM(bool, u_transitionUpToDown, 1);
+    PARAM(float, u_max_static_span, 0.5);
+    float span = u_max_static_span * sqrtf(sinf(M_PIf * e->progress));
+    float transitionEdge = u_transitionUpToDown ? 1 - e->p.y : e->p.y;
+    float ss1 = smoothstep(e->progress - span, e->progress, transitionEdge);
+    float ss2 = 1 - smoothstep(e->progress, e->progress + span, transitionEdge);
+    float noiseEnvelope = ss1 * ss2;
+    vec4 transitionMix = (1 - step(e->progress, transitionEdge)) ? e->b : e->a;
+    float d = frandf(e->p.x * (1 + e->progress), e->p.y * (1 + e->progress));
+    vec4 noise = transitionMix;
+    noise.p0 = d;
+    if (!e->s->is_rgb)
+        d = P5f;
+    noise.p1 = noise.p2 = d;
+    return mix4(transitionMix, noise, noiseEnvelope);
+}
+
+static vec4 gl_swap(const XTransition *e) // by gre
+{
+    int argi = 0;
+    PARAM(float, reflection, 0.4);
+    PARAM(float, perspective, 0.2);
+    PARAM(float, depth, 3);
+    PARAM(int, bgBkWhTr, 0);
+    float size = mixf(1, depth, e->progress);
+    float persp = perspective * e->progress;
+    vec2 pfr = {
+        e->p.x * size / (1 - persp),
+        (e->p.y - P5f) * size / (1 - size * persp * e->p.x) + P5f
+    };
+    size = mixf(1, depth, 1 - e->progress);
+    persp = perspective - persp;
+    vec2 pto = {
+        (e->p.x - 1) * size / (1 - persp) + 1,
+        (e->p.y - P5f) * size / (1 - size * persp * (P5f - e->p.x)) + P5f
+    };
+    if (e->progress < P5f) {
+        if (between2(pfr, 0, 1))
+            return getFromColor(pfr);
+        if (between2(pto, 0, 1))
+            return getToColor(pto);
+    }
+    if (between2(pto, 0, 1))
+        return getToColor(pto);
+    if (between2(pfr, 0, 1))
+        return getFromColor(pfr);
+    // bgColor
+    vec4 c = bwt(e, bgBkWhTr);
+    pfr.y = pfr.y * -1.2f - 0.02f;
+    if (between2(pfr, 0, 1))
+        return mix4(c, getFromColor(pfr), reflection * (1 - pfr.y));
+    pto.y = pto.y * -1.2f - 0.02f;
+    if (between2(pto, 0, 1))
+        return mix4(c, getToColor(pto), reflection * (1 - pto.y));
+    return c;
+}
+
+static vec4 gl_Swirl(const XTransition *e) // by Sergey Kosarevsky
+{
+    float Radius = 1, T = e->progress;
+    vec2 UV = { e->p.x - P5f, e->p.y - P5f };
+    float Dist = length(UV);
+    if ( Dist < Radius ) {
+        float Percent = (Radius - Dist) / Radius;
+        float A = ((T <= P5f) ? T : 1 - T) * 2;
+        float Theta = Percent * Percent * A * 8 * M_PIf;
+        UV = rot(UV, -Theta);
+    }
+    UV = VEC2(UV.x + P5f, UV.y + P5f);
+    return mix4(getFromColor(UV), getToColor(UV), T);
+}
+
+static vec4 gl_WaterDrop(const XTransition *e) // by Paweł Płóciennik
+{
+    int argi = 0;
+    PARAM(float, amplitude, 30);
+    PARAM(float, speed, 30);
+    vec2 dir = { e->p.x - P5f, e->p.y - P5f };
+    float dist = length(dir);
+    if (dist > e->progress)
+        return mix4(getFromColor(e->p), getToColor(e->p), e->progress);
+    float off = sinf(dist * amplitude - e->progress * speed);
+    vec2 offset = { e->p.x + dir.x * off, e->p.y + dir.y * off };
+    return mix4(getFromColor(offset), getToColor(e->p), e->progress);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// easing delegate
+////////////////////////////////////////////////////////////////////////////////
+
+static float ease(XFadeContext *s, float progress)
+{
+    const XFadeEasingContext *k = s->k;
+    if (!k->easingf)
+        return progress; // uneased
+    if (s->transition == CUSTOM) {
+        // make uneased progess P available as ld(0), primarily for testing easing functions
+        // horrible hack here due to incomplete definition of type 'struct AVExpr' at s->e
+        // TODO: find a neat thread-safe way to implement this hook for slices
+        typedef struct { // this must mimic struct AVExpr member sizeofs, see libavutil/eval.c
+            int type;
+            double value;
+            int const_index;
+            double (*func0)(double);
+            struct AVExpr *param[3];
+            double *var;
+        } _AVExpr;
+        _AVExpr *e = (_AVExpr*)s->e;
+        e->var[0] = progress;
+    };
+    return 1 - k->easingf(k, 1 - progress); // (1 to 0 for xfade)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// extended transition delegate
+////////////////////////////////////////////////////////////////////////////////
+
+#define XTRANSITION_TRANSITION(name, type, div)                                              \
+static void xtransition##name##_transition(AVFilterContext *ctx,                             \
+                                           const AVFrame *a, const AVFrame *b, AVFrame *out, \
+                                           float progress,                                   \
+                                           int slice_start, int slice_end, int jobnr)        \
+{                                                                                            \
+    const float width = out->width, height = out->height; /* as floats */                    \
+    XTransition e = {                                                                        \
+        .progress = 1 - progress, /* 0 to 1 for xtransitions */                              \
+        .ratio = width / height,                                                             \
+        .s = ctx->priv,                                                                      \
+    };                                                                                       \
+    const float max_value = e.s->max_value; /* as float */                                   \
+                                                                                             \
+    for (int y = slice_start; y < slice_end; y++) {                                          \
+        e.p.y = 1 - y / height; /* y==0 is bottom */                                         \
+        for (int x = 0; x < out->width; x++) { /* int */                                     \
+            e.p.x = x / width;                                                               \
+            for (int p = 0; p < 4; p++) {                                                    \
+                if (p < e.s->nb_planes) {                                                    \
+                    e.a.p[p] = LINE(type, a, p, y)[x] / max_value;                           \
+                    e.b.p[p] = LINE(type, b, p, y)[x] / max_value;                           \
+                } else {                                                                     \
+                    e.a.p[p] = e.a.p[p - 1];                                                 \
+                    e.b.p[p] = e.b.p[p - 1];                                                 \
+                }                                                                            \
+            }                                                                                \
+            vec4 v = e.s->k->xtransitionf(&e); /* run */                                     \
+            for (int p = 0; p < e.s->nb_planes; p++) {                                       \
+                type d = av_clipf(v.p[p] * max_value, 0, max_value); /* (sometimes -ve) */   \
+                LINE(type, out, p, y)[x] = d;                                                \
+            }                                                                                \
+        }                                                                                    \
+    }                                                                                        \
+}
+
+XTRANSITION_TRANSITION(8, uint8_t, 1)
+XTRANSITION_TRANSITION(16, uint16_t, 2)
+
+////////////////////////////////////////////////////////////////////////////////
+// argument parsing
+////////////////////////////////////////////////////////////////////////////////
+
+static int xe_error(void *avcl, const char *fmt, ...) // reduces verbosity
+{
+    va_list args;
+    va_start(args, fmt);
+    av_vlog(avcl, AV_LOG_ERROR, fmt, args);
+    va_end(args);
+    return AVERROR(EINVAL);
+}
+
+static void xe_debug(void *avcl, const char *fmt, ...) // emits parsing trail
+{
+    const char *p = "xfade-easing: ";
+    int l = strlen(p) + strlen(fmt) + 1;
+    char f[l];
+    av_strlcpy(f, p, l);
+    av_strlcat(f, fmt, l);
+    va_list args;
+    va_start(args, fmt);
+    av_vlog(avcl, AV_LOG_DEBUG, f, args);
+    va_end(args);
+}
+
+static void rmspace(char *s) // remove extraneous spaces in place
+{
+    char *d = s;
+    char c, l = 0;
+    while (c = *s++) {
+        // trim name part
+        if (c != '(') {
+            if (c != ' ')
+                l = c;
+            *d++ = c;
+            continue;
+        }
+        if (l)
+            while (d[-1] != l)
+                d--;
+        *d++ = l = c;
+        // trim args allowing single space between CSV tokens
+        bool b = 0, e;
+        while (c = *s++) {
+            if (c != ' ' || b && l != ' ') {
+                if (e = (c == ',' || c == ')'))
+                    if (b && l == ' ')
+                        d--;
+                b = !e;
+                *d++ = l = c;
+            }
+        }
+        break;
+    }
+    *d = 0;
+}
+
+static char *csvtok(char *s, char **p) // like strtok_r but doesn't skip empty values between commas
+{
+    char *c = s ? s : (s = *p);
+    if (!*c)
+        return NULL;
+    while (*c) {
+        if (*c++ == ',') {
+            c[-1] = 0;
+            break;
+        }
+    }
+    *p = c;
+    return s;
+}
+
+static int parse_standard_easing(AVFilterContext *ctx, char *args) // standard/supplementary easing mode
+{
+    XFadeContext *s = ctx->priv;
+    struct Standard *a = &s->k->eargs.e;
+    s->k->eargs.type = STANDARD;
+    char *p = strchr(s->easing_str, '-');
+    if (!p) a->mode = EASE_INOUT;
+    else if (!av_strcasecmp(p, "-in-out")) a->mode = EASE_INOUT;
+    else if (!av_strcasecmp(p, "-in")) a->mode = EASE_IN;
+    else if (!av_strcasecmp(p, "-out")) a->mode = EASE_OUT;
+    else return xe_error(ctx, "unknown easing function %s\n", s->easing_str);
+    if (args)
+        av_log(ctx, AV_LOG_WARNING, "ignoring extraneous easing arguments %s\n", args);
+    xe_debug(ctx, "easing = %s[%d]\n", s->easing_str, a->mode);
+    return 0;
+}
+
+static int parse_linear_easing(AVFilterContext *ctx, char *args) // CSS linear()
+{
+    if (!args)
+        return 0;
+    XFadeContext *s = ctx->priv;
+    struct Linear *a = &s->k->eargs.l;
+    s->k->eargs.type = LINEAR;
+    // parse
+    char *e, *c, *b, *t;
+    float d = -FLT_MAX; // ensure x increases
+    while (e = csvtok(args, &c)) { // each arg
+        if (!*e)
+            return xe_error(ctx, "expected number in easing option\n");
+        e = av_strtok(e, " ", &b);
+        float x = NAN, y = strtof(e, &t);
+        if (t == e || *t != 0)
+            return xe_error(ctx, "bad number %s in easing option\n", e);
+        int i, n = 1;
+        vec2 q[2];
+        for (i = 0; i < 2; i++) {
+            if (e = av_strtok(NULL, " ", &b)) { // have %
+                x = strtof(e, &t);
+                if (t == e || *t != '%')
+                    return xe_error(ctx, "bad number %s in easing option\n", e);
+                x = d = fmaxf(x / 100, d);
+                if (i)
+                    n++;
+            }
+            q[i] = VEC2(x, y);
+        }
+        if (!(a->points = av_realloc_array(a->points, a->stops + n, sizeof(*a->points))))
+            return AVERROR(ENOMEM);
+        for (i = 0; i < n; i++)
+            a->points[a->stops++] = q[i];
+        args = NULL;
+    }
+    // interpolate x gaps
+    int n = a->stops;
+    if (n < 2)
+        return xe_error(ctx, "expected at least 2 easing arguments, got %d\n", n);
+    vec2 *p = a->points;
+    if (isnan(p[0].x))
+        p[0].x = 0;
+    if (isnan(p[n - 1].x))
+        p[n - 1].x = 1;
+    for (int i = 1, j = 0; i < n; i++) {
+        float x = p[i].x;
+        if (!isnan(x)) {
+            if (i - j > 1) {
+                d = (x - p[j].x) / (i - j);
+                for (j++; j < i; j++)
+                    p[j].x = p[j - 1].x + d;
+                p[j].x = x;
+            }
+            j = i;
+        }
+    }
+    xe_debug(ctx, "easing = %s[%d](", s->easing_str, n);
+    for (int i = 0; i < n; i++)
+        av_log(ctx, AV_LOG_DEBUG, "%s%g %g", i ? ", " : "", a->points[i].x, a->points[i].y);
+    av_log(ctx, AV_LOG_DEBUG, ")\n");
+    return 0;
+}
+
+static int parse_cubic_bezier_easing(AVFilterContext *ctx, char *args) // CSS cubic-bezier()
+{
+    XFadeContext *s = ctx->priv;
+    union Bezier *a = &s->k->eargs.b;
+    s->k->eargs.type = BEZIER;
+    int i = 0;
+    if (args) {
+        char *e, *c, *t;
+        for (; e = csvtok(args, &c); i++) { // each arg
+            float v = strtof(e, &t);
+            if (t == e)
+                return xe_error(ctx, "bad number %s in easing option\n", e);
+            if (i < 4)
+                a->p[i] = v;
+            args = NULL;
+        }
+    }
+    if (i != 4)
+        return xe_error(ctx, "expected 4 easing arguments, got %d\n", i);
+    xe_debug(ctx, "easing = %s(%g, %g, %g, %g)\n", s->easing_str, a->x1, a->y1, a->x2, a->y2);
+    return 0;
+}
+
+static int parse_steps_easing(AVFilterContext *ctx, char *args) // CSS steps()
+{
+    if (!args)
+        return xe_error(ctx, "expected 2 easing parameters\n");
+    XFadeContext *s = ctx->priv;
+    struct Steps *a = &s->k->eargs.s;
+    s->k->eargs.type = STEPS;
+    char *e, *c, *t;
+    e = csvtok(args, &c);
+    if (!e)
+        return xe_error(ctx, "expected 2 easing parameters\n");
+    a->position = JUMP_END; // default
+    a->steps = strtoul(e, &t, 10);
+    if (t == e)
+        return xe_error(ctx, "bad number %s in easing option\n", e);
+    if (e = csvtok(NULL, &c)) {
+        if (!av_strcasecmp(e, "jump-start") || !av_strcasecmp(e, "start"))
+            a->position = JUMP_START;
+        else if (!av_strcasecmp(e, "jump-none"))
+            a->position = JUMP_NONE;
+        else if (!av_strcasecmp(e, "jump-both"))
+            a->position = JUMP_BOTH;
+        else if (av_strcasecmp(e, "jump-end") && av_strcasecmp(e, "end"))
+            return xe_error(ctx, "bad parameter %s in easing option\n", e);
+    }
+    if (a->steps < 1 || a->position == JUMP_NONE && a->steps < 2)
+        return xe_error(ctx, "bad value %d in easing option\n", a->steps);
+    xe_debug(ctx, "easing = %s(%d, %d)\n", s->easing_str, a->steps, a->position);
+    return 0;
+}
+
+// easing name and customisation arguments
+static int parse_easing(AVFilterContext *ctx)
+{
+    XFadeContext *s = ctx->priv;
+    XFadeEasingContext *k = s->k;
+
+    if (!s->easing_str)
+        return 0; // uneased
+
+    rmspace(s->easing_str);
+    xe_debug(ctx, "parse_easing '%s'\n", s->easing_str);
+
+    char *e = s->easing_str, *c;
+    if (strchr(e, '(') && e[strlen(e) - 1] != ')')
+        return xe_error(ctx, "invalid easing option %s\n", e);
+
+    e = av_strtok(e, "(", &c);
+    if (!e)
+        return xe_error(ctx, "missing easing function name\n");
+
+    int (*f)(AVFilterContext *ctx, char *args) = NULL;
+    const char *p = NULL;
+    EasingArgs *a = &k->eargs;
+    // match exact
+         if (!av_strcasecmp(e, "linear")) k->easingf = css_linear, f = parse_linear_easing;
+    else if (!av_strcasecmp(e, "cubic-bezier")) k->easingf = css_cubic_bezier, f = parse_cubic_bezier_easing;
+    else if (!av_strcasecmp(e, "ease")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.25, 0.1, 0.25, 1 }};
+    else if (!av_strcasecmp(e, "ease-in")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.42, 0, 1, 1 }};
+    else if (!av_strcasecmp(e, "ease-out")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0, 0, 0.58, 1 }};
+    else if (!av_strcasecmp(e, "ease-in-out")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.42, 0, 0.58, 1 }};
+    else if (!av_strcasecmp(e, "steps")) k->easingf = css_steps, f = parse_steps_easing;
+    else if (!av_strcasecmp(e, "step-start")) k->easingf = css_steps, a->s = (struct Steps) { 1, JUMP_START };
+    else if (!av_strcasecmp(e, "step-end")) k->easingf = css_steps, a->s = (struct Steps) { 1, JUMP_END };
+    // match prefix
+    else if (av_stristart(e, "quadratic", &p)) k->easingf = rp_quadratic;
+    else if (av_stristart(e, "cubic", &p)) k->easingf = rp_cubic;
+    else if (av_stristart(e, "quartic", &p)) k->easingf = rp_quartic;
+    else if (av_stristart(e, "quintic", &p)) k->easingf = rp_quintic;
+    else if (av_stristart(e, "sinusoidal", &p)) k->easingf = rp_sinusoidal;
+    else if (av_stristart(e, "exponential", &p)) k->easingf = rp_exponential;
+    else if (av_stristart(e, "circular", &p)) k->easingf = rp_circular;
+    else if (av_stristart(e, "elastic", &p)) k->easingf = rp_elastic;
+    else if (av_stristart(e, "back", &p)) k->easingf = rp_back;
+    else if (av_stristart(e, "bounce", &p)) k->easingf = rp_bounce;
+    else if (av_stristart(e, "squareroot", &p)) k->easingf = se_squareroot;
+    else if (av_stristart(e, "cuberoot", &p)) k->easingf = se_cuberoot;
+    if (p) {
+        if (!*p || *p == '-')
+            f = parse_standard_easing;
+        else
+            k->easingf = NULL;
+    }
+    if (!k->easingf)
+        return xe_error(ctx, "unknown easing function %s\n", e);
+
+    e = av_strtok(NULL, ")", &c);
+    if (f)
+        return f(ctx, e); // parse args
+
+    return 0;
+}
+
+// extended transition name and customisation arguments
+static int parse_xtransition(AVFilterContext *ctx)
+{
+    XFadeContext *s = ctx->priv;
+    XFadeEasingContext *k = s->k;
+
+    rmspace(s->transition_str);
+    xe_debug(ctx, "parse_xtransition '%s'\n", s->transition_str);
+
+    for (const AVOption *o = xfade_options; o->name; o++) { // try xfade transition
+        if (!o->offset && !strcmp(o->unit, "transition") && !av_strcasecmp(o->name, s->transition_str)) {
+            s->transition = o->default_val.i64;
+            return 1; // to resume vf_xfade:config_output()
+        }
+    }
+
+    char *t = s->transition_str, *c, *p;
+    if (strchr(t, '(') && t[strlen(t) - 1] != ')')
+        return xe_error(ctx, "invalid extended transition option %s\n", t);
+
+    t = av_strtok(t, "(", &c);
+    if (!t)
+        return xe_error(ctx, "missing extended transition name\n");
+
+         if (!av_strcasecmp(t, "gl_angular")) k->xtransitionf = gl_angular;
+    else if (!av_strcasecmp(t, "gl_BookFlip")) k->xtransitionf = gl_BookFlip;
+    else if (!av_strcasecmp(t, "gl_Bounce")) k->xtransitionf = gl_Bounce;
+    else if (!av_strcasecmp(t, "gl_CrazyParametricFun")) k->xtransitionf = gl_CrazyParametricFun;
+    else if (!av_strcasecmp(t, "gl_crosswarp")) k->xtransitionf = gl_crosswarp;
+    else if (!av_strcasecmp(t, "gl_cube")) k->xtransitionf = gl_cube;
+    else if (!av_strcasecmp(t, "gl_DirectionalScaled")) k->xtransitionf = gl_DirectionalScaled;
+    else if (!av_strcasecmp(t, "gl_directionalwarp")) k->xtransitionf = gl_directionalwarp;
+    else if (!av_strcasecmp(t, "gl_doorway")) k->xtransitionf = gl_doorway;
+    else if (!av_strcasecmp(t, "gl_Dreamy")) k->xtransitionf = gl_Dreamy;
+    else if (!av_strcasecmp(t, "gl_hexagonalize")) k->xtransitionf = gl_hexagonalize;
+    else if (!av_strcasecmp(t, "gl_InvertedPageCurl")) k->xtransitionf = gl_InvertedPageCurl;
+    else if (!av_strcasecmp(t, "gl_kaleidoscope")) k->xtransitionf = gl_kaleidoscope;
+    else if (!av_strcasecmp(t, "gl_Mosaic")) k->xtransitionf = gl_Mosaic;
+    else if (!av_strcasecmp(t, "gl_perlin")) k->xtransitionf = gl_perlin;
+    else if (!av_strcasecmp(t, "gl_pinwheel")) k->xtransitionf = gl_pinwheel;
+    else if (!av_strcasecmp(t, "gl_polar_function")) k->xtransitionf = gl_polar_function;
+    else if (!av_strcasecmp(t, "gl_PolkaDotsCurtain")) k->xtransitionf = gl_PolkaDotsCurtain;
+    else if (!av_strcasecmp(t, "gl_powerKaleido")) k->xtransitionf = gl_powerKaleido;
+    else if (!av_strcasecmp(t, "gl_randomNoisex")) k->xtransitionf = gl_randomNoisex;
+    else if (!av_strcasecmp(t, "gl_randomsquares")) k->xtransitionf = gl_randomsquares;
+    else if (!av_strcasecmp(t, "gl_ripple")) k->xtransitionf = gl_ripple;
+    else if (!av_strcasecmp(t, "gl_Rolls")) k->xtransitionf = gl_Rolls;
+    else if (!av_strcasecmp(t, "gl_RotateScaleVanish")) k->xtransitionf = gl_RotateScaleVanish;
+    else if (!av_strcasecmp(t, "gl_rotateTransition")) k->xtransitionf = gl_rotateTransition;
+    else if (!av_strcasecmp(t, "gl_rotate_scale_fade")) k->xtransitionf = gl_rotate_scale_fade;
+    else if (!av_strcasecmp(t, "gl_Slides")) k->xtransitionf = gl_Slides;
+    else if (!av_strcasecmp(t, "gl_squareswire")) k->xtransitionf = gl_squareswire;
+    else if (!av_strcasecmp(t, "gl_static_wipe")) k->xtransitionf = gl_static_wipe;
+    else if (!av_strcasecmp(t, "gl_swap")) k->xtransitionf = gl_swap;
+    else if (!av_strcasecmp(t, "gl_Swirl")) k->xtransitionf = gl_Swirl;
+    else if (!av_strcasecmp(t, "gl_WaterDrop")) k->xtransitionf = gl_WaterDrop;
+    else return xe_error(ctx, "unknown extended transition name %s\n", t);
+    s->transitionf = (s->depth <= 8) ? xtransition8_transition: xtransition16_transition;
+
+    XTransitionArgs *a = &k->targs;
+    if (p = av_strtok(NULL, ")", &c)) { // has args
+        while (t = csvtok(p, &c)) { // next arg
+            if (!(a->argv = av_realloc_array(a->argv, ++a->argc, sizeof(*a->argv))))
+                return AVERROR(ENOMEM);
+            struct Argv *v = &a->argv[a->argc - 1];
+            v->param = NULL;
+            v->value = NAN; // use default
+            if (*t) { // not empty
+                if (p = strchr(t, '=')) { // named
+                    *p++ = 0;
+                    v->param = t;
+                    t = p;
+                }
+                v->value = strtof(t, &p);
+                if (p == t)
+                    return xe_error(ctx, "invalid value %s in transition option\n", t);
+            }
+            p = NULL;
+        }
+    }
+    xe_debug(ctx, "transition_str = %s(", s->transition_str);
+    for (int i = 0; i < a->argc; i++)
+        av_log(ctx, AV_LOG_DEBUG, "%s%s=%g", i ? ", " : "", a->argv[i].param, a->argv[i].value);
+    av_log(ctx, AV_LOG_DEBUG, ")\n");
+
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// install
+////////////////////////////////////////////////////////////////////////////////
+
+static int config_xfade_easing(AVFilterContext *ctx)
+{
+    xe_debug(ctx, "config_xfade_easing\n");
+    XFadeContext *s = ctx->priv;
+    XFadeEasingContext *k;
+    int ret;
+
+    if (!(k = av_mallocz(sizeof(XFadeEasingContext))))
+        return AVERROR(ENOMEM);
+    s->k = k;
+
+    ret = parse_easing(ctx);
+    if (ret < 0)
+        return ret;
+
+    ret = parse_xtransition(ctx);
+    if (ret != 0)
+        return ret;
+
+    k->duration = s->duration / (float) AV_TIME_BASE; // seconds
+    if (s->is_rgb) {
+        k->black = VEC4(0, 0, 0, 1);
+        k->white = VEC4(1, 1, 1, 1);
+    } else {
+        k->black = VEC4(0, P5f, P5f, 1);
+        k->white = VEC4(1, P5f, P5f, 1);
+    };
+    k->transparent = VEC4(P5f, P5f, P5f, 0); // transparent grey
+
+    return 0;
+}
+
+// uninstall
+static void xe_data_free(XFadeEasingContext *k)
+{
+    xe_debug(NULL, "xe_data_free\n");
+    if (!k) return;
+    if (k->eargs.type == LINEAR && k->eargs.l.points)
+        av_free(k->eargs.l.points);
+    if (k->targs.argv)
+        av_free(k->targs.argv);
+    av_freep(&k);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// external code
+////////////////////////////////////////////////////////////////////////////////
+
+/*
+ * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+// This is refactored WebKit C++ code from UnitBezier.h; all I've done is shrink it and reduce precision to float
+// WebKit: https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/graphics/UnitBezier.h
+// called by https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/animation/TimingFunction.cpp
+// see also:
+// Chromium CC: https://chromium.googlesource.com/chromium/src/+/master/ui/gfx/geometry/cubic_bezier.cc
+// Gecko: https://github.com/mozilla/gecko-dev/blob/master/dom/smil/SMILKeySpline.cpp
+//        https://github.com/mozilla/gecko-dev/blob/master/servo/components/style/bezier.rs
+// good explanation at https://probablymarcus.com/blocks/2015/02/26/using-bezier-curves-as-easing-functions.html
+
+static float solve_cubic_bezier(float x1, float y1, float x2, float y2, float x, float epsilon)
+{
+    float t, s, d;
+    // end-point gradients
+    if (x < 0) { // (never for easing)
+        d = (x1 > 0) ? y1 / x1 : (y1 == 0 && x2 > 0) ? y2 / x2 : (y1 == 0 && y2 == 0); // start
+        return 0 + d * x;
+    }
+    if (x > 1) { // (never for easing)
+        d = (x2 < 1) ? (y2 - 1) / (x2 - 1) : (y2 == 1 && x1 < 1) ? (y1 - 1) / (x1 - 1) : (y2 == 1 && y1 == 1); // end
+        return 1 + d * (x - 1);
+    }
+    int i;
+    #define NB_SPLINE_SAMPLES 11
+    // polynomial coefficients
+    const float cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx,
+                cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const float dt = 1.f / (NB_SPLINE_SAMPLES - 1); // delta
+    float ss[NB_SPLINE_SAMPLES];
+    for (i = 0; i < NB_SPLINE_SAMPLES; i++)
+        ss[i] = (t = i * dt, ((ax * t + bx) * t + cx) * t); // sampleCurveX (Horner’s scheme)
+    // find t, the parametric value x came from
+    float t0 = 0, t1 = 0;
+    // linear interpolation of spline curve for initial guess
+    for (t = x, i = 1; i < NB_SPLINE_SAMPLES; i++) {
+        if (x <= ss[i]) {
+            t1 = dt * i, t0 = t1 - dt;
+            t = t0 + (t1 - t0) * (x - ss[i - 1]) / (ss[i] - ss[i - 1]);
+            break;
+        }
+    }
+    // a few iterations of Newton-Raphson method
+    #define kMaxNewtonIterations 4
+    const float kBezierEpsilon = 1e-7f;
+    float newtonEpsilon = fminf(kBezierEpsilon, epsilon);
+    for (i = 0; i < kMaxNewtonIterations; i++) {
+        s = ((ax * t + bx) * t + cx) * t - x; // sampleCurveX - x
+        if (fabsf(s) < newtonEpsilon) goto end;
+        d = (3 * ax * t + 2 * bx) * t + cx; // sampleCurveDerivativeX
+        if (fabsf(d) < kBezierEpsilon) break;
+        t -= s / d;
+    }
+    if (fabsf(s) < epsilon) goto end;
+    // fall back to bisection method for reliability
+    while (t0 < t1) {
+        s = ((ax * t + bx) * t + cx) * t; // sampleCurveX
+        if (fabsf(s - x) < epsilon) goto end;
+        if (x > s) t0 = t; else t1 = t;
+        t = (t1 + t0) / 2;
+    }
+    // failure
+    end:
+    return ((ay * t + by) * t + cy) * t; // sampleCurveY
+}
+
+// TODO: maybe add WebKit SpringSolver too ?
+// https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/graphics/SpringSolver.h
