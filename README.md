@@ -7,7 +7,7 @@ The easing expressions can be also used for other filters besides xfade.
 
 <img src="assets/xfade-easing.gif" alt="Summary" align="right">
 
-There are 2 usage variants:
+There are 2 variants:
 1. **custom ffmpeg** build with added xfade `easing` option
 2. **custom expressions** for use with static ffmpeg build
 
@@ -34,10 +34,9 @@ Pre-generated [expressions](expr) can be copied verbatim from supplied files.
 
 A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, visual media sequences and more.
 It also facilitates generic easing – see [Easing other filters](#easing-other-filters).
-The next iteration of the script will allow multiple easing/transition changes, for batch processing audio-visual media with varying transition effects.
 
 The **custom ffmpeg** variant is fast and extensible with a simple C API.
-Installation involves a [few patches](src/vf_xfade-diff.html) to a single ffmpeg C source file, with no special library requirements.
+Installation involves a [few patches](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) to a single ffmpeg C source file, with no special library requirements.
 The **custom expression** variant is convenient if somewhat clunky
 – see [Performance](#custom-expression-performance) –
 and runs on plain vanilla ffmpeg,
@@ -45,6 +44,11 @@ but it doesn’t do CSS easing or complex transitions.
 
 At present extended transitions are limited to ported GL Transitions but more effects may be added downstream.
 Porting GL Transitions began as a proof of concept recreation which proved feasible.
+
+> [!NOTE]
+> **Coming next**  
+CLI script: multiple easings/transitions interspersed in input file list, for batch processing audio-visual media with varying transition effects  
+audio support for input videos
 
 ## Example
 
@@ -125,7 +129,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex_scri
 Xcode is required for macOS
 1. click [Download Source Code](https://ffmpeg.org/download.html) at ffmpeg.org
 1. extract the .xz archive using `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
-1. patch libavfilter/vf_xfade.c – see [patch file](src/vf_xfade.patch) and [vf_xfade diff](src/vf_xfade-diff.html) – only 7 small changes  
+1. patch libavfilter/vf_xfade.c – see [patch file](src/vf_xfade.patch) and [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 7 small changes  
 or use [vf_xfade.c](src/vf_xfade.c) for libavfilter version 9 (June 7 2023)
 1. download [xfade-easing.h](src/xfade-easing.h) to directory libavfilter/
 1. create a 1-line configure script, e.g. from an existing install run `ffmpeg -hide_banner -buildconf > cfg` then prepend `./configure` and amend `--prefix` and make any other changes (drawtext requires `--enable-libfreetype --enable-libharfbuzz --enable-libfontconfig`)
