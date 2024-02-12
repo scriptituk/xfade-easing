@@ -3,7 +3,7 @@
 ## Summary
 
 This project is a port of standard easing equations, CSS easings and many [GL Transitions](#gl-transitions) for use in tandem with easing or alone.
-The easing expressions can be also used for other filters besides xfade.
+The easing expressions can also be used for other filters besides xfade.
 
 <img src="assets/xfade-easing.gif" alt="Summary" align="right">
 
@@ -40,14 +40,13 @@ Installation involves a [few patches](https://htmlpreview.github.io/?https://git
 The **custom expression** variant is convenient if somewhat clunky
 – see [Performance](#custom-expression-performance) –
 and runs on plain vanilla ffmpeg,
-but it doesn’t do CSS easing or complex transitions.
+but it doesn’t support CSS easing or complex transitions.
 
 At present extended transitions are limited to transpiled GL Transitions but more effects may be added downstream.
-Porting GL Transitions began as a proof of concept recreation which proved feasible.
 
 > [!NOTE]
 > Coming next
-> - CLI script: multiple easings/transitions interspersed in input file list, for batch processing audio-visual media with varying transition effects  
+> - multiple easings/transitions interspersed in input file list of CLI script, for batch processing with varying transition effects  
 > - audio support
 
 ## Example
@@ -321,7 +320,7 @@ but at present eased progress outside the range 0 to 1 yields unpredictable resu
 
 ### Easing other filters
 
-These easing expressions are useful for other filters besides xfade,
+The easing expressions are useful for filters other than xfade,
 e.g. blend, drawtext, geq, overlay, rotate, zoompan, etc.
 – anywhere an ffmpeg expr is used to calculate filter options.
 
@@ -765,7 +764,6 @@ if(gt(ld(1), ld(4) * (1 - P)), A, B)'
 Plots are generated using the `-p` option and customised with the `-m`,`-q`,`-c` options.
 
 Plot data is logged using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
-It is therefore real computed expression data.
 
 - `xfade-easing.sh -e elastic -p plot-%e.pdf`  
 creates a PDF file plot-elastic.pdf of elastic easing
