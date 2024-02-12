@@ -1,5 +1,5 @@
 # Easing and extensions for FFmpeg Xfade filter
-### Standard easings &bull; CSS easings &bull; ported GL Transitions &bull; custom expressions 
+### Standard easings &bull; CSS easings &bull; transpiled GL Transitions &bull; custom expressions 
 ## Summary
 
 This project is a port of standard easing equations, CSS easings and many [GL Transitions](#gl-transitions) for use in tandem with easing or alone.
@@ -36,19 +36,19 @@ A [CLI wrapper script](#cli-script) is provided to generate custom expressions, 
 It also facilitates generic easing – see [Easing other filters](#easing-other-filters).
 
 The **custom ffmpeg** variant is fast and extensible with a simple C API.
-Installation involves a [few patches](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) to a single ffmpeg C source file, with no special library requirements.
+Installation involves a [few patches](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) to a single ffmpeg C source file, with no dependencies.
 The **custom expression** variant is convenient if somewhat clunky
 – see [Performance](#custom-expression-performance) –
 and runs on plain vanilla ffmpeg,
 but it doesn’t do CSS easing or complex transitions.
 
-At present extended transitions are limited to ported GL Transitions but more effects may be added downstream.
+At present extended transitions are limited to transpiled GL Transitions but more effects may be added downstream.
 Porting GL Transitions began as a proof of concept recreation which proved feasible.
 
 > [!NOTE]
-> **Coming next**  
-CLI script: multiple easings/transitions interspersed in input file list, for batch processing audio-visual media with varying transition effects  
-audio support for input videos
+> Coming next
+> - CLI script: multiple easings/transitions interspersed in input file list, for batch processing audio-visual media with varying transition effects  
+> - audio support
 
 ## Example
 
@@ -125,22 +125,26 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex_scri
 
 ### Building ffmpeg
 
-1. check the [FFmpeg Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide) for any prerequisites  
-Xcode is required for macOS
-1. click [Download Source Code](https://ffmpeg.org/download.html) at ffmpeg.org
-1. extract the .xz archive using `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
-1. patch libavfilter/vf_xfade.c – see [patch file](src/vf_xfade.patch) and [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 7 small changes  
-or use [vf_xfade.c](src/vf_xfade.c) for libavfilter version 9 (June 7 2023)
-1. download [xfade-easing.h](src/xfade-easing.h) to directory libavfilter/
-1. create a 1-line configure script, e.g. from an existing install run `ffmpeg -hide_banner -buildconf > cfg` then prepend `./configure` and amend `--prefix` and make any other changes (drawtext requires `--enable-libfreetype --enable-libharfbuzz --enable-libfontconfig`)
-1. run`configure`, e.g. `source cfg`
+1. check the [FFmpeg Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide) for any prerequisites, e.g. macOS requires Xcode
+1. get the ffmpeg source tree:
+   - for snapshot: `git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg`
+   - for latest stable, [Download Source Code](https://ffmpeg.org/download.html)
+     then extract the .xz archive  
+     `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
+1. `cd ffmpeg`
+1. patch libavfilter/vf_xfade.c:
+   - download [vf_xfade.patch](src/vf_xfade.patch) and run `git apply vf_xfade.patch`  
+   - or get [vf_xfade.c](src/vf_xfade.c) and if necessary patch manually (it’s from libavfilter version 9, June 7 2023), see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 7 changes  
+1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
+1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
+   to replicate an existing configuration run `ffmpeg -hide_banner -buildconf`
 1. run `make`, it takes a while  
 the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/questions/51314888/ld-warning-text-based-stub-file-are-out-of-sync-falling-back-to-library-file)
-1. if required run `make install` (or use ffmpeg in the root source directory)
+1. if required run `make install` or use ffmpeg in the root source directory
 1. test using `ffmpeg -hide_banner --help filter=xfade`: there should be an `easing` option under `xfade AVOptions`
 
-For simplicity, xfade-easing functionality is implemented as static functions in the header file [xfade-easing.h](src/xfade-easing.h) and included into vf_xfade.c at an optimal place.
-As those functions have no external linkage and completely implement an interface that is only visible to the vf_xfade.c compilation unit, this approach is justified IMO, even if unusual, and obviates changing the Makefile. Implementation within header files is not uncommon for ffmpeg and very common in WebKit.
+For simplicity, xfade-easing is implemented as static functions in the header file [xfade-easing.h](src/xfade-easing.h) and included into vf_xfade.c at an optimal place.
+As those functions have no external linkage and completely implement an interface that is only visible to the vf_xfade.c compilation unit, this approach is justified IMO, even if unusual, and obviates changing the Makefile. Implementation within header files is not uncommon for ffmpeg.
 
 ## Expressions
 
@@ -294,7 +298,7 @@ There’s a [CSS Linear() Generator](https://linear-easing-generator.netlify.app
 There are 4 fixed CSS smoothing curves and a general `cubic-bezier()` easing function
 documented at [W3C here](https://drafts.csswg.org/css-easing-2/#cubic-bezier-easing-functions).
 See also the [CSS Cubic Bezier Generator](https://www.cssportal.com/css-cubic-bezier-generator/) to craft your own.
-The implementation used here is ported from Apple’s [open-source Webkit](https://github.com/WebKit/WebKit).
+The implementation used here is transpiled from Apple’s [open-source Webkit](https://github.com/WebKit/WebKit).
 
 ![cubic-bezier easing](assets/css-cubic-bezier.gif)
 
@@ -367,7 +371,7 @@ y='st(0, clip((t - 1) / 3, 0, 1));
 
 ### Xfade transitions
 
-These are ports of the C-code transitions in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) for use with easing.
+These are transpiled from the C-code transitions in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) for use with easing.
 Omitted transitions are `distance` and `hblur` which perform aggregation, so cannot be computed efficiently on a per plane-pixel basis.
 
 - `fade` `fadefast` `fadeslow`
@@ -390,7 +394,7 @@ Omitted transitions are `distance` and `hblur` which perform aggregation, so can
 
 #### Gallery
 
-Here are the ported xfade transitions processed using custom expressions instead of the built-in transitions (for testing), without easing –
+Here are the xfade transitions processed using custom expressions instead of the built-in transitions (for testing), without easing –
 see also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) page:
 
 ![Xfade gallery](assets/xf-gallery.gif)
@@ -399,7 +403,7 @@ see also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) pag
 
 The open collection of [GL Transitions](https://gl-transitions.com/) initiative lead by [Gaëtan Renaudeau](https://github.com/gre) (gre) “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
 
-So some of the simpler GLSL transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), many of them customisable, have been ported as custom xfade expressions (custom expression variant) and native transitions (custom ffmpeg variant) for use with or without easing:
+So some of the simpler GLSL transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), many of them customisable, have been transpiled as custom xfade expressions (for custom expression variant) and native transitions (for custom ffmpeg variant) for use with or without easing:
 
 - `gl_angular` [args: `startingAngle`,`goClockwise`; default: `(90,0)`] (by: Fernando Kuteken)
 - `gl_Bounce` [args: `shadow_alpha`,`shadow_height`,`bounces`; default: `(0.6,0.075,3)`] (by: Adrian Purser)
@@ -431,7 +435,7 @@ So some of the simpler GLSL transitions at [gl-transitions](https://github.com/g
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
-Here are the xfade-ported GL Transitions with default parameters and no easing –
+Here are the transpiled GL Transitions with default parameters and no easing –
 see also the [GL Transitions Gallery](https://gl-transitions.com/gallery) (which lacks many recent contributor transitions):
 
 ![GL gallery](assets/gl-gallery.gif)
@@ -493,7 +497,7 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade A
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
 | texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | `vec4 transition(vec2 uv) {...}` runs for every pixel position <br/> xfade `expr` is evaluated for every texture component (plane) and pixel position |
 
-To make porting easier to follow, the CLI Bash script [xfade-easing.sh](src/xfade-easing.sh) replicates as comments the original variable names found in the GLSL source code (and xfade C code). It also uses pseudo functions to emulate real functions, expanding them inline later.
+To make the transpiled code easier to follow, the CLI Bash script [xfade-easing.sh](src/xfade-easing.sh) replicates as comments the original variable names found in the GLSL source code (and xfade C code). It also uses pseudo functions to emulate real functions, expanding them inline later.
 
 *Example*: porting transition `gl_randomsquares`
 
@@ -608,9 +612,9 @@ Windows performance has not been measured.
 
 The slowest transition `gl_powerKaleido` is clearly impractical for most purposes!
 
-The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring to port to xfade;
+The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring for xfade;
 it omits anti-aliasing for simplicity.
-See [xfade-easing.h](src/xfade-easing.h) for the refactored GLSL code that helped to optimize the ported expressions.
+See [xfade-easing.h](src/xfade-easing.h) for the refactored GLSL code that helped to optimize the xfade expressions.
 
 Using the custom ffmpeg build on M2 Macs, the slowest transition takes 4 seconds for the same task.
 While much slower than a GPU it is at least tolerable.
