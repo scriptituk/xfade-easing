@@ -1,6 +1,8 @@
---- ffmpeg-6.1.1/libavfilter/vf_xfade-dist.c	2023-11-11 00:25:17.000000000 +0000
-+++ ffmpeg-6.1.1/libavfilter/vf_xfade.c	2024-01-27 15:18:56.000000000 +0000
-@@ -127,6 +127,10 @@
+diff --git a/libavfilter/vf_xfade-dist.c b/libavfilter/vf_xfade.c
+index 890995a..b1c1383 100644
+--- a/libavfilter/vf_xfade-dist.c
++++ b/libavfilter/vf_xfade.c
+@@ -127,6 +127,10 @@ typedef struct XFadeContext {
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);
  
@@ -11,7 +13,7 @@
      AVExpr *e;
  } XFadeContext;
  
-@@ -158,18 +162,21 @@
+@@ -158,18 +162,21 @@ static const enum AVPixelFormat pix_fmts[] = {
      AV_PIX_FMT_NONE
  };
  
@@ -34,7 +36,7 @@
      {   "custom",    "custom transition",     0, AV_OPT_TYPE_CONST, {.i64=CUSTOM},    0, 0, FLAGS, "transition" },
      {   "fade",      "fade transition",       0, AV_OPT_TYPE_CONST, {.i64=FADE},      0, 0, FLAGS, "transition" },
      {   "wipeleft",  "wipe left transition",  0, AV_OPT_TYPE_CONST, {.i64=WIPELEFT},  0, 0, FLAGS, "transition" },
-@@ -2036,6 +2043,8 @@
+@@ -2036,6 +2043,8 @@ static double b1(void *priv, double x, double y) { return getpix(priv, x, y, 1,
  static double b2(void *priv, double x, double y) { return getpix(priv, x, y, 2, 1); }
  static double b3(void *priv, double x, double y) { return getpix(priv, x, y, 3, 1); }
  
@@ -43,7 +45,7 @@
  static int config_output(AVFilterLink *outlink)
  {
      AVFilterContext *ctx = outlink->src;
-@@ -2100,6 +2109,9 @@
+@@ -2100,6 +2109,9 @@ static int config_output(AVFilterLink *outlink)
      if (s->duration)
          s->duration_pts = av_rescale_q(s->duration, AV_TIME_BASE_Q, outlink->time_base);
  
@@ -53,7 +55,7 @@
      switch (s->transition) {
      case CUSTOM:     s->transitionf = s->depth <= 8 ? custom8_transition     : custom16_transition;     break;
      case FADE:       s->transitionf = s->depth <= 8 ? fade8_transition       : fade16_transition;       break;
-@@ -2194,7 +2206,7 @@
+@@ -2194,7 +2206,7 @@ static int xfade_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
      int slice_start = (outlink->h *  jobnr   ) / nb_jobs;
      int slice_end   = (outlink->h * (jobnr+1)) / nb_jobs;
  
