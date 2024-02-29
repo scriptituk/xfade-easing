@@ -3,7 +3,7 @@
 ## Summary
 
 This project is a port of standard easing equations, CSS easings and many [GL Transitions](#gl-transitions) for use in tandem with easing or alone.
-The easing expressions can also be used for other filters besides xfade.
+The easing expressions can be used for other filters besides xfade.
 
 <img src="assets/xfade-easing.gif" alt="Summary" align="right">
 
@@ -35,12 +35,12 @@ Pre-generated [expressions](expr) can be copied verbatim from supplied files.
 A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, visual media sequences and more.
 It also facilitates generic easing – see [Easing other filters](#easing-other-filters).
 
-The **custom ffmpeg** variant is fast and extensible with a simple C API.
+The **custom ffmpeg** variant is fast with a simple API and no restrictions.
 Installation involves a [few patches](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) to a single ffmpeg C source file, with no dependencies.
-The **custom expression** variant is convenient if somewhat clunky
+The **custom expression** variant is convenient but clunky
 – see [Performance](#custom-expression-performance) –
-and runs on plain vanilla ffmpeg,
-but it doesn’t support CSS easing or complex transitions.
+and runs on plain vanilla ffmpeg bute with restrictions:
+it doesn’t support CSS easing and certain transitions.
 
 At present extended transitions are limited to transpiled GL Transitions but more effects may be added downstream.
 
@@ -128,7 +128,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex_scri
 1. get the ffmpeg source tree:
    - for snapshot: `git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg`
    - for latest stable, [Download Source Code](https://ffmpeg.org/download.html)
-     then extract the .xz archive  
+     then extract the .xz archive:  
      `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
 1. `cd ffmpeg`
 1. patch libavfilter/vf_xfade.c:
@@ -143,7 +143,7 @@ the fix for `ld: warning: text-based stub file are out of sync` warnings [is her
 1. test using `ffmpeg -hide_banner --help filter=xfade`: there should be an `easing` option under `xfade AVOptions`
 
 For simplicity, xfade-easing is implemented as static functions in the header file [xfade-easing.h](src/xfade-easing.h) and included into vf_xfade.c at an optimal place.
-As those functions have no external linkage and completely implement an interface that is only visible to the vf_xfade.c compilation unit, this approach is justified IMO, even if unusual, and obviates changing the Makefile. Implementation within header files is not uncommon for ffmpeg.
+As those functions have no external linkage and completely implement an interface that is only visible to the vf_xfade.c compilation unit, this approach is justified IMO, even if unusual, and obviates changing the Makefile. Implementation within header files is not uncommon.
 
 ## Expressions
 
@@ -405,13 +405,23 @@ The open collection of [GL Transitions](https://gl-transitions.com/) initiative 
 So some of the simpler GLSL transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), many of them customisable, have been transpiled as custom xfade expressions (for custom expression variant) and native transitions (for custom ffmpeg variant) for use with or without easing:
 
 - `gl_angular` [args: `startingAngle`,`goClockwise`; default: `(90,0)`] (by: Fernando Kuteken)
-- `gl_Bounce` [args: `shadow_alpha`,`shadow_height`,`bounces`; default: `(0.6,0.075,3)`] (by: Adrian Purser)
+- `gl_BookFlip` (by: hong)
+- `gl_Bounce` [args: `shadow_alpha`,`shadow_height`,`bounces`,`direction`; default: `(0.6,0.075,3,0)`] (by: Adrian Purser)
+- `gl_BowTie` [args: `vertical`; default: `(0)`] (by: huynx)
+- `gl_cannabisleaf` (by: Flexi23)
 - `gl_CrazyParametricFun` [args: `a`,`b`,`amplitude`,`smoothness`; default: `(4,1,120,0.1)`] (by: mandubian)
+- `gl_crosshatch` [args: `center.x`,`center.y`,`threshold`,`fadeEdge`; default: `(0.5,0.5,3,0.1)`] (by: pthrasher)
+- `gl_crosswarp` (by: Eke Péter)
 - `gl_cube` [args: `persp`,`unzoom`,`reflection`,`floating`,`bgBkWhTr`; default: `(0.7,0.3,0.4,3,0)`] (by: gre)
 - `gl_DirectionalScaled` [args: `direction.x`,`direction.y`,`scale`,`bgBkWhTr`; default: `(0,1,0.7,0)`] (by: Thibaut Foussard)
 - `gl_directionalwarp` [args: `smoothness`,`direction.x`,`direction.y`; default: `(0.1,-1,1)`] (by: pschroen)
 - `gl_doorway` [args: `reflection`,`perspective`,`depth`,`bgBkWhTr`; default: `(0.4,0.4,3,0)`] (by: gre)
+- `gl_Dreamy` (by: mikolalysenko)
+- `gl_Exponential_Swish` [args: `zoom`,`angle`,`offset`,`exponent`,`wrap.x`,`wrap.y`,`blur`,`bgBkWhTr`; default: `(0.8,0,0,4,2,2,0,0)`] (by: Boundless)
+- `gl_GridFlip` [args: `size.x`,`size.y`,`pause`,`dividerWidth`,`randomness`,`bgBkWhTr`; default: `(4,4,0.1,0.05,0.1,0)`] (by: TimDonselaar)
+- `gl_heart` (by: gre)
 - `gl_hexagonalize` [args: `steps`,`horizontalHexagons`; default: `(50,20)`] (by: Fernando Kuteken)
+- `gl_InvertedPageCurl` (by: Hewlett-Packard)
 - `gl_kaleidoscope` [args: `speed`,`angle`,`power`; default: `(1,1,1.5)`] (by: nwoeanhinnogaehr)
 - `gl_Mosaic` [args: `endx`,`endy`; default: `(2,-1)`] (by: Xaychru)
 - `gl_perlin` [args: `scale`,`smoothness`; default: `(4,0.01)`] (by: Rich Harris)
@@ -419,16 +429,21 @@ So some of the simpler GLSL transitions at [gl-transitions](https://github.com/g
 - `gl_polar_function` [args: `segments`; default: `(5)`] (by: Fernando Kuteken)
 - `gl_PolkaDotsCurtain` [args: `dots`,`centre.x`,`centre.y`; default: `(20,0,0)`] (by: bobylito)
 - `gl_powerKaleido` [args: `scale`,`z`,`speed`; default: `(2,1.5,5)`] (by: Boundless)
+- `gl_randomNoisex` (by: towrabbit)
 - `gl_randomsquares` [args: `size.x`,`size.y`,`smoothness`; default: `(10,10,0.5)`] (by: gre)
 - `gl_ripple` [args: `amplitude`,`speed`; default: `(100,50)`] (by: gre)
 - `gl_Rolls` [args: `type`,`RotDown`; default: `(0,0)`] (by: Mark Craig)
 - `gl_RotateScaleVanish` [args: `FadeInSecond`,`ReverseEffect`,`ReverseRotation`,`bgBkWhTr`; default: `(1,0,0,0)`] (by: Mark Craig)
+- `gl_rotateTransition` (by: haiyoucuv)
 - `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backGray`; default: `(0.5,0.5,1,8,0.15)`] (by: Fernando Kuteken)
 - `gl_Slides` [args: `type`,`In`; default: `(0,0)`] (by: Mark Craig)
 - `gl_squareswire` [args: `squares.h`,`squares.v`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] (by: gre)
 - `gl_static_wipe` [args: `u_transitionUpToDown`,`u_max_static_span`; default: `(1,0.5)`] (by: Ben Lucas)
+- `gl_Stripe_Wipe` [args: `nlayers`,`layerSpread`,`color1`,`color2`,`shadowIntensity`,`shadowSpread`,`angle`; default: `(3,0.5,0x3319CCFF,0x66CCFFFF,0.7,0,0)`] (by: Boundless)
 - `gl_swap` [args: `reflection`,`perspective`,`depth`,`bgBkWhTr`; default: `(0.4,0.2,3,0)`] (by: gre)
+- `gl_Swirl` (by: Sergey Kosarevsky)
 - `gl_WaterDrop` [args: `amplitude`,`speed`; default: `(30,30)`] (by: Paweł Płóciennik)
+- `gl_windowblinds` (by: Fabien Benetou)
 
 #### Gallery
 
@@ -495,8 +510,12 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade A
 | ratio | `uniform float ratio` | `W / H` | GL width and height are normalised |
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
 | texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | `vec4 transition(vec2 uv) {...}` runs for every pixel position <br/> xfade `expr` is evaluated for every texture component (plane) and pixel position |
+| plane data | normalised RGBA | GBRA or YUVA unsigned integer | xfade bitdepth depends on pixel format |
 
-To make the transpiled code easier to follow, the CLI Bash script [xfade-easing.sh](src/xfade-easing.sh) replicates as comments the original variable names found in the GLSL source code (and xfade C code). It also uses pseudo functions to emulate real functions, expanding them inline later.
+To make the transpiled code easier to follow,
+original variable names from the GLSL and xfade source code are replicated in
+[xfade-easing.sh](src/xfade-easing.sh) and [xfade-easing.h](src/xfade-easing.h).
+The script uses pseudo functions to emulate real functions, expanding them inline later.
 
 *Example*: porting transition `gl_randomsquares`
 
@@ -525,7 +544,7 @@ gl_randomsquares) # (case)
     _make "st(3, ${a[2]-0.5});" # smoothness
     _make 'st(1, floor(ld(1) * X / W));'
     _make 'st(2, floor(ld(2) * (1 - Y / H)));'
-    _make 'st(4, frand(ld(1), ld(2), 4));'
+    _make 'st(4, frand(ld(1), ld(2), 4));' # r
     _make 'st(4, ld(4) - ((1 - P) * (1 + ld(3))));'
     _make 'st(4, smoothstep(0, -ld(3), ld(4), 4));' # m
     _make 'mix(A, B, ld(4))'
@@ -539,10 +558,11 @@ Customizable parameters get stored first.
 ```c
 static vec4 gl_randomsquares(const XTransition *e)
 {
-    PARAM(vec2, size, 10, 10);
-    PARAM(float, smoothness, 0.5);
-    vec2 f = { floorf(size.x * e->uv.x), floorf(size.y * e->uv.y) };
-    float r = frand2(f);
+    PARAM_BEGIN
+    PARAM_2(vec2, size, 10, 10)
+    PARAM_1(float, smoothness, 0.5)
+    PARAM_END
+    float r = frand2(floor2(mul2(size, e->p)));
     float m = smoothstep(0, -smoothness, r - e->progress * (1 + smoothness));
     return mix4(e->a, e->b, m);
 }
@@ -576,50 +596,57 @@ Windows performance has not been measured.
 | :---: | :---: | :---: | :---: | :---: |
 | `fade` `wipeleft` `wipeup` | 2 | 4 | 6 | 12 |
 | `wiperight` `wipedown` `wipetl` | 3 | 6 | 9 | 18 |
-| `wipetr` `wipebl` `wipebr` | 5 | 10 | 14 | 30 |
-| `rectcrop` `squeezeh` `squeezev` | 9 | 18 | 26 | 54 |
+| `wipetr` `wipebl` | 4 | 8 | 12 | 24 |
+| `wipebr` | 5 | 10 | 14 | 30 |
+| `squeezeh` `squeezev` | 8 | 16 | 24 | 48 |
+| `rectcrop` | 9 | 18 | 26 | 54 |
 | `fadefast` `fadeslow` | 10 | 20 | 30 | 60 |
-| `dissolve` | 12 | 24 | 36 | 72 |
-| `smoothleft` `smoothup` `circlecrop` `horzclose` `diagtl` `gl_randomNoisex` | 16 | 32 | 48 | 100 |
-| `smoothright` `smoothdown` `vertopen` `vertclose` `horzopen` `coverleft` `revealleft` `coverup` `coverdown` `revealup` `gl_pinwheel` | 18 | 36 | 54 | 110 |
-| `slideleft` `slideright` `slideup` `slidedown` `diagtr` `diagbl` `diagbr` `radial` `coverright` `revealright` `revealdown` | 20 | 40 | 60 | 120 |
-| `gl_BookFlip` `gl_polar_function` `gl_Slides` | 26 | 51 | 76 | 160 |
-| `hlslice` `vuslice` | 28 | 54 | 84 | 171 |
-| `circleopen` `circleclose` `hrslice` `vdslice` `gl_angular` `gl_Bounce` | 30 | 60 | 88 | 180 |
-| `hlwind` `hrwind` `vuwind` `vdwind` `gl_PolkaDotsCurtain` | 32 | 63 | 95 | 200 |
+| `dissolve` `coverleft` `revealleft` `coverup` `revealup` `gl_randomNoisex` | 14 | 28 | 42 | 84 |
+| `slideleft` `slideup` `smoothleft` `smoothup` `vertclose` `coverright` `revealright` `coverdown` `revealdown` | 16 | 32 | 48 | 100 |
+| `slideright` `slidedown` `circlecrop` `vertopen` `horzopen` `horzclose` `diagtl` `gl_pinwheel` | 18 | 36 | 54 | 110 |
+| `smoothright` `smoothdown` `diagtr` `diagbl` | 20 | 40 | 60 | 120 |
+| `diagbr` `radial` | 22 | 42 | 66 | 133 |
+| `hlslice` `vuslice` `gl_polar_function` | 24 | 46 | 72 | 147 |
+| `vdslice` `gl_BookFlip` `gl_heart` | 26 | 51 | 76 | 160 |
+| `circleopen` `hrslice` `gl_angular` `gl_Slides` | 28 | 54 | 84 | 171 |
+| `circleclose` | 30 | 60 | 88 | 180 |
+| `hlwind` `vuwind` `vdwind` | 32 | 63 | 95 | 200 |
+| `hrwind` `gl_PolkaDotsCurtain` | 34 | 66 | 100 | 210 |
 | `gl_WaterDrop` | 36 | 72 | 105 | 220 |
-| `fadeblack` `fadewhite` | 38 | 76 | 114 | 228 |
+| `fadeblack` `fadewhite` `gl_cannabisleaf` `gl_windowblinds` | 38 | 76 | 114 | 228 |
 | `pixelize` | 40 | 80 | 120 | 240 |
-| `gl_randomsquares` | 42 | 84 | 126 | 260 |
-| `zoomin` | 44 | 84 | 133 | 273 |
-| `gl_Dreamy` | 48 | 95 | 140 | 300 |
-| `fadegrays` `gl_rotateTransition` | 51 | 100 | 152 | 304 |
-| `gl_crosswarp` `gl_DirectionalScaled` `gl_ripple` | 54 | 105 | 160 | 336 |
-| `gl_Rolls` | 57 | 114 | 168 | 340 |
+| `zoomin` `gl_Bounce` | 42 | 84 | 126 | 260 |
+| `gl_randomsquares` | 44 | 84 | 133 | 273 |
+| `gl_Dreamy` | 46 | 88 | 133 | 280 |
+| `fadegrays` `gl_crosswarp` `gl_ripple` `gl_rotateTransition` | 51 | 100 | 152 | 304 |
+| `gl_DirectionalScaled` `gl_Rolls` | 54 | 105 | 160 | 336 |
 | `gl_doorway` | 60 | 120 | 180 | 360 |
-| `gl_RotateScaleVanish` `gl_Swirl` | 69 | 133 | 200 | 420 |
-| `gl_squareswire` | 76 | 147 | 220 | 460 |
-| `gl_CrazyParametricFun` `gl_InvertedPageCurl` | 80 | 160 | 240 | 480 |
-| `gl_rotate_scale_fade` `gl_static_wipe` | 88 | 171 | 260 | 540 |
-| `gl_directionalwarp` | 90 | 180 | 260 | 540 |
-| `gl_cube` `gl_hexagonalize` | 100 | 200 | 300 | 620 |
-| `gl_swap` | 105 | 210 | 304 | 640 |
-| `gl_Mosaic` | 110 | 220 | 320 | 680 |
-| `gl_perlin` | 132 | 260 | 400 | 800 |
-| `gl_kaleidoscope` | 260 | 500 | 760 | 1580 |
+| `gl_Swirl` | 66 | 126 | 200 | 400 |
+| `gl_RotateScaleVanish` | 69 | 133 | 200 | 420 |
+| `gl_InvertedPageCurl` `gl_squareswire` | 76 | 147 | 220 | 460 |
+| `gl_CrazyParametricFun` | 80 | 160 | 240 | 480 |
+| `gl_crosshatch` `gl_static_wipe` | 84 | 168 | 252 | 520 |
+| `gl_directionalwarp` `gl_rotate_scale_fade` | 88 | 171 | 260 | 540 |
+| `gl_cube` | 95 | 189 | 280 | 580 |
+| `gl_hexagonalize` | 100 | 200 | 300 | 620 |
+| `gl_Mosaic` | 105 | 210 | 304 | 640 |
+| `gl_swap` | 108 | 209 | 320 | 660 |
+| `gl_perlin` | 120 | 240 | 360 | 740 |
+| `gl_kaleidoscope` | 252 | 500 | 740 | 1540 |
 | `gl_powerKaleido` | 1040 | 2040 | 3080 | 6360 |
 
-The slowest transition `gl_powerKaleido` is clearly impractical for most purposes!
-
+The slowest supported transition `gl_powerKaleido` is clearly impractical for most purposes!
 The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring for xfade;
 it omits anti-aliasing for simplicity.
 See [xfade-easing.h](src/xfade-easing.h) for the refactored GLSL code that helped to optimize the xfade expressions.
 
-Using the custom ffmpeg build on M2 Macs, the slowest transition takes 4 seconds for the same task.
-While much slower than a GPU it is at least tolerable.
+Using the custom ffmpeg build on M2 Macs, the slowest transition takes just 4 seconds for the same task.
+However `gl_Exponential_Swish` with blurring can take 3 minutes.
+While much slower than a GPU, CPU processing is at least tolerable.
 Unlike built-in xfade transitions the custom ffmpeg C code in [xfade-easing.h](src/xfade-easing.h) deploys a single pixel iterator for all extended transition functions which in turn operate on all planes at once.
 And it does not require `-filter_complex_threads 1`.
-Performance-wise, custom expressions are slower by a factor of 37 (median), 48 (mean) with a huge standard deviation of 39!
+
+Performance-wise, custom expressions are slower by a factor of 41 (median), 47 (mean) with a huge standard deviation of 26!
 
 Other faster ways to use GL Transitions with FFmpeg are:
 - [gl-transition-scripts](https://www.npmjs.com/package/gl-transition-scripts) includes a Node.js CLI script `gl-transition-render` which can render multiple GL Transitions and images for FFmpeg processing
@@ -636,7 +663,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 2.0.0 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 2.1.0 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
@@ -710,8 +737,7 @@ Options:
     -D dump debug messages to stderr
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
-    2. this script requires Bash 4 (2009), ffmpeg, gawk, gsed, seq
-       also gnuplot and base64 for certain functions
+    2. this script requires Bash 4 (2009), ffmpeg, gawk, gsed, seq, also gnuplot for plots
     3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expression
        vars used by st() & ld() are shared across slices, therefore not thread-safe,
        but -filter_complex_threads 1 is not necessary for the custom ffmpeg build
@@ -721,7 +747,8 @@ Notes:
     5. many GL Transitions are also ported, some of which take customisation parameters
        to override defaults append parameters as CSV in parenthesis,
        e.g. -t 'gl_PolkaDotsCurtain(10,0.5,0.5)' for 10 dots centred
-    6. many transitions do not lend themselves well to easing, and easings that overshoot
+    6. some GL Transitions are only available in the custom ffmpeg build
+    7. many transitions do not lend themselves well to easing, and easings that overshoot
        (back & elastic) may cause weird effects!
 ```
 ### Generating expr code
