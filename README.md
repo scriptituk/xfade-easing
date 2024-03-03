@@ -239,8 +239,19 @@ If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-scr
 
 The expression files in [expr/](expr) also cater for RGBA and YUVA formats with 4 planes.
 
-For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-f yuva420p -v output.mkv` options and filename extension.
-For lossy video with alpha use the `-f yuva420p -v output.webm` options and extension.
+For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-f -v ` options with an alpha format, e.g. `rgba`/`yuv420p`, and .mkv filename extension.
+For lossy video with alpha use an alpha format and the .webm extension.
+
+*Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
+```bash
+xfade-easing.sh -f rgba -e quadratic-in -t 'gl_RotateScaleVanish(FadeInSecond=0,ReverseEffect=1,trkMat=1)' -v alpha.mkv -z 250x skaro.png tardis.png
+ffmpeg -filter_complex 'movie=gallifrey.png,scale=250:-2[bg]; movie=alpha.mkv[fg]; [bg][fg]overlay' drwho.mp4
+```
+
+![alpha](assets/alpha.gif)
+
+This demonstrates the additional `trkMat` option which tracks the Tardis alpha to reveal Skaro behind, then after the transition ends Gallifrey’s Citadel shows through the Tardis alpha channel.  
+(trkMat is only availble in the custom ffmpeg variant)
 
 ## Easing expressions
 
@@ -433,7 +444,7 @@ So some of the simpler GLSL transitions at [gl-transitions](https://github.com/g
 - `gl_randomsquares` [args: `size.x`,`size.y`,`smoothness`; default: `(10,10,0.5)`] (by: gre)
 - `gl_ripple` [args: `amplitude`,`speed`; default: `(100,50)`] (by: gre)
 - `gl_Rolls` [args: `type`,`RotDown`; default: `(0,0)`] (by: Mark Craig)
-- `gl_RotateScaleVanish` [args: `FadeInSecond`,`ReverseEffect`,`ReverseRotation`,`bgBkWhTr`; default: `(1,0,0,0)`] (by: Mark Craig)
+- `gl_RotateScaleVanish` [args: `FadeInSecond`,`ReverseEffect`,`ReverseRotation`,`bgBkWhTr`,`trkMat`; default: `(1,0,0,0)`] (by: Mark Craig)
 - `gl_rotateTransition` (by: haiyoucuv)
 - `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backGray`; default: `(0.5,0.5,1,8,0.15)`] (by: Fernando Kuteken)
 - `gl_Slides` [args: `type`,`In`; default: `(0,0)`] (by: Mark Craig)
@@ -467,14 +478,21 @@ GL Transitions can also be eased, with or without customisation parameters:
 Many GL Transitions accept parameters to customise the transition effect.
 The parameters and default values are shown [above](#gl-transitions).
 
-Using [xfade-easing.sh](#cli-script), parameters can be appended to the transition name as CSV.
-
 *Example*: two pinwheel speeds: `-t 'gl_pinwheel(0.5)'` and `-t 'gl_pinwheel(10)'`
 
 ![gl_pinwheel=10](assets/gl_pinwheel_10.gif)
 
-For the custom expression variant the [expressions](expr) can be hacked directly.
-The parameters are specified first, using store functions `st(p,v)`
+Parameters are appended to the transition name as CSVs within parenthesis.
+
+For the custom ffmpeg variant the parameters may be name=value pairs in any order,
+e.g. `gl_WaterDrop(amplitude=50,speed=20)`,
+or they may be indexed values, as follows.
+
+For the custom expression variant the parameters must be indexed values only but empty values assume defaults,
+e.g. `gl_GridFlip(5,3,,0.1,,1)` arguments are `size.x=5`,`size.y=3`,`dividerWidth=0.1`,`bgBkWhTr=1` with default values for other parameters.
+
+For the custom expression variant [expressions](expr) can also be hacked directly:
+the parameters are specified using store functions `st(p,v)`
 where `p` is the parameter number and `v` its value.
 So for `gl_pinwheel` with a `speed` value 10, change the first line of its expr below to `st(1, 10);`.
 ```
@@ -494,11 +512,14 @@ st(4, hypot(ld(2), ld(3)));
 etc.
 ```
 
-#### Additional background parameter
+#### Amended GL Transitions
 
-Several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
-This implementation provides an additional parameter `bgBkWhTr` to control the background:  
-`0` for black (default); `1` for white and `-1` for transparent.
+- `gl_Bounce` has an additional `direction` parameter to control bounce direction: 0=south, 1=west, 2=north, 3=east
+- `gl_BowTie` combines `BowTieHorizontal` and `BowTieVertical` using parameter `vertical`
+- `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay
+- several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
+but this implementation provides an additional `bgBkWhTr` parameter to control the background:  
+`0` for black (default); `1` for white and `-1` for transparent
 
 #### Porting
 
@@ -510,7 +531,7 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade A
 | ratio | `uniform float ratio` | `W / H` | GL width and height are normalised |
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
 | texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | `vec4 transition(vec2 uv) {...}` runs for every pixel position <br/> xfade `expr` is evaluated for every texture component (plane) and pixel position |
-| plane data | normalised RGBA | GBRA or YUVA unsigned integer | xfade bitdepth depends on pixel format |
+| plane data | normalised RGBA | GBRA or YUVA unsigned integer | xfade bit depth depends on pixel format |
 
 To make the transpiled code easier to follow,
 original variable names from the GLSL and xfade source code are replicated in
@@ -633,7 +654,7 @@ Windows performance has not been measured.
 | `gl_swap` | 108 | 209 | 320 | 660 |
 | `gl_perlin` | 120 | 240 | 360 | 740 |
 | `gl_kaleidoscope` | 252 | 500 | 740 | 1540 |
-| `gl_powerKaleido` | 1040 | 2040 | 3080 | 6360 |
+| `gl_powerKaleido` | 1000 | 1960 | 2960 | 6100 |
 
 The slowest supported transition `gl_powerKaleido` is clearly impractical for most purposes!
 The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring for xfade;
