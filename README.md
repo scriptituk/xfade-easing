@@ -250,7 +250,7 @@ ffmpeg -filter_complex 'movie=gallifrey.png,scale=250:-2[bg]; movie=alpha.mkv[fg
 
 ![alpha](assets/alpha.gif)
 
-This demonstrates the additional `trkMat` option which tracks the Tardis alpha to reveal Skaro behind, then after the transition ends Gallifrey’s Citadel shows through the Tardis alpha channel.  
+This demonstrates the additional `trkMat` option which tracks the Tardis alpha value to reveal planet Skaro behind, then after the transition ends Gallifrey’s Citadel shows through the Tardis alpha channel.  
 (trkMat is only availble in the custom ffmpeg variant)
 
 ## Easing expressions
@@ -517,6 +517,7 @@ etc.
 - `gl_Bounce` has an additional `direction` parameter to control bounce direction: 0=south, 1=west, 2=north, 3=east
 - `gl_BowTie` combines `BowTieHorizontal` and `BowTieVertical` using parameter `vertical`
 - `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay
+(I might add this feature to other transitions)
 - several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
 but this implementation provides an additional `bgBkWhTr` parameter to control the background:  
 `0` for black (default); `1` for white and `-1` for transparent
