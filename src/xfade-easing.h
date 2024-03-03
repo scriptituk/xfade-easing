@@ -1149,11 +1149,12 @@ static vec4 gl_RotateScaleVanish(const XTransition *e, bool init) // by Mark Cra
     PARAM_1(bool, ReverseEffect, 0)
     PARAM_1(bool, ReverseRotation, 0)
     PARAM_1(int, bgBkWhTr, 0)
+    PARAM_1(bool, trkMatte, 0)
     PARAM_END
     float t = ReverseEffect ? 1 - e->progress : e->progress;
     float theta = (ReverseRotation ? -t : t) * 2 * M_PIf;
     vec2 c2 = rot(VEC2((e->p.x - P5f) * e->ratio, e->p.y - P5f), theta);
-    float rad = fmax(0.00001f, 1 - t);
+    float rad = fmaxf(0.00001f, 1 - t);
     vec2 uv2 = { c2.x / rad + e->ratio / 2, c2.y / rad + P5f };
     vec4 col3, ColorTo = ReverseEffect ? e->a : e->b;
     if (betweenf(uv2.x, 0, e->ratio) && betweenf(uv2.y, 0, 1))
@@ -1162,6 +1163,8 @@ static vec4 gl_RotateScaleVanish(const XTransition *e, bool init) // by Mark Cra
         col3 = bwt(e, bgBkWhTr);
     else
         col3 = ColorTo;
+    if (trkMatte)
+        t = 1 - col3.p3;
     return mix4(col3, ColorTo, t);
 }
 
