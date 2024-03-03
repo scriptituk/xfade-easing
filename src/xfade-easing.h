@@ -1149,7 +1149,7 @@ static vec4 gl_RotateScaleVanish(const XTransition *e, bool init) // by Mark Cra
     PARAM_1(bool, ReverseEffect, 0)
     PARAM_1(bool, ReverseRotation, 0)
     PARAM_1(int, bgBkWhTr, 0)
-    PARAM_1(bool, trkMatte, 0)
+    PARAM_1(bool, trkMat, 0)
     PARAM_END
     float t = ReverseEffect ? 1 - e->progress : e->progress;
     float theta = (ReverseRotation ? -t : t) * 2 * M_PIf;
@@ -1163,7 +1163,7 @@ static vec4 gl_RotateScaleVanish(const XTransition *e, bool init) // by Mark Cra
         col3 = bwt(e, bgBkWhTr);
     else
         col3 = ColorTo;
-    if (trkMatte)
+    if (trkMat)
         t = 1 - col3.p3;
     return mix4(col3, ColorTo, t);
 }
