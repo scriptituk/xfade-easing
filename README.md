@@ -597,13 +597,13 @@ static vec4 gl_randomsquares(const XTransition *e)
     return mix4(e->a, e->b, m);
 }
 ```
-Here, `vec4` and `vec2` simulate GLSL vector types and `XTransition` encapsulates all data pertaining to a transition:
+Here, `vec4` and `ivec2` simulate GLSL vector types and `XTransition` encapsulates all data pertaining to a transition:
 ```c
 typedef struct { // modelled on GL Transition Specification v1
     const float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
     const float ratio; // viewport width / height (cf. W / H)
-    vec2 uv; // pixel position in slice, Y==0 is bottom (cf. X, Y)
-    vec4 a, b; // plane data at uv (cf. A, B)
+    vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
+    vec4 a, b; // plane data at p (cf. A, B)
     ...
 } XTransition;
 ```
