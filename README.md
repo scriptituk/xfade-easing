@@ -381,7 +381,7 @@ y='st(0, clip((t - 1) / 3, 0, 1));
 
 ### Xfade transitions
 
-These are transpiled from the C-code transitions in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) for use with easing.
+These are converted from C-code in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) to custom expressions for use with easing.
 Omitted transitions are `distance` and `hblur` which perform aggregation, so cannot be computed efficiently on a per plane-pixel basis.
 
 - `fade` `fadefast` `fadeslow`
@@ -413,7 +413,7 @@ see also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) pag
 
 The open collection of [GL Transitions](https://gl-transitions.com/) initiative lead by [Gaëtan Renaudeau](https://github.com/gre) (gre) “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
 
-So some of the simpler GLSL transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), many of them customisable, have been transpiled as custom xfade expressions (for custom expression variant) and native transitions (for custom ffmpeg variant) for use with or without easing:
+Many of the simpler GLSL transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), many of them customisable, have been converted to custom expressions (for custom expression variant) and native C transitions (for custom ffmpeg variant) for use with or without easing:
 
 - `gl_angular` [args: `startingAngle`,`goClockwise`; default: `(90,0)`] (by: Fernando Kuteken)
 - `gl_BookFlip` (by: hong)
@@ -460,7 +460,7 @@ So some of the simpler GLSL transitions at [gl-transitions](https://github.com/g
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
-Here are the transpiled GL Transitions with default parameters and no easing –
+Here are the ported GL Transitions with default parameters and no easing –
 see also the [GL Transitions Gallery](https://gl-transitions.com/gallery) (which lacks many recent contributor transitions):
 
 ![GL gallery](assets/gl-gallery.gif)
@@ -485,14 +485,14 @@ The parameters and default values are shown [above](#gl-transitions).
 Parameters are appended to the transition name as CSVs within parenthesis.
 
 For the custom ffmpeg variant the parameters may be name=value pairs in any order,
-e.g. `gl_WaterDrop(amplitude=50,speed=20)`,
+e.g. `gl_WaterDrop(speed=20,amplitude=50)`,
 or they may be indexed values, as follows.
 
 For the custom expression variant the parameters must be indexed values only but empty values assume defaults,
 e.g. `gl_GridFlip(5,3,,0.1,,1)` arguments are `size.x=5`,`size.y=3`,`dividerWidth=0.1`,`bgBkWhTr=1` with default values for other parameters.
 
-For the custom expression variant [expressions](expr) can also be hacked directly:
-the parameters are specified using store functions `st(p,v)`
+Custom [expressions](expr) can also be hacked directly:
+parameters are specified using store functions `st(p,v)`
 where `p` is the parameter number and `v` its value.
 So for `gl_pinwheel` with a `speed` value 10, change the first line of its expr below to `st(1, 10);`.
 ```
@@ -512,12 +512,20 @@ st(4, hypot(ld(2), ld(3)));
 etc.
 ```
 
-#### Amended GL Transitions
+#### Colour parameters
 
+Colour values follow ffmpeg rules at [Color](https://ffmpeg.org/ffmpeg-utils.html#Color))
+(custom ffmpeg variant only),  
+e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`
+
+#### Altered GL Transitions
+
+- `gl_angular` has an additional `goClockwise` parameter
 - `gl_Bounce` has an additional `direction` parameter to control bounce direction: 0=south, 1=west, 2=north, 3=east
 - `gl_BowTie` combines `BowTieHorizontal` and `BowTieVertical` using parameter `vertical`
 - `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay
 (I might add this feature to other transitions)
+- `gl_Exponential_Swish` option `blur` default was originally `0.5` but blurring makes it unacceptably slow
 - several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
 but this implementation provides an additional `bgBkWhTr` parameter to control the background:  
 `0` for black (default); `1` for white and `-1` for transparent
@@ -581,10 +589,10 @@ Customizable parameters get stored first.
 static vec4 gl_randomsquares(const XTransition *e)
 {
     PARAM_BEGIN
-    PARAM_2(vec2, size, 10, 10)
+    PARAM_2(ivec2, size, 10, 10)
     PARAM_1(float, smoothness, 0.5)
     PARAM_END
-    float r = frand2(floor2(mul2(size, e->p)));
+    float r = frand2(floor2(mul2(vec2i(size), e->p)));
     float m = smoothstep(0, -smoothness, r - e->progress * (1 + smoothness));
     return mix4(e->a, e->b, m);
 }
@@ -660,7 +668,7 @@ Windows performance has not been measured.
 The slowest supported transition `gl_powerKaleido` is clearly impractical for most purposes!
 The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring for xfade;
 it omits anti-aliasing for simplicity.
-See [xfade-easing.h](src/xfade-easing.h) for the refactored GLSL code that helped to optimize the xfade expressions.
+See [xfade-easing.h](src/xfade-easing.h) for the transpiled GLSL-C code that helped to optimize the custom expressions.
 
 Using the custom ffmpeg build on M2 Macs, the slowest transition takes just 4 seconds for the same task.
 However `gl_Exponential_Swish` with blurring can take 3 minutes.
