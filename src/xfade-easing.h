@@ -260,7 +260,7 @@ static float css_steps(const XFadeEasingContext *k, float t)
 // mix() fract() smoothstep()(clamped) in libavfilter/vf_xfade.c
 // av_strtod() in libavutil/eval.c
 // av_clip() av_clipf() in libavutil/common.h
-// av_isspace() av_str*() in libavutil/avstring.h
+// av_str*() in libavutil/avstring.h
 // various in libavutil/mem.h libavutil/log.h
 // FFDIFFSIGN in libavutil/macros.h
 
@@ -1095,10 +1095,10 @@ static vec4 gl_randomNoisex(const XTransition *e, bool init) // by towrabbit
 static vec4 gl_randomsquares(const XTransition *e, bool init) // by gre
 {
     PARAM_BEGIN
-    PARAM_2(vec2, size, 10, 10)
+    PARAM_2(ivec2, size, 10, 10)
     PARAM_1(float, smoothness, 0.5)
     PARAM_END
-    float r = frand2(floor2(mul2(size, e->p)));
+    float r = frand2(floor2(mul2(vec2i(size), e->p)));
     float m = smoothstep(0, -smoothness, r - e->progress * (1 + smoothness));
     return mix4(e->a, e->b, m);
 }
