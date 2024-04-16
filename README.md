@@ -33,7 +33,7 @@ set the xfade `transition` option to `custom` and the `expr` option to the conca
 Pre-generated [expressions](expr) can be copied verbatim from supplied files.
 
 A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, visual media sequences and more.
-It also facilitates generic easing – see [Easing other filters](#easing-other-filters).
+It also facilitates generic ffmpeg filter easing – see [Easing other filters](#easing-other-filters).
 
 The **custom ffmpeg** variant is fast with a simple API and no restrictions.
 Installation involves a [few patches](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) to a single ffmpeg C source file, with no dependencies.
@@ -81,7 +81,7 @@ The second line is the  transition expression $t(e(P))$ (`wipedown`) which loads
 The semicolon token combines expressions.
 
 > [!IMPORTANT]
-> ffmpeg option `-filter_complex_threads 1` is required because xfade expression variables (used by (the `st()` & `ld()` functions) are shared between slice processing jobs and therefore not thread-safe, consequently processing is much slower
+> ffmpeg option `-filter_complex_threads 1` is required because xfade expression variables (the `st()` & `ld()` functions) are shared between slice processing jobs and therefore not thread-safe, consequently processing is much slower
 
 ### Getting the expressions
 
@@ -130,10 +130,9 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex_scri
    - for latest stable, [Download Source Code](https://ffmpeg.org/download.html)
      then extract the .xz archive:  
      `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
-1. `cd ffmpeg`
-1. patch libavfilter/vf_xfade.c:
+1. `cd ffmpeg` and patch libavfilter/vf_xfade.c:
    - download [vf_xfade.patch](src/vf_xfade.patch) and run `git apply vf_xfade.patch`  
-   - or get [vf_xfade.c](src/vf_xfade.c) and if necessary patch manually (it’s from libavfilter version 9, June 7 2023), see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 7 changes  
+   - or download [vf_xfade.c](src/vf_xfade.c) and if necessary patch manually (it’s from libavfilter version 9, June 7 2023), see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 7 changes  
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
    to replicate an existing configuration run `ffmpeg -hide_banner -buildconf`
@@ -225,7 +224,7 @@ These ease `ld(0)` instead od `P` - see [Easing other filters](#easing-other-fil
 ### Pixel format
 
 Transitions that affect colour components work differently for RGB than non-RGB colour spaces and for different bit depths.
-For the custom expression variant, [xfade-easing.sh](#cli-script) emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing the RGB signal type (`AV_PIX_FMT_FLAG_RGB`) from the `-f` option format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and the bit depth from `ffmpeg -pix_fmts` data.
+For the custom expression variant, [xfade-easing.sh](#cli-script) emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing the RGB signal type `AV_PIX_FMT_FLAG_RGB` from the `-f` option format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and the bit depth from `ffmpeg -pix_fmts` data.
 It can then set the black, white and mid plane values correctly.
 See [How does FFmpeg identify color spaces?](https://trac.ffmpeg.org/wiki/colorspace#HowdoesFFmpegidentifycolorspaces) for details.
 
@@ -250,7 +249,7 @@ ffmpeg -filter_complex 'movie=gallifrey.png,scale=250:-2[bg]; movie=alpha.mkv[fg
 
 ![alpha](assets/alpha.gif)
 
-This demonstrates the additional `trkMat` option which tracks the Tardis alpha value to reveal planet Skaro behind, then after the transition ends Gallifrey’s Citadel shows through the Tardis alpha channel.  
+This demonstrates the additional `trkMat` option which tracks the Tardis alpha value to expose Skaro behind then Gallifrey’s Citadel when the transition ends, both planets being opaque images.  
 (trkMat is only availble in the custom ffmpeg variant)
 
 ## Easing expressions
@@ -289,7 +288,7 @@ Here are all the above easings superimposed using the [Desmos Graphing Calculato
 
 ### CSS easings
 
-The custom ffmpeg variant supports [CSS Easing Functions Level 2](https://drafts.csswg.org/css-easing-2/) which are too complex for custom expressions.
+The custom ffmpeg variant supports [CSS Easing Functions Level 2](https://drafts.csswg.org/css-easing-2/) which are too complex for custom expressions:
 
 - `linear` `linear()`
 - `ease` `ease-in` `ease-out` `ease-in-out` `cubic-bezier()`
@@ -381,7 +380,8 @@ y='st(0, clip((t - 1) / 3, 0, 1));
 
 ### Xfade transitions
 
-These are converted from C-code in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) to custom expressions for use with easing.
+The custom ffmpeg variant eases the built-in xfade transitions; these are provided for custom expression use.
+They are converted from C-code in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) to custom expressions for use with easing.
 Omitted transitions are `distance` and `hblur` which perform aggregation, so cannot be computed efficiently on a per plane-pixel basis.
 
 - `fade` `fadefast` `fadeslow`
@@ -413,9 +413,9 @@ see also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) pag
 
 The open collection of [GL Transitions](https://gl-transitions.com/) initiative lead by [Gaëtan Renaudeau](https://github.com/gre) (gre) “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
 
-Many of the simpler GLSL transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), many of them customisable, have been converted to custom expressions (for custom expression variant) and native C transitions (for custom ffmpeg variant) for use with or without easing:
+Many of the simpler GLSL transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions), many of them customisable, have been converted to native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing:
 
-- `gl_angular` [args: `startingAngle`,`goClockwise`; default: `(90,0)`] (by: Fernando Kuteken)
+- `gl_angular` [args: `startingAngle`,`clockwise`; default: `(90,0)`] (by: Fernando Kuteken)
 - `gl_BookFlip` (by: hong)
 - `gl_Bounce` [args: `shadow_alpha`,`shadow_height`,`bounces`,`direction`; default: `(0.6,0.075,3,0)`] (by: Adrian Purser)
 - `gl_BowTie` [args: `vertical`; default: `(0)`] (by: huynx)
@@ -467,7 +467,7 @@ see also the [GL Transitions Gallery](https://gl-transitions.com/gallery) (which
 
 #### With easing
 
-GL Transitions can also be eased, with or without customisation parameters:
+GL Transitions can also be eased, although easing is integral with some:
 
 *Example*: `Swirl` transition with `bounce` easing
 
@@ -491,7 +491,7 @@ or they may be indexed values, as follows.
 For the custom expression variant the parameters must be indexed values only but empty values assume defaults,
 e.g. `gl_GridFlip(5,3,,0.1,,1)` arguments are `size.x=5`,`size.y=3`,`dividerWidth=0.1`,`bgBkWhTr=1` with default values for other parameters.
 
-Custom [expressions](expr) can also be hacked directly:
+Custom [expressions](expr) can also be amended directly:
 parameters are specified using store functions `st(p,v)`
 where `p` is the parameter number and `v` its value.
 So for `gl_pinwheel` with a `speed` value 10, change the first line of its expr below to `st(1, 10);`.
@@ -520,15 +520,16 @@ e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`
 
 #### Altered GL Transitions
 
-- `gl_angular` has an additional `goClockwise` parameter
-- `gl_Bounce` has an additional `direction` parameter to control bounce direction: 0=south, 1=west, 2=north, 3=east
+- `gl_angular` has an additional `clockwise` parameter
+- `gl_Bounce` has an additional `direction` parameter to control bounce direction:
+`0`=south, `1`=west, `2`=north, `3`=east
 - `gl_BowTie` combines `BowTieHorizontal` and `BowTieVertical` using parameter `vertical`
 - `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay
 (I might add this feature to other transitions)
 - `gl_Exponential_Swish` option `blur` default was originally `0.5` but blurring makes it unacceptably slow
 - several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
-but this implementation provides an additional `bgBkWhTr` parameter to control the background:  
-`0` for black (default); `1` for white and `-1` for transparent
+but this implementation provides an additional `bgBkWhTr` parameter to control the background:
+`0`=black (default), `1`=white, `-1`=transparent
 
 #### Porting
 
@@ -581,7 +582,7 @@ gl_randomsquares) # (case)
     ;;
 ```
 Here, `frand()`, `smoothstep()` and `mix()` are pseudo functions.
-Customizable parameters get stored first.
+Customizable parameters are generally stored first.
 `_make` is just an expression string builder function.
 
 [xfade-easing.h](src/xfade-easing.h) (custom ffmpeg variant):
@@ -666,12 +667,12 @@ Windows performance has not been measured.
 | `gl_powerKaleido` | 1000 | 1960 | 2960 | 6100 |
 
 The slowest supported transition `gl_powerKaleido` is clearly impractical for most purposes!
-The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring for xfade;
+The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring;
 it omits anti-aliasing for simplicity.
 See [xfade-easing.h](src/xfade-easing.h) for the transpiled GLSL-C code that helped to optimize the custom expressions.
 
 Using the custom ffmpeg build on M2 Macs, the slowest transition takes just 4 seconds for the same task.
-However `gl_Exponential_Swish` with blurring can take 3 minutes.
+However `gl_Exponential_Swish` with blurring can take 3 minutes!
 While much slower than a GPU, CPU processing is at least tolerable.
 Unlike built-in xfade transitions the custom ffmpeg C code in [xfade-easing.h](src/xfade-easing.h) deploys a single pixel iterator for all extended transition functions which in turn operate on all planes at once.
 And it does not require `-filter_complex_threads 1`.
@@ -693,7 +694,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 2.1.0 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 2.1.2 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
@@ -710,16 +711,16 @@ Options:
        %f expands to pixel format, %F to format in upper case
        %e expands to the easing name
        %t expands to the transition name
-       %T, %E upper case expansions of above
+       %E, %T upper case expansions of %e, %t
        %c expands to the CSS easing arguments
        %a expands to the GL transition arguments; %A to the default arguments (if any)
        %x expands to the generated expr, condensed, intended for inline filterchains
-       %X does too but is not condensed, intended for -filter_complex_script files
-       %p expands to the progress easing expression only, for inline filterchains
-       %g expands to the generic easing expression, for inline filterchains
-       %z expands to the eased transition expression only, for inline filterchains
+       %X uncondensed version of %x, intended for -filter_complex_script files
+       %p expands to the progress easing expression, condensed, for inline filterchains
+       %g expands to the generic easing expression (for other filters), condensed
+       %z expands to the eased transition expression only, condensed
           for the uneased transition expression only, omit -e option and use %x or %X
-       %P, %G, %Z, uncondensed versions of the above for -filter_complex_script files
+       %P, %G, %Z, uncondensed versions of %p, %g, %z, for -filter_complex_script files
        %n inserts a newline
     -p easing plot filename (default: no plot), accepts expansions
        formats: gif, jpg, png, svg, pdf, eps, html <canvas>, from file extension
@@ -734,11 +735,11 @@ Options:
        if -f format has alpha then webm and mkv generate transparent video output
        if gifsicle is available then gifs will be optimised
     -z video size (default: input 1 size)
-       format: WxH; omitting W or H keeps aspect ratio, e.g. -z 300x scales H
+       format: WxH; omitting W or H keeps aspect ratio, e.g. -z 400x scales H
     -d video transition duration (default: 3s, minimum: 0) (see note after -l)
     -i time between video transitions (default: 1s, minimum: 0) (see note after -l)
     -l video length (default: 5s)
-       note: options -d, -i, -l are interdependent: l = ni + (n - 1)d for n inputs
+       note: options -d, -i, -l are interdependent: l=ni+(n-1)d for n inputs
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
     -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
@@ -761,25 +762,24 @@ Options:
        e.g. xfade=duration=5:offset=2.5:easing='cubic-bezier(.17,.67,.83,.67)' \
             transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
     -I set ffmpeg loglevel to info for -v (default: warning)
-    -P log xfade progress percentage using print() (implies -I)
+    -D dump debug messages to stderr and set ffmpeg loglevel to debug for -v
+    -P log xfade progress percentage using custom expression print() function (implies -I)
     -T temporary file directory (default: /tmp)
     -K keep temporary files if temporary directory is not /tmp
-    -D dump debug messages to stderr
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
     2. this script requires Bash 4 (2009), ffmpeg, gawk, gsed, seq, also gnuplot for plots
     3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expression
-       vars used by st() & ld() are shared across slices, therefore not thread-safe,
-       but -filter_complex_threads 1 is not necessary for the custom ffmpeg build
+       vars used by st() & ld() are shared across slices, therefore not thread-safe
+       (the custom ffmpeg build works without -filter_complex_threads 1)
     4. CSS easings are supported in the custom ffmpeg build but not as custom expressions
     4. certain xfade transitions are not implemented as custom expressions because
        they perform aggregation (distance, hblur)
     5. many GL Transitions are also ported, some of which take customisation parameters
-       to override defaults append parameters as CSV in parenthesis,
-       e.g. -t 'gl_PolkaDotsCurtain(10,0.5,0.5)' for 10 dots centred
+       to override defaults append parameters in parenthesis (see -X above)
     6. some GL Transitions are only available in the custom ffmpeg build
-    7. many transitions do not lend themselves well to easing, and easings that overshoot
-       (back & elastic) may cause weird effects!
+    7. many transitions do not lend themselves well to easing, others have easing built in
+       easings that overshoot (back & elastic) may cause weird effects!
 ```
 ### Generating expr code
 
@@ -837,6 +837,21 @@ Videos are generated using the `-v` option and customised with the `-z`,`-d`,`-i
 
 > [!NOTE]
 > all transition effect demos on this page are animated GIFs regardless of the commands shown
+
+#### Timing
+
+Input media is serialised according to the expression
+$L=NI+(N-1)D$
+where
+L is the total video length (option `-l`);
+I is the individual display time (option `-i`);
+D is the transition duration (option `-d`);
+N is the number of inputs.
+Transition offsets are spaced accordingly.
+Depending on option `-j` and the input media length, pre and post padding is added by frame cloning to ensure enough frames are available for transition processing.
+See [Usage](#usage) for the precedence of options `-l`, `-i`, `-d`.
+
+#### Examples
 
 - `xfade-easing.sh -t hlwind -e quintic-in -v windy.gif`
 creates an animated GIF image of the hlwind transition with quintic-in easing using default built-in images  
