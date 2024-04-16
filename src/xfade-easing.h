@@ -471,12 +471,12 @@ static vec4 gl_angular(const XTransition *e, bool init) // by Fernando Kuteken
 {
     PARAM_BEGIN
     PARAM_1(float, startingAngle, 90)
-    PARAM_1(bool, goClockwise, 0)
+    PARAM_1(bool, clockwise, 0)
     PARAM_END
     float offset = startingAngle * M_PIf / 180;
     float angle = atan2f(e->p.y - P5f, e->p.x - P5f) + offset;
     float normalizedAngle = angle * M_1_PIf / 2 + P5f;
-    if (goClockwise)
+    if (clockwise)
         normalizedAngle *= -1;
     normalizedAngle = fract(normalizedAngle);
     return step(normalizedAngle, e->progress) ? e->b : e->a;

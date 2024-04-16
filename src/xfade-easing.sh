@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=2.1.0
+export VERSION=2.1.2
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -95,7 +95,7 @@ _warning() { # message
 
 # emit debug message to stderr
 _debug() { # message
-    [[ -n $o_debug ]] && echo "Debug: $1" >&2
+    [[ $o_loglevel == debug ]] && echo "Debug: $1" >&2
 }
 
 # extract document contained in this script
@@ -182,10 +182,10 @@ _opts() {
         V) o_version=true ;;
         X) o_native= ;;
         I) o_loglevel=info ;;
+        D) o_loglevel=debug ;;
         P) o_logprogress=true ; o_loglevel=info ;;
         T) o_tmp=$OPTARG ;;
         K) o_keep=true ;;
-        D) o_debug=true; o_loglevel=debug ;;
         :) _error 'missing argument'; _help; return $ERROR ;;
         \?) _error 'invalid option'; _help; return $ERROR ;;
         esac
@@ -254,7 +254,7 @@ _size() { # WxH original even
     local w=${1%x*} h=${1#*x} W=${2%x*} H=${2#*x}
     [[ -z $w ]] && w=$(_calc "int($W * $h / $H + 0.5)")
     [[ -z $h ]] && h=$(_calc "int($H * $w / $W + 0.5)")
-    [[ -n $3 ]] && w=$(_calc "int($w / 2 + 0.5) * 2") && h=$(_calc "int($h / 2 + 0.5) * 2") # even
+    [[ -n $3 ]] && w=$(_calc "int($w / 2 + 0.5) * 2") h=$(_calc "int($h / 2 + 0.5) * 2") # even
     echo "${w}x${h}"
 }
 
@@ -307,7 +307,7 @@ _author() { # transition
 # get easing/transition args
 _args() { # easing/transition
     local a
-    [[ $1 =~ \(.*\)$ ]] && a=${1#*(} && a=${a%*)}
+    [[ $1 =~ \(.*\)$ ]] && a=${1#*(} a=${a%*)}
     [[ $a =~ ^\ *$ ]] && a=
     echo "$a"
 }
@@ -318,12 +318,12 @@ _xfade() { # offset duration easing eargs transition targs expr
     if [[ -n $o_native ]]; then # use native build
         if [[ $3 != linear || -n $4 ]]; then # CSS easing but not identity linear
             e=$3
-            [[ -n $4 ]] && e+="($4)" && e="'$e'"
+            [[ -n $4 ]] && e+="($4)" e="'$e'"
             xfade+=":easing=$e"
         fi
         if [[ $5 =~ _ ]]; then # extended
             e=$5
-            [[ -n $6 ]] && e+="($6)" && e="'$e'"
+            [[ -n $6 ]] && e+="($6)" e="'$e'"
             xfade+=":transition=$e"
         else # vanilla
             xfade+=":transition=$5"
@@ -376,7 +376,7 @@ _fract() { # a
 _smoothstep() { # edge0 edge1 x st
     [[ $# -ne 4 ]] && _error "_smoothstep expects 4 args, got $#"
     local e n="($3 - $1)" d="($2 - $1)"
-    [[ $1 == 0 ]] && n="$3" && d="$2"
+    [[ $1 == 0 ]] && n="$3" d="$2"
     [[ "$2-$1" =~ ^[0-9.-]+$ ]] && d=$(_calc "$d")
     e="$n / $d"
     [[ $d == 1 ]] && e="$n"
@@ -469,75 +469,70 @@ _rp_easing() { # easing mode
         io='T'
         ;;
     quadratic)
-        i='2 * T * T' o='2 * T * (2 - T) - 1'
-        io="if(lt(T, 0.5), $i, $o)"
         i='T * T'
         o='T * (2 - T)'
+        io='if(lt(T, 0.5), 2 * T * T, 2 * T * (2 - T) - 1)'
         ;;
     cubic)
-        i='4 * T^3' o='1 - 4 * R^3'
-        io="if(lt(T, 0.5), $i, $o)"
         i='T^3'
         o='1 - R^3'
+        io='if(lt(T, 0.5), 4 * T^3, 1 - 4 * R^3)'
         ;;
     quartic)
-        i='8 * T^4' o='1 - 8 * R^4'
-        io="if(lt(T, 0.5), $i, $o)"
         i='T^4'
         o='1 - R^4'
+        io='if(lt(T, 0.5), 8 * T^4, 1 - 8 * R^4)'
         ;;
     quintic)
-        i='16 * T^5' o='1 - 16 * R^5'
-        io="if(lt(T, 0.5), $i, $o)"
         i='T^5'
         o='1 - R^5'
+        io='if(lt(T, 0.5), 16 * T^5, 1 - 16 * R^5)'
         ;;
     sinusoidal)
-        io='(1 - cos(T * PI)) / 2'
         i='1 - cos(T * PI / 2)'
         o='sin(T * PI / 2)'
+        io='(1 - cos(T * PI)) / 2'
         ;;
     exponential)
+        i='if(lte(T, 0), 0, pow(2, 10 * T - 10))'
+        o='if(gte(T, 1), 1, 1 - pow(2, -10 * T))'
         _make ''
         _make 'if(lt(T, 0.5),'
         _make ' if(lte(T, 0), 0, pow(2, 20 * T - 11)),'
         _make ' if(gte(T, 1), 1, 1 - pow(2, 9 - 20 * T))'
         _make ')'
         io=$made
-        i='if(lte(T, 0), 0, pow(2, 10 * T - 10))'
-        o='if(gte(T, 1), 1, 1 - pow(2, -10 * T))'
         ;;
     circular)
+        i='1 - sqrt(1 - T * T)'
+        o='sqrt(T * (2 - T))'
         _make ''
         _make 'if(lt(T, 0.5),'
         _make ' 1 - sqrt(1 - 4 * T * T),'
         _make ' 1 + sqrt(4 * T * (2 - T) - 3)'
         _make ') / 2'
         io=$made
-        i='1 - sqrt(1 - T * T)'
-        o='sqrt(T * (2 - T))'
         ;;
     elastic)
-        i='ld(1) * ld(2)' o='1 - ld(1) / ld(2)'
+        i='cos(20 * R * PI / 3) / pow(2, 10 * R)'
+        o='1 - cos(20 * T * PI / 3) / pow(2, 10 * T)'
         _make ''
         _make 'st(1, cos(40 * st(2, 2 * T - 1) * PI / 9) / 2);'
         _make 'st(2, pow(2, 10 * ld(2)));'
-        _make "if(lt(T, 0.5), $i, $o)"
+        _make 'if(lt(T, 0.5), ld(1) * ld(2), 1 - ld(1) / ld(2))'
         io=$made
-        i='cos(20 * R * PI / 3) / pow(2, 10 * R)'
-        o='1 - cos(20 * T * PI / 3) / pow(2, 10 * T)'
         ;;
     back)
         local K=1.70158 K1=2.70158 # K=1.70158 for 10% back; K1=K+1
         local H=2.59491 H1=3.59491 H2=4.59491 # H=K*1.525 # for back in-out; H1=H+1; H2=H+2
+        i="T * T * (T * $K1 - $K)"
+        o="1 - R^2 * (1 - T * $K1)"
         _make ''
         _make 'if(lt(T, 0.5),'
         _make " 2 * T * T * (2 * T * $H1 - $H),"
         _make " 1 - 2 * R^2 * ($H2 - 2 * T * $H1)"
         _make ')'
         io=$made
-        i="T * T * (T * $K1 - $K)"
-        o="1 - R^2 * (1 - T * $K1)"
         ;;
     bounce)
         _make ''
@@ -581,14 +576,14 @@ _se_easing() { # easing mode
     local i o io # mode expressions
     case $1 in
     squareroot) # opposite to quadratic (not Pohoreski's sqrt)
-        i='sqrt(2 * T)' o='2 - sqrt(2 * R)' io="if(lt(T, 0.5), $i, $o) / 2"
         i='sqrt(T)'
         o='1 - sqrt(R)'
+        io='if(lt(T, 0.5), sqrt(2 * T), 2 - sqrt(2 * R)) / 2'
     ;;
     cuberoot) # opposite to cubic
-        i='pow(2 * T, 1/3)' o='2 - pow(2 * R, 1/3)' io="if(lt(T, 0.5), $i, $o) / 2"
         i='1 - pow(R, 1/3)'
         o='pow(T, 1/3)'
+        io='if(lt(T, 0.5), pow(2 * T, 1/3), 2 - pow(2 * R, 1/3)) / 2'
     ;;
     *)
         echo '' && return
@@ -619,7 +614,7 @@ _css_easing() { # easing
 # get easing expression
 _easing() { # easing args
     local e="$1" m=''
-    [[ -z $2 && ! $e =~ ^ease && ! $e =~ ^step && $e =~ - ]] && m=${e#*-} && e=${e%%-*}
+    [[ -z $2 && ! $e =~ ^ease && ! $e =~ ^step && $e =~ - ]] && m=${e#*-} e=${e%%-*}
     local x=$(_rp_easing $e $m) # try standard
     [[ -z $x ]] && x=$(_se_easing $e $m) # try supplementary
     [[ -z $x ]] && x=$(_css_easing "$e") # try CSS
@@ -640,8 +635,8 @@ _xf_transition() { # transition
         _make 'mix(A, B, P)'
         ;;
     fadefast|fadeslow)
-        r=1 && s=+
-        [[ $1 =~ slow ]] && r=2 && s=-
+        r=1 s=+
+        [[ $1 =~ slow ]] && r=2 s=-
         _make "st(1, pow(P, 1 + log($r $s abs(A - B) / maxv)));"
         _make 'mix(A, B, ld(1))'
         ;;
@@ -841,7 +836,7 @@ _xf_transition() { # transition
         _make 'st(2, ld(1) + X);' # zx
         _make 'st(3, rem(ld(2), W) + W * lt(ld(2), 0));' # zz
         r='b(ld(3), Y)' && s=A
-        [[ $1 =~ reveal ]] && r=B && s='a(ld(3), Y)'
+        [[ $1 =~ reveal ]] && r=B s='a(ld(3), Y)'
         _make 'if(between(ld(2), 0, W - 1),'
         _make " $r,"
         _make " $s"
@@ -853,7 +848,7 @@ _xf_transition() { # transition
         _make 'st(2, ld(1) + Y);' # zy
         _make 'st(3, rem(ld(2), H) + H * lt(ld(2), 0));' # zz
         r='b(X, ld(3))' && s=A
-        [[ $1 =~ reveal ]] && r=B && s='a(X, ld(3))'
+        [[ $1 =~ reveal ]] && r=B s='a(X, ld(3))'
         _make 'if(between(ld(2), 0, H - 1),'
         _make " $r,"
         _make " $s"
@@ -877,7 +872,7 @@ _gl_transition() { # transition args
     # NOTE 2: if st(9) is needed restore its time value as in gl_powerKaleido
     gl_angular) # by Fernando Kuteken
         _make "st(1, ${a[0]:-90});" # startingAngle
-        _make "st(2, ${a[1]:-0});" # goClockwise
+        _make "st(2, ${a[1]:-0});" # clockwise
         _make 'st(3, 1 - P);' # progress
         _make 'st(1, ld(1) * PI / 180);' # offset
         _make 'st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(1));' # angle
@@ -1928,10 +1923,10 @@ _video() { # path
     local xfade warn
     if [[ -n $o_vtime && -n $o_vlength ]]; then
         duration=$(_calc "($length - $n * $time) / $m")
-        [[ $duration =~ ^- ]] && warn="calculated duration = $duration, using 0" && duration=0 && length=
+        [[ $duration =~ ^- ]] && warn="calculated duration = $duration, using 0" duration=0 length=
     elif [[ -n $o_vlength ]]; then
         time=$(_calc "($length - $m * $duration) / $n")
-        [[ $time =~ ^- ]] && warn="calculated time = $time, using 0" && time=0 && length=
+        [[ $time =~ ^- ]] && warn="calculated time = $time, using 0" time=0 length=
     fi
     [[ -z $length ]] && length=$(_calc "$n * $time + $m * $duration")
     [[ -n $warn ]] && _warning "$warn, adjusted length = $length"
@@ -1947,8 +1942,8 @@ _video() { # path
     local fs=$(_calc "int(16 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled fontsize
     local drawtext="drawtext=x='(w-text_w)/2':y='(h-text_h)/2':box=1:boxborderw=$bb:text_align=C:fontsize=$fs:text='TEXT'"
     local text1=$transition text2=$transition
-    [[ -n $targs ]] && text1+=$(_expand '=%A') && text2+=$(_expand '=%a')
-    [[ $easing != linear ]] && text1+=$(_expand '%nno easing') && text2+=$(_expand '%n%e')
+    [[ -n $targs ]] && text1+=$(_expand '=%A') text2+=$(_expand '=%a')
+    [[ $easing != linear ]] && text1+=$(_expand '%nno easing') text2+=$(_expand '%n%e')
     readarray -d , -n 4 -t d <<<$VIDEOSTACK, # defaults
     readarray -d , -n 4 -t o <<<$o_vstack,,,, # options
     local stack=${o[0]:-${d[0]}} gap=${o[1]:-${d[1]}} fill=${o[2]:-${d[2]}} pad=${o[3]:-${d[3]}}
@@ -2332,16 +2327,16 @@ Options:
        %f expands to pixel format, %F to format in upper case
        %e expands to the easing name
        %t expands to the transition name
-       %T, %E upper case expansions of above
+       %E, %T upper case expansions of %e, %t
        %c expands to the CSS easing arguments
        %a expands to the GL transition arguments; %A to the default arguments (if any)
        %x expands to the generated expr, condensed, intended for inline filterchains
-       %X does too but is not condensed, intended for -filter_complex_script files
-       %p expands to the progress easing expression only, for inline filterchains
-       %g expands to the generic easing expression, for inline filterchains
-       %z expands to the eased transition expression only, for inline filterchains
+       %X uncondensed version of %x, intended for -filter_complex_script files
+       %p expands to the progress easing expression, condensed, for inline filterchains
+       %g expands to the generic easing expression (for other filters), condensed
+       %z expands to the eased transition expression only, condensed
           for the uneased transition expression only, omit -e option and use %x or %X
-       %P, %G, %Z, uncondensed versions of the above for -filter_complex_script files
+       %P, %G, %Z, uncondensed versions of %p, %g, %z, for -filter_complex_script files
        %n inserts a newline
     -p easing plot filename (default: no plot), accepts expansions
        formats: gif, jpg, png, svg, pdf, eps, html <canvas>, from file extension
@@ -2356,11 +2351,11 @@ Options:
        if -f format has alpha then webm and mkv generate transparent video output
        if gifsicle is available then gifs will be optimised
     -z video size (default: input 1 size)
-       format: WxH; omitting W or H keeps aspect ratio, e.g. -z 300x scales H
+       format: WxH; omitting W or H keeps aspect ratio, e.g. -z 400x scales H
     -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s, minimum: 0) (see note after -l)
     -i time between video transitions (default: ${VIDEOTIME}s, minimum: 0) (see note after -l)
     -l video length (default: ${VIDEOLENGTH}s)
-       note: options -d, -i, -l are interdependent: l = ni + (n - 1)d for n inputs
+       note: options -d, -i, -l are interdependent: l=ni+(n-1)d for n inputs
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
     -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
@@ -2383,23 +2378,22 @@ Options:
        e.g. xfade=duration=5:offset=2.5:easing='cubic-bezier(.17,.67,.83,.67)' \
             transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
     -I set ffmpeg loglevel to info for -v (default: warning)
-    -P log xfade progress percentage using print() (implies -I)
+    -D dump debug messages to stderr and set ffmpeg loglevel to debug for -v
+    -P log xfade progress percentage using custom expression print() function (implies -I)
     -T temporary file directory (default: $TMPDIR)
     -K keep temporary files if temporary directory is not $TMPDIR
-    -D dump debug messages to stderr
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
     2. this script requires Bash 4 (2009), ffmpeg, gawk, gsed, seq, also gnuplot for plots
     3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expression
-       vars used by st() & ld() are shared across slices, therefore not thread-safe,
-       but -filter_complex_threads 1 is not necessary for the custom ffmpeg build
+       vars used by st() & ld() are shared across slices, therefore not thread-safe
+       (the custom ffmpeg build works without -filter_complex_threads 1)
     4. CSS easings are supported in the custom ffmpeg build but not as custom expressions
     4. certain xfade transitions are not implemented as custom expressions because
        they perform aggregation (distance, hblur)
     5. many GL Transitions are also ported, some of which take customisation parameters
-       to override defaults append parameters as CSV in parenthesis,
-       e.g. -t 'gl_PolkaDotsCurtain(10,0.5,0.5)' for 10 dots centred
+       to override defaults append parameters in parenthesis (see -X above)
     6. some GL Transitions are only available in the custom ffmpeg build
-    7. many transitions do not lend themselves well to easing, and easings that overshoot
-       (back & elastic) may cause weird effects!
+    7. many transitions do not lend themselves well to easing, others have easing built in
+       easings that overshoot (back & elastic) may cause weird effects!
 !USAGE
