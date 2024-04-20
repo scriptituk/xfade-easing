@@ -1470,14 +1470,10 @@ static int xe_error(void *avcl, const char *fmt, ...) // reduces verbosity
 
 static void xe_debug(void *avcl, const char *fmt, ...) // emits parsing trail
 {
-    const char *p = "xfade-easing: ";
-    int l = strlen(p) + strlen(fmt) + 1;
-    char f[l];
-    av_strlcpy(f, p, l);
-    av_strlcat(f, fmt, l);
+    av_log(avcl, AV_LOG_DEBUG, "xfade-easing: ");
     va_list args;
     va_start(args, fmt);
-    av_vlog(avcl, AV_LOG_DEBUG, f, args);
+    av_vlog(avcl, AV_LOG_DEBUG, fmt, args);
     va_end(args);
 }
 
