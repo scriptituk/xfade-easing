@@ -9,7 +9,7 @@ The easing expressions can be used for other filters besides xfade.
 
 There are 2 variants:
 1. **custom ffmpeg** build with added xfade `easing` option
-2. **custom expressions** for use with static ffmpeg build
+2. **custom expressions** for use with standard ffmpeg build
 
 Xfade is a FFmpeg video transition filter with many built-in transitions and an expression evaluator for custom effects.
 But the progress rate is linear. starting and stopping abruptly and proceeding at constant speed, so transitions lack interest.
@@ -39,10 +39,10 @@ The **custom ffmpeg** variant is fast with a simple API and no restrictions.
 Installation involves a [few patches](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) to a single ffmpeg C source file, with no dependencies.
 The **custom expression** variant is convenient but clunky
 – see [Performance](#custom-expression-performance) –
-and runs on plain vanilla ffmpeg bute with restrictions:
+and runs on plain vanilla ffmpeg but with restrictions:
 it doesn’t support CSS easing and certain transitions.
 
-At present extended transitions are limited to transpiled GL Transitions but more effects may be added downstream.
+At present extended transitions are limited to ported GL Transitions but more effects may be added downstream.
 
 > [!NOTE]
 > Coming next
@@ -238,7 +238,7 @@ If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-scr
 
 The expression files in [expr/](expr) also cater for RGBA and YUVA formats with 4 planes.
 
-For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-f -v ` options with an alpha format, e.g. `rgba`/`yuv420p`, and .mkv filename extension.
+For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-f -v ` options with an alpha format, e.g. `rgba`/`yuva420p`, and .mkv filename extension.
 For lossy video with alpha use an alpha format and the .webm extension.
 
 *Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
