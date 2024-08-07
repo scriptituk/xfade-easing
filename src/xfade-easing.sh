@@ -917,8 +917,8 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_Bounce) # by Adrian Purser
-        _make "st(1, ${a[0]:-0.6});" # shadow_alpha
-        _make "st(2, ${a[1]:-0.075});" # shadow_height
+        _make "st(1, ${a[0]:-0.6});" # shadowAlpha
+        _make "st(2, ${a[1]:-0.075});" # shadowHeight
         _make "st(3, ${a[2]:-3});" # bounces
         _make "st(4, ${a[3]:-0});" # direction
         _make 'st(5, 1 - P);' # progress
@@ -1332,13 +1332,14 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_InvertedPageCurl) # by Hewlett-Packard
-        # antiAlias deactivated to simplify implementation - see src/xfade-easing.c
+        # antiAlias deactivated to simplify implementation - see src/xfade-easing.h
         local ANGLE=${a[0]:-100} # angle
-#       ${a[1]:-0} # ReverseEffect
+#       ${a[1]:-0} # reverseEffect
         local O1A=-0.801 O1B=0.89 O2A=0.985 O2B=0.985
         if [[ $ANGLE -eq 30 ]]; then
             O1A=0.12 O1B=0.258 O2A=0.15 O2B=-0.5
         elif [[ $ANGLE -ne 100 ]]; then
+            [[ -z $o_native ]] && _warning "invalid gl_InvertedPageCurl angle $ANGLE, use 100 (default) or 30"
             ANGLE=100
         fi
         ANGLE=$(_calc "$ANGLE * atan2(0,-1) / 180")
@@ -1622,7 +1623,7 @@ _gl_transition() { # transition args
         ;;
     gl_Rolls) # by Mark Craig
         _make "st(1, ${a[0]:-0});" # type
-        _make "st(2, ${a[1]:-0});" # RotDown
+        _make "st(2, ${a[1]:-0});" # rotDown
         _make 'st(3, PI / 2 * (1 - P));' # theta
         _make 'if(eq(gte(ld(1), 2), ld(2)), st(3, -ld(3)));'
         _make 'st(6, cos(ld(3)));' # c1
@@ -1645,9 +1646,9 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_RotateScaleVanish) # by Mark Craig
-        _make "st(1, ${a[0]:-1});" # FadeInSecond
-        _make "st(2, ${a[1]:-0});" # ReverseEffect
-        _make "st(3, ${a[2]:-0});" # ReverseRotation
+        _make "st(1, ${a[0]:-1});" # fadeInSecond
+        _make "st(2, ${a[1]:-0});" # reverseEffect
+        _make "st(3, ${a[2]:-0});" # reverseRotation
         _make 'st(0, if(ld(2), P, 1 - P));' # t
         _make 'st(4, (X / W - 0.5) * W / H);' # xc1
         _make 'st(5, 0.5 - Y / H);' # yc1
@@ -1722,7 +1723,7 @@ _gl_transition() { # transition args
         ;;
     gl_Slides) # by Mark Craig
         _make "st(1, ${a[0]:-0});" # type
-        _make "st(2, ${a[1]:-0});" # In
+        _make "st(2, ${a[1]:-0});" # slideIn
         _make 'st(5, st(4, 1 - st(3, if(ld(2), 1 - P, P))) / 2);' # 3:rad 4:1-rad 5:(1-rad)/2
         _make 'ifnot(ld(1), st(6, ld(5)); st(7, 0),' # 6:xc1 7:yc1
         _make ' if(eq(ld(1), 1), st(6, ld(4)); st(7, ld(5)),'
@@ -1770,8 +1771,8 @@ _gl_transition() { # transition args
         _make 'if(between(ld(1), ld(5), ld(6)) * between(ld(2), ld(5), ld(6)), B, A)'
         ;;
     gl_static_wipe) # by Ben Lucas
-        _make "st(1, ${a[0]:-1});" # u_transitionUpToDown
-        _make "st(2, ${a[1]:-0.5});" # u_max_static_span
+        _make "st(1, ${a[0]:-1});" # upToDown
+        _make "st(2, ${a[1]:-0.5});" # maxSpan
         _make 'st(3, 1 - P);' # progress
         _make 'st(2, ld(2) * sqrt(sin(PI * ld(3))));' # span
         _make 'st(4, X / W);' # uv.x
@@ -2442,6 +2443,7 @@ Options:
     -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
     -t transition name and arguments, if any (default: $TRANSITION); use -L for list
        args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)'
+       or key=value pairs, e.g.: 'gl_perlin(smoothness=0.1, scale=5)' (custom ffmpeg only)
     -e easing function and arguments, if any (default: $EASING)
        CSS args in parenthesis as CSV, e.g.: 'cubic-bezier(0.17,0.67,0.83,0.67)'
     -x expr output filename (default: no expr), accepts expansions, - for stdout

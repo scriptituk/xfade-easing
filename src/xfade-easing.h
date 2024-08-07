@@ -82,6 +82,7 @@ typedef struct XFadeEasingContext {
     vec4 black, white, transparent;
 } XFadeEasingContext;
 
+static int xe_error(void *avcl, const char *fmt, ...);
 static void xe_debug(void *avcl, const char *fmt, ...);
 
 // ubiquitous point 5 float
@@ -516,8 +517,8 @@ static vec4 gl_BookFlip(const XTransition *e, bool init) // by hong
 static vec4 gl_Bounce(const XTransition *e, bool init) // by Adrian Purser
 {
     PARAM_BEGIN
-    PARAM_1(float, shadow_alpha, 0.6)
-    PARAM_1(float, shadow_height, 0.075)
+    PARAM_1(float, shadowAlpha, 0.6)
+    PARAM_1(float, shadowHeight, 0.075)
     PARAM_1(float, bounces, 3)
     PARAM_1(int, direction, 0) // S,W,N,E
     PARAM_END
@@ -534,10 +535,10 @@ static vec4 gl_Bounce(const XTransition *e, bool init) // by Adrian Purser
             v.y = 1 + d;
         return getFromColor(v);
     }
-    if (!step(d, shadow_height))
+    if (!step(d, shadowHeight))
         return e->b;
     float m = mixf(
-        d / shadow_height * shadow_alpha + (1 - shadow_alpha),
+        d / shadowHeight * shadowAlpha + (1 - shadowAlpha),
         1,
         smoothstep(0.95f, 1, e->progress) // fade-out the shadow at the end
     );
@@ -1008,21 +1009,24 @@ static vec4 gl_hexagonalize(const XTransition *e, bool init) // by Fernando Kute
 }
 
 // see https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html
+// omits antiAlias() code
 static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-Packard
-{ // omits antiAlias() code
+{
     PARAM_BEGIN
     PARAM_1(int, angle, 100)
     PARAM_1(bool, reverseEffect, 0)
     static vec2 o1 = { -0.801f, 0.89f }, o2 = { 0.985f, 0.985f }; // constant
     if (angle == 30) // TODO: add more angles
         o1 = VEC2(0.12f, 0.258f), o2 = VEC2(0.15f, -0.5f); // values from WebVfx link
+    else if (angle != 100)
+        xe_error(NULL, "invalid gl_InvertedPageCurl angle %d, use 100 (default) or 30\n", angle), angle = 100;
     PARAM_END // end config setup
     #define MIN_AMOUNT -0.16f
     #define MAX_AMOUNT 1.5f
     const float amount = (reverseEffect ? (1 - e->progress) : e->progress) * (MAX_AMOUNT - MIN_AMOUNT) + MIN_AMOUNT;
     const float cylinderAngle = 2 * M_PIf * amount;
     const float cylinderRadius = M_1_PIf / 2;
-    const float ang = angle * M_PIf / 180.f;
+    const float ang = angle * M_PIf / 180;
     vec2 point = add2(rot(e->p, ang), o1);
     float hitAngle, yc = point.y - amount;
     vec4 colour = reverseEffect ? e->b : e->a;
@@ -1276,21 +1280,21 @@ static vec4 gl_Rolls(const XTransition *e, bool init) // by Mark Craig
 static vec4 gl_RotateScaleVanish(const XTransition *e, bool init) // by Mark Craig
 {
     PARAM_BEGIN
-    PARAM_1(bool, FadeInSecond, 1)
-    PARAM_1(bool, ReverseEffect, 0)
-    PARAM_1(bool, ReverseRotation, 0)
+    PARAM_1(bool, fadeInSecond, 1)
+    PARAM_1(bool, reverseEffect, 0)
+    PARAM_1(bool, reverseRotation, 0)
     PARAM_1(int, bgBkWhTr, 0)
     PARAM_1(bool, trkMat, 0)
     PARAM_END
-    float t = ReverseEffect ? 1 - e->progress : e->progress;
-    float theta = (ReverseRotation ? -t : t) * 2 * M_PIf;
+    float t = reverseEffect ? 1 - e->progress : e->progress;
+    float theta = (reverseRotation ? -t : t) * 2 * M_PIf;
     vec2 c2 = rot(VEC2((e->p.x - P5f) * e->ratio, e->p.y - P5f), theta);
     float rad = fmaxf(0.00001f, 1 - t);
     vec2 uv2 = { c2.x / rad + e->ratio / 2, c2.y / rad + P5f };
-    vec4 col3, ColorTo = ReverseEffect ? e->a : e->b;
+    vec4 col3, ColorTo = reverseEffect ? e->a : e->b;
     if (betweenf(uv2.x, 0, e->ratio) && betweenf(uv2.y, 0, 1))
-        uv2.x /= e->ratio, col3 = ReverseEffect ? getToColor(uv2) : getFromColor(uv2);
-    else if (FadeInSecond)
+        uv2.x /= e->ratio, col3 = reverseEffect ? getToColor(uv2) : getFromColor(uv2);
+    else if (fadeInSecond)
         col3 = bwt(e, bgBkWhTr);
     else
         col3 = ColorTo;
@@ -1330,9 +1334,9 @@ static vec4 gl_Slides(const XTransition *e, bool init) // by Mark Craig
 {
     PARAM_BEGIN
     PARAM_1(int, type, 0)
-    PARAM_1(bool, In, 0)
+    PARAM_1(bool, slideIn, 0)
     PARAM_END
-    float rad = In ? e->progress : 1 - e->progress, rrad = 1 - rad, rrad2 = rrad / 2;
+    float rad = slideIn ? e->progress : 1 - e->progress, rrad = 1 - rad, rrad2 = rrad / 2;
     float xc1, yc1;
          if (type == 0) xc1 = rrad2, yc1 = 0;     // up
     else if (type == 1) xc1 = rrad,  yc1 = rrad2; // right
@@ -1346,9 +1350,9 @@ static vec4 gl_Slides(const XTransition *e, bool init) // by Mark Craig
     vec2 uv = { e->p.x, 1 - e->p.y };
     if (betweenf(uv.x, xc1, xc1 + rad) && betweenf(uv.y, yc1, yc1 + rad)) {
         vec2 uv2 = { (uv.x - xc1) / rad, 1 - (uv.y - yc1) / rad };
-        return In ? getToColor(uv2) : getFromColor(uv2);
+        return slideIn ? getToColor(uv2) : getFromColor(uv2);
     }
-    return In ? e->a : e->b;
+    return slideIn ? e->a : e->b;
 }
 
 static vec4 gl_squareswire(const XTransition *e, bool init) // by gre
@@ -1370,11 +1374,11 @@ static vec4 gl_squareswire(const XTransition *e, bool init) // by gre
 static vec4 gl_static_wipe(const XTransition *e, bool init) // by Ben Lucas
 {
     PARAM_BEGIN
-    PARAM_1(bool, u_transitionUpToDown, 1)
-    PARAM_1(float, u_max_static_span, 0.5)
+    PARAM_1(bool, upToDown, 1)
+    PARAM_1(float, maxSpan, 0.5)
     PARAM_END
-    float span = u_max_static_span * sqrtf(sinf(M_PIf * e->progress));
-    float transitionEdge = u_transitionUpToDown ? 1 - e->p.y : e->p.y;
+    float span = maxSpan * sqrtf(sinf(M_PIf * e->progress));
+    float transitionEdge = upToDown ? 1 - e->p.y : e->p.y;
     float ss1 = smoothstep(e->progress - span, e->progress, transitionEdge);
     float ss2 = 1 - smoothstep(e->progress, e->progress + span, transitionEdge);
     float noiseEnvelope = ss1 * ss2;
