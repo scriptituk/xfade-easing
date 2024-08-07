@@ -10,8 +10,11 @@
 #include <float.h>
 #include "libavutil/avstring.h"
 #include "libavutil/parseutils.h"
+//#define RGB2YUV_SWSSCALE
+#ifdef RGB2YUV_SWSSCALE
 #include "libavutil/pixfmt.h"
 #include "libswscale/swscale.h"
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // aggregate types
@@ -213,7 +216,7 @@ static float css_linear(const XFadeEasingContext *k, float t)
     else if (i == n - 1)
         --i;
     p += i;
-    if (p[1].x - p[0].x < 1e-6) // approx eq
+    if (p[1].x - p[0].x < 1e-6f) // nearly equal
         return p[1].y;
     return p[0].y + (t - p[0].x) / (p[1].x - p[0].x) * (p[1].y - p[0].y);
 }
@@ -380,7 +383,6 @@ static vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_x
     return ret;
 }
 
-//#define RGB2YUV_SWSSCALE
 static vec4 rgba2vec4(const XTransition *e, unsigned int rgba) // colour to plane
 {
     const uint8_t R = rgba >> 24, G = rgba >> 16, B = rgba >> 8, A = rgba;
@@ -597,6 +599,13 @@ static vec4 gl_cannabisleaf(const XTransition *e, bool init) // by Flexi23
     return step(r * curve, length(leaf_uv)) ? e->a : e->b;
 }
 
+static vec4 gl_CornerVanish(const XTransition *e, bool init) // by Mark Craig
+{
+    PARAM_NONE
+    float b1 = (1 - e->progress) / 2, b2 = 1 - b1;
+    return (betweenf(e->p.x, b1, b2) || betweenf(e->p.y, b1, b2)) ? e->b : e->a;
+}
+
 static vec4 gl_CrazyParametricFun(const XTransition *e, bool init) // by mandubian
 {
     PARAM_BEGIN
@@ -628,6 +637,23 @@ static vec4 gl_crosshatch(const XTransition *e, bool init) // by pthrasher
     float r = e->progress - fminf(frandf(e->p.y, 0), frandf(0, e->p.x));
     r = mixf(step(dist, r), 1, smoothstep(1 - fadeEdge, 1, e->progress));
     return mix4(e->a, e->b, mixf(0, r, smoothstep(0, fadeEdge, e->progress)));
+}
+
+static vec4 gl_CrossOut(const XTransition *e, bool init) // by pthrasher
+{
+    PARAM_BEGIN
+    PARAM_1(float, smoothness, 0.05)
+    PARAM_END
+    float c = e->progress / 2;
+    vec2 p = sub2f(e->p, P5f);
+    float ds = p.x + p.y, dd = p.y - p.x;
+    if (betweenf(ds, -c, c) || betweenf(dd, -c, c))
+        return e->b;
+    float cs = c + smoothness;
+    if (!(betweenf(ds, -cs, cs) || betweenf(dd, -cs, cs)))
+        return e->a;
+    float d = fabsf((p.x >= 0 != p.y >= 0) ? ds : dd);
+    return mix4(e->b, e->a, (d - c) / smoothness);
 }
 
 static vec4 gl_crosswarp(const XTransition *e, bool init) // by Eke Péter
@@ -673,6 +699,18 @@ static vec4 gl_cube(const XTransition *e, bool init) // by gre
     if (between2(toP, 0, 1))
         c = mix4(back, getToColor(toP), reflection * (1 - toP.y));
     return c;
+}
+
+static vec4 gl_Diamond(const XTransition *e, bool init) // by Mark Craig
+{
+    PARAM_BEGIN
+    PARAM_1(float, smoothness, 0.05)
+    PARAM_END
+    float d = asum(sub2f(e->p, P5f));
+    if (d < e->progress)
+        return e->b;
+    return (d > e->progress + smoothness)
+        ? e->a : mix4(e->b, e->a, (d - e->progress) / smoothness);
 }
 
 static vec4 gl_DirectionalScaled(const XTransition *e, bool init) // by Thibaut Foussard
@@ -735,6 +773,21 @@ static vec4 gl_doorway(const XTransition *e, bool init) // by gre
     if (between2(pto, 0, 1))
         c = mix4(c, getToColor(pto), reflection * (1 - pto.y));
     return c;
+}
+
+static vec4 gl_DoubleDiamond(const XTransition *e, bool init) // by Mark Craig
+{
+    PARAM_BEGIN
+    PARAM_1(float, smoothness, 0.05)
+    PARAM_END
+    float b1 = (1 - e->progress) / 2, b2 = 1 - b1;
+    float d = asum(sub2f(e->p, P5f));
+    if (betweenf(d, b1, b2)) {
+        if (betweenf(d, b1 + smoothness, b2 - smoothness))
+            return e->b;
+        return mix4(e->a, e->b, fminf(d - b1, b2 - d) / smoothness);
+    }
+    return e->a;
 }
 
 static vec4 gl_Dreamy(const XTransition *e, bool init) // by mikolalysenko
@@ -806,6 +859,75 @@ static vec4 gl_Exponential_Swish(const XTransition *e, bool init) // by Boundles
         comp.p3 = c.p3;
     }
     return comp;
+}
+
+static vec4 gl_FanIn(const XTransition *e, bool init) // by Mark Craig
+{
+    PARAM_BEGIN
+    PARAM_1(float, smoothness, 0.05)
+    PARAM_END
+    float theta = M_PIf * e->progress;
+    float d = atan2f(fabsf(e->p.x - P5f), (e->p.y < P5f) ? 0.25f - e->p.y : e->p.y - 0.75f) - theta;
+    if (d < 0)
+        return e->b;
+    return (d < smoothness) ? mix4(e->b, e->a, d / smoothness) : e->a;
+}
+
+static vec4 gl_FanOut(const XTransition *e, bool init) // by Mark Craig
+{
+    PARAM_BEGIN
+    PARAM_1(float, smoothness, 0.05)
+    PARAM_END
+    float theta = 2 * M_PIf * e->progress;
+    float d = M_PIf + atan2f(P5f - e->p.y, (e->p.x < P5f) ? 0.25f - e->p.x : e->p.x - 0.75f) - theta;
+    if (d < 0)
+        return e->b;
+    return (d < smoothness) ? mix4(e->b, e->a, d / smoothness) : e->a;
+}
+
+static vec4 gl_FanUp(const XTransition *e, bool init) // by Mark Craig
+{
+    PARAM_BEGIN
+    PARAM_1(float, smoothness, 0.05)
+    PARAM_END
+    float theta = M_PI_2f * e->progress;
+    float d = atan2f(fabsf(e->p.x - P5f), 1 - e->p.y) - theta;
+    if (d < 0)
+        return e->b;
+    return (d < smoothness) ? mix4(e->b, e->a, d / smoothness) : e->a;
+}
+
+static vec4 gl_Flower(const XTransition *e, bool init) // by Mark Craig
+{
+    PARAM_BEGIN
+    PARAM_1(float, smoothness, 0.05)
+    PARAM_1(float, rotation, 360)
+    static float ang, fang; // constant
+    ang = 162.f * M_PIf / 180;
+    vec2 v = { cosf(ang), sinf(ang) - 1 };
+    float h = dot(v, v);
+    ang = 234.f * M_PIf / 180;
+    v = VEC2(cosf(ang), sinf(ang) - 1);
+    h = h - dot(v, v) / 4;
+    ang = 36.f * M_PIf / 180;
+    fang = (1 - sqrtf(h)) / cosf(ang);
+    PARAM_END // end config setup
+    v = VEC2((e->p.x - P5f) * e->ratio, P5f - e->p.y);
+    float theta = e->progress * M_PIf * rotation / 180;
+    float theta1 = atan2f(v.x, v.y) + theta;
+    float theta2 = glmod(fabsf(theta1), ang);
+    float ro = e->ratio / 0.731f * e->progress;
+    float ri = ro * fang, r;
+    if (glmod(truncf(theta1 / ang), 2) == 0)
+        r = theta2 / ang * (ro - ri) + ri;
+    else
+        r = (1 - theta2 / ang) * (ro - ri) + ri;
+    float r2 = length(v);
+    if (r2 > r + smoothness)
+        return e->a;
+    if (r2 > r)
+        return mix4(e->b, e->a, (r2 - r) / smoothness);
+    return e->b;
 }
 
 static vec4 gl_GridFlip(const XTransition *e, bool init) // by TimDonselaar
@@ -885,29 +1007,35 @@ static vec4 gl_hexagonalize(const XTransition *e, bool init) // by Fernando Kute
     return mix4(e->a, e->b, e->progress);
 }
 
+// see https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html
 static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-Packard
 { // omits antiAlias() code
-    PARAM_NONE
-    const float MIN_AMOUNT = -0.16f;
-    const float MAX_AMOUNT = 1.5f;
-    const float amount = e->progress * (MAX_AMOUNT - MIN_AMOUNT) + MIN_AMOUNT;
+    PARAM_BEGIN
+    PARAM_1(int, angle, 100)
+    PARAM_1(bool, reverseEffect, 0)
+    static vec2 o1 = { -0.801f, 0.89f }, o2 = { 0.985f, 0.985f }; // constant
+    if (angle == 30) // TODO: add more angles
+        o1 = VEC2(0.12f, 0.258f), o2 = VEC2(0.15f, -0.5f); // values from WebVfx link
+    PARAM_END // end config setup
+    #define MIN_AMOUNT -0.16f
+    #define MAX_AMOUNT 1.5f
+    const float amount = (reverseEffect ? (1 - e->progress) : e->progress) * (MAX_AMOUNT - MIN_AMOUNT) + MIN_AMOUNT;
     const float cylinderAngle = 2 * M_PIf * amount;
     const float cylinderRadius = M_1_PIf / 2;
-    const float angle = 100 * M_PIf / 180.f;
-    vec2 o = { -0.801f, 0.89f };
-    vec2 point = add2(rot(e->p, angle), o);
+    const float ang = angle * M_PIf / 180.f;
+    vec2 point = add2(rot(e->p, ang), o1);
     float hitAngle, yc = point.y - amount;
+    vec4 colour = reverseEffect ? e->b : e->a;
 
     if (yc > cylinderRadius) // flat surface
-        return e->a;
-    o = VEC2(0.985f, 0.985f);
+        return colour;
     if (yc < -cylinderRadius) { // behind surface
         // behindSurface()
         yc = -cylinderRadius - cylinderRadius - yc;
         hitAngle = acosf(yc / cylinderRadius) + cylinderAngle - M_PIf;
         vec2 p = { point.x, hitAngle / 2 / M_PIf };
-        point = add2(rot(p, -angle), o);
-        vec4 colour = e->b;
+        point = add2(rot(p, -ang), o2);
+        colour = reverseEffect ? e->a : e->b;
         if (yc < 0 && between2(point, 0, 1) && (hitAngle < M_PIf || amount > P5f)) { // shadow over to page
             float shadow = (1 - length(sub2f(point, P5f)) * M_SQRT2f) * powf(-yc / cylinderRadius, 3) / 2;
             colour.p0 -= shadow; // (can go -ve)
@@ -919,11 +1047,14 @@ static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-P
     }
     // seeThrough()
     hitAngle = M_PIf - acosf(yc / cylinderRadius) + cylinderAngle;
-    vec4 colour = e->a;
     if (yc < 0) { // get from colour going through its turn
         vec2 p = { point.x, hitAngle / 2 / M_PIf };
-        vec2 q = add2(rot(p, -angle), o);
-        colour = between2(q, 0, 1) ? getFromColor(q) : e->b;
+        vec2 q = add2(rot(p, -ang), o2);
+        bool b = between2(q, 0, 1);
+        if (reverseEffect)
+            colour = b ? getToColor(q) : e->a;
+        else
+            colour = b ? getFromColor(q) : e->b;
     }
     // end seeThrough()
     hitAngle = cylinderAngle + cylinderAngle - hitAngle;
@@ -931,7 +1062,7 @@ static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-P
     if ((hitAngleMod > M_PIf && amount < P5f) || (hitAngleMod > M_PI_2f && amount < 0))
         return colour;
     vec2 p = { point.x, hitAngle / 2 / M_PIf };
-    point = add2(rot(p, -angle), o);
+    point = add2(rot(p, -ang), o2);
     // seeThroughWithShadow()
     // distanceToEdge()
     float dx = (point.x < 0) ? -point.x : (point.x > 1) ? point.x - 1 : (point.x > P5f) ? 1 - point.x : point.x;
@@ -949,7 +1080,7 @@ static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-P
     if (!between2(point, 0, 1))
         return colour;
     // backside
-    colour = getFromColor(point);
+    colour = reverseEffect ? getToColor(point) : getFromColor(point);
     float grey = colour.p0;
     if (e->s->is_rgb)
         grey = (grey + colour.p1 + colour.p2) / 3; // simple average
@@ -1470,9 +1601,9 @@ static int xe_error(void *avcl, const char *fmt, ...) // reduces verbosity
 
 static void xe_debug(void *avcl, const char *fmt, ...) // emits parsing trail
 {
-    av_log(avcl, AV_LOG_DEBUG, "xfade-easing: ");
     va_list args;
     va_start(args, fmt);
+    av_log(avcl, AV_LOG_DEBUG, "xfade-easing: ");
     av_vlog(avcl, AV_LOG_DEBUG, fmt, args);
     va_end(args);
 }
@@ -1766,15 +1897,23 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_Bounce")) k->xtransitionf = gl_Bounce;
     else if (!av_strcasecmp(t, "gl_BowTie")) k->xtransitionf = gl_BowTie;
     else if (!av_strcasecmp(t, "gl_cannabisleaf")) k->xtransitionf = gl_cannabisleaf;
+    else if (!av_strcasecmp(t, "gl_CornerVanish")) k->xtransitionf = gl_CornerVanish;
     else if (!av_strcasecmp(t, "gl_CrazyParametricFun")) k->xtransitionf = gl_CrazyParametricFun;
     else if (!av_strcasecmp(t, "gl_crosshatch")) k->xtransitionf = gl_crosshatch;
+    else if (!av_strcasecmp(t, "gl_CrossOut")) k->xtransitionf = gl_CrossOut;
     else if (!av_strcasecmp(t, "gl_crosswarp")) k->xtransitionf = gl_crosswarp;
     else if (!av_strcasecmp(t, "gl_cube")) k->xtransitionf = gl_cube;
+    else if (!av_strcasecmp(t, "gl_Diamond")) k->xtransitionf = gl_Diamond;
     else if (!av_strcasecmp(t, "gl_DirectionalScaled")) k->xtransitionf = gl_DirectionalScaled;
     else if (!av_strcasecmp(t, "gl_directionalwarp")) k->xtransitionf = gl_directionalwarp;
     else if (!av_strcasecmp(t, "gl_doorway")) k->xtransitionf = gl_doorway;
+    else if (!av_strcasecmp(t, "gl_DoubleDiamond")) k->xtransitionf = gl_DoubleDiamond;
     else if (!av_strcasecmp(t, "gl_Dreamy")) k->xtransitionf = gl_Dreamy;
     else if (!av_strcasecmp(t, "gl_Exponential_Swish")) k->xtransitionf = gl_Exponential_Swish;
+    else if (!av_strcasecmp(t, "gl_FanIn")) k->xtransitionf = gl_FanIn;
+    else if (!av_strcasecmp(t, "gl_FanOut")) k->xtransitionf = gl_FanOut;
+    else if (!av_strcasecmp(t, "gl_FanUp")) k->xtransitionf = gl_FanUp;
+    else if (!av_strcasecmp(t, "gl_Flower")) k->xtransitionf = gl_Flower;
     else if (!av_strcasecmp(t, "gl_GridFlip")) k->xtransitionf = gl_GridFlip;
     else if (!av_strcasecmp(t, "gl_heart")) k->xtransitionf = gl_heart;
     else if (!av_strcasecmp(t, "gl_hexagonalize")) k->xtransitionf = gl_hexagonalize;

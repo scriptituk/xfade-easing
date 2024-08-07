@@ -4,7 +4,7 @@
 # GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
 #
 # This is a port of standard easing equations and CSS easing functions for the FFmpeg XFade filter
-# It also ports extended transitions, notably GL Transitions, for use with or without easing
+# It also ports extended transitions, notably GLSL transitions, for use with or without easing
 #
 # See https://github.com/scriptituk/xfade-easing for documentation or use the -H option
 # See https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation for FFmpeg expressions
@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=2.1.2
+export VERSION=2.1.3
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -861,7 +861,7 @@ _xf_transition() { # transition
     echo "$x"
 }
 
-# custom expressions for GL Transitions
+# custom expressions for GLSL transitions
 # # see https://github.com/gl-transitions/gl-transitions/tree/master/transitions
 _gl_transition() { # transition args
     local x # expr
@@ -959,6 +959,10 @@ _gl_transition() { # transition args
         _make ' if(step(0.18 * ld(1), hypot(ld(2), ld(3))), A, B)'
         _make ')'
         ;;
+    gl_CornerVanish) # by Mark Craig
+        _make 'st(2, 1 - st(1, P / 2));' # b2 b1
+        _make 'if(between(X / W, ld(1), ld(2)) + between(1 - Y / H, ld(1), ld(2)), B, A)'
+        ;;
     gl_CrazyParametricFun) # by mandubian
         _make "st(1, ${a[0]:-4});" # a
         _make "st(2, ${a[1]:-1});" # b
@@ -1010,6 +1014,24 @@ _gl_transition() { # transition args
         _make 'st(7, b(ld(4), ld(5)));'
         _make 'mix(ld(6), ld(7), ld(1))'
         ;;
+    gl_CrossOut) # by Mark Craig
+        _make "st(1, ${a[0]:-0.05});" # smoothness
+        _make 'st(2, (1 - P) / 2);' # c
+        _make 'st(3, X / W - 0.5);' # dx
+        _make 'st(4, 0.5 - Y / H);' # dy
+        _make 'st(5, ld(3) + ld(4));' # ds
+        _make 'st(6, ld(4) - ld(3));' # dd
+        _make 'if(between(ld(5), -ld(2), ld(2)) + between(ld(6), -ld(2), ld(2)),'
+        _make ' B,'
+        _make ' st(7, ld(2) + ld(1));' # cs
+        _make ' ifnot(between(ld(5), -ld(7), ld(7)) + between(ld(6), -ld(7), ld(7)),'
+        _make '  A,'
+        _make '  st(7, abs(ifnot(eq(gte(ld(3), 0), gte(ld(4), 0)), ld(5), ld(6))));' # d
+        _make '  st(7, (ld(7) - ld(2)) / ld(1));'
+        _make '  mix(B, A, ld(7))'
+        _make ' )'
+        _make ')'
+        ;;
     gl_cube) # by gre
         _make "st(1, ${a[0]:-0.7});" # persp
         _make "st(2, ${a[1]:-0.3});" # unzoom
@@ -1050,6 +1072,19 @@ _gl_transition() { # transition args
         _make '  ld(1)'
         _make ' ),'
         _make ' bwt(ld(4))'
+        _make ')'
+        ;;
+    gl_Diamond) # by Mark Craig
+        _make "st(1, ${a[0]:-0.05});" # smoothness
+        _make 'st(2, 1 - P);' # progress
+        _make 'st(3, abs(X / W - 0.5) + abs(0.5 - Y / H));' # d
+        _make 'if(lt(ld(3), ld(2)),'
+        _make ' B,'
+        _make ' if(gt(ld(3), ld(2) + ld(1)),'
+        _make '  A,'
+        _make '  st(1, (ld(3) - ld(2)) / ld(1));'
+        _make '  mix(B, A, ld(1))'
+        _make ' )'
         _make ')'
         ;;
     gl_DirectionalScaled) # by Thibaut Foussard
@@ -1096,6 +1131,19 @@ _gl_transition() { # transition args
         _make 'st(5, (0.5 - ld(3) * ld(1)) * H);'
         _make 'st(7, b(ld(4), ld(5)));'
         _make 'mix(ld(6), ld(7), ld(1))'
+        ;;
+    gl_DoubleDiamond) # by Mark Craig
+        _make "st(1, ${a[0]:-0.05});" # smoothness
+        _make 'st(3, 1 - st(2, P / 2));' # b2 b1
+        _make 'st(4, abs(X / W - 0.5) + abs(0.5 - Y / H));' # d
+        _make 'if(between(ld(4), ld(2), ld(3)),'
+        _make ' if(between(ld(4), ld(2) + ld(1), ld(3) - ld(1)),'
+        _make '  B,'
+        _make '  st(1, min(ld(4) - ld(2), ld(3) - ld(4)) / ld(1));'
+        _make '  mix(A, B, ld(1))'
+        _make ' ),'
+        _make ' A'
+        _make ')'
         ;;
     gl_doorway) # by gre
         _make "st(1, ${a[0]:-0.4});" # reflection
@@ -1162,6 +1210,75 @@ _gl_transition() { # transition args
 #       ${a[0]:-0} # blur
 #       ${a[0]:-0} # bgBkWhTr
         ;;
+    gl_FanIn) # by Mark Craig
+        _make "st(1, ${a[0]:-0.05});" # smoothness
+        _make 'st(2, PI * (1 - P));' # theta
+        _make 'st(3, 1 - Y / H);' # p.y
+        _make 'st(3, atan2(abs(X / W - 0.5), if(lt(ld(3), 0.5), 0.25 - ld(3), ld(3) - 0.75)) - ld(2));' # d
+        _make 'if(lt(ld(3), 0),'
+        _make ' B,'
+        _make ' if(lt(ld(3), ld(1)),'
+        _make '  st(3, ld(3) / ld(1));'
+        _make '  mix(B, A, ld(3)),'
+        _make '  A'
+        _make ' )'
+        _make ')'
+        ;;
+    gl_FanOut) # by Mark Craig
+        _make "st(1, ${a[0]:-0.05});" # smoothness
+        _make 'st(2, 2 * PI * (1 - P));' # theta
+        _make 'st(3, X / W);' # p.x
+        _make 'st(3, PI + atan2(Y / H - 0.5, if(lt(ld(3), 0.5), 0.25 - ld(3), ld(3) - 0.75)) - ld(2));' # d
+        _make 'if(lt(ld(3), 0),'
+        _make ' B,'
+        _make ' if(lt(ld(3), ld(1)),'
+        _make '  st(3, ld(3) / ld(1));'
+        _make '  mix(B, A, ld(3)),'
+        _make '  A'
+        _make ' )'
+        _make ')'
+        ;;
+    gl_FanUp) # by Mark Craig
+        _make "st(1, ${a[0]:-0.05});" # smoothness
+        _make 'st(2, PI / 2 * (1 - P));' # theta
+        _make 'st(3, atan2(abs(X / W - 0.5), Y / H) - ld(2));' # d
+        _make 'if(lt(ld(3), 0),'
+        _make ' B,'
+        _make ' if(lt(ld(3), ld(1)),'
+        _make '  st(3, ld(3) / ld(1));'
+        _make '  mix(B, A, ld(3)),'
+        _make '  A'
+        _make ' )'
+        _make ')'
+        ;;
+    gl_Flower) # by Mark Craig
+        local H162=$(_calc 'cos(a = 162 * atan2(0,-1) / 180)^2 + (sin(a) - 1)^2')
+        local H234=$(_calc 'cos(a = 234 * atan2(0,-1) / 180)^2 + (sin(a) - 1)^2')
+        local ANG=$(_calc '36 * atan2(0,-1) / 180') # 0.628319
+        local FANG=$(_calc "(1 - sqrt($H162 - $H234 / 4)) / cos($ANG)") # 0.381962
+        _make "st(1, ${a[0]:-0.05});" # smoothness
+        _make "st(2, ${a[1]:-360});" # rotation
+        _make 'st(3, (X / W - 0.5) * W / H);'
+        _make 'st(4, Y / H - 0.5);'
+        _make 'st(5, hypot(ld(3), ld(4)));' # r2
+        _make 'st(2, (1 - P) * ld(2) * PI / 180);' # theta
+        _make 'st(3, atan2(ld(3), ld(4)) + ld(2));' # theta1
+        _make "st(4, mod(abs(ld(3)), $ANG));" # theta2
+        _make 'st(6, W / H / 0.731 * (1 - P));' # ro
+        _make "st(7, ld(6) * $FANG);" # ri
+        _make "st(2, ifnot(mod(trunc(ld(3) / $ANG), 2)," # r
+        _make " ld(4) / $ANG * (ld(6) - ld(7)) + ld(7),"
+        _make " (1 - ld(4) / $ANG) * (ld(6) - ld(7)) + ld(7)"
+        _make '));'
+        _make 'if(gt(ld(5), ld(2) + ld(1)),'
+        _make ' A,'
+        _make ' if(gt(ld(5), ld(2)),'
+        _make '  st(1, (ld(5) - ld(2)) / ld(1));'
+        _make '  mix(B, A, ld(1)),'
+        _make '  B'
+        _make ' )'
+        _make ')'
+        ;;
     gl_GridFlip) # by TimDonselaar
         _make NATIVE
 #       ${a[0]:-4} # size.x
@@ -1216,27 +1333,33 @@ _gl_transition() { # transition args
         ;;
     gl_InvertedPageCurl) # by Hewlett-Packard
         # antiAlias deactivated to simplify implementation - see src/xfade-easing.c
-        local MIN_AMOUNT=-0.16;
-        local MAX_AMOUNT=1.5;
-        local ANGLE=$(_calc "100 * atan2(0, -1) / 180"); # 100 * PI / 180
-        local C=$(_calc "cos($ANGLE)"); # -0.173649
-        local S=$(_calc "sin($ANGLE)"); # 0.984808
+        local ANGLE=${a[0]:-100} # angle
+#       ${a[1]:-0} # ReverseEffect
+        local O1A=-0.801 O1B=0.89 O2A=0.985 O2B=0.985
+        if [[ $ANGLE -eq 30 ]]; then
+            O1A=0.12 O1B=0.258 O2A=0.15 O2B=-0.5
+        elif [[ $ANGLE -ne 100 ]]; then
+            ANGLE=100
+        fi
+        ANGLE=$(_calc "$ANGLE * atan2(0,-1) / 180")
+        local C=$(_calc "cos($ANGLE)") S=$(_calc "sin($ANGLE)")
+        local MIN_AMOUNT=-0.16 MAX_AMOUNT=1.5
         _make "st(0, (1 - P) * ($MAX_AMOUNT - $MIN_AMOUNT) + $MIN_AMOUNT);" # amount,cylinderCenter
         _make 'st(1, 1 / 2 / PI);' # cylinderRadius
         _make 'st(2, ld(0) / ld(1));' # cylinderAngle
         _make 'st(3, X / W);' # p.x
         _make 'st(4, 1 - Y / H);' # p.y
-        _make "st(6, $C * ld(4) + 0.89 - $S * ld(3));" # point.y
+        _make "st(6, $C * ld(4) + $O1B - $S * ld(3));" # point.y
         _make 'st(7, ld(6) - ld(0));' # yc
         _make 'if(gt(ld(7), ld(1)),' # flat surface
         _make ' st(3, A),' # colour
-        _make " st(9, $C * ld(3) + $S * ld(4) - 0.801);" # point.x
+        _make " st(9, $C * ld(3) + $S * ld(4) + $O1A);" # point.x
         _make ' if(lt(ld(7), -ld(1)),' # behind surface
         _make '  st(7, -2 * ld(1) - ld(7));'
         _make '  st(8, acos(ld(7) / ld(1)) + ld(2) - PI);' # hitAngle
         _make '  st(6, ld(8) * ld(1));'
-        _make "  st(5, $C * ld(9) - $S * ld(6) + 0.985);" # point.x
-        _make "  st(6, $S * ld(9) + $C * ld(6) + 0.985);" # point.y
+        _make "  st(5, $C * ld(9) - $S * ld(6) + $O2A);" # point.x
+        _make "  st(6, $S * ld(9) + $C * ld(6) + $O2B);" # point.y
         _make '  if(lt(ld(7), 0) * between(ld(5), 0, 1) * between(ld(6), 0, 1) * (lt(ld(8), PI) + gt(ld(0), 0.5)),'
         _make '   st(8, (1 - hypot(ld(5) - 0.5, ld(6) - 0.5) * 1.414) * pow(-ld(7) / ld(1), 3) / 2);' # shado
         _make '   st(8, clip(ld(8) * maxv, 0, B)),' # prevent -ve texture
@@ -1252,8 +1375,8 @@ _gl_transition() { # transition args
         _make '   if(gt(ld(7), 0),'
         _make '    A,'
         _make '    st(4, ld(8) * ld(1));'
-        _make "    st(5, $C * ld(9) - $S * ld(4) + 0.985);" # pt.x
-        _make "    st(6, $S * ld(9) + $C * ld(4) + 0.985);" # pt.y
+        _make "    st(5, $C * ld(9) - $S * ld(4) + $O2A);" # pt.x
+        _make "    st(6, $S * ld(9) + $C * ld(4) + $O2B);" # pt.y
         _make '    if(between(ld(5), 0, 1) * between(ld(6), 0, 1),'
         _make '     st(5, ld(5) * W);'
         _make '     st(6, (1 - ld(6)) * H);'
@@ -1266,8 +1389,8 @@ _gl_transition() { # transition args
         _make '  st(4, mod(ld(8), 2 * PI));' # hitAngleMod
         _make '  ifnot(gt(ld(4), PI) * lt(ld(0), 0.5) + gt(ld(4), PI / 2) * lt(ld(0), 0),' # seeThroughWithShadow
         _make '   st(4, ld(8) * ld(1));'
-        _make "   st(5, $C * ld(9) - $S * ld(4) + 0.985);" # point.x
-        _make "   st(6, $S * ld(9) + $C * ld(4) + 0.985);" # point.y
+        _make "   st(5, $C * ld(9) - $S * ld(4) + $O2A);" # point.x
+        _make "   st(6, $S * ld(9) + $C * ld(4) + $O2B);" # point.y
         # distanceToEdge
         _make '   st(8, if(lt(ld(5), 0), -ld(5), if(gt(ld(5), 1), ld(5) - 1, if(gt(ld(5), 0.5), 1 - ld(5), ld(5)))));' # dx
         _make '   st(9, if(lt(ld(6), 0), -ld(6), if(gt(ld(6), 1), ld(6) - 1, if(gt(ld(6), 0.5), 1 - ld(6), ld(6)))));' # dy
@@ -2180,13 +2303,13 @@ BEGIN {
     title["rp"] = "Standard Easings (Robert Penner):"
     title["se"] = "Supplementary Easings:"
     title["xf"] = "XFade Transitions:"
-    title["gl"] = "GL Transitions:"
+    title["gl"] = "GLSL Transitions:"
     title["st"] = "Supplementary Transitions:"
 }
 
 $1 ~ /^#/ { next }
 
-match($1, /^_(..)_(transition|easing)\(\)/, a) { # transition/easing func
+match($1, /^_(.*)_(transition|easing)\(\)/, a) { # transition/easing func
 if(a[1]=="st") next # historic
     go = 1
     if (cases)
@@ -2391,9 +2514,9 @@ Notes:
     4. CSS easings are supported in the custom ffmpeg build but not as custom expressions
     4. certain xfade transitions are not implemented as custom expressions because
        they perform aggregation (distance, hblur)
-    5. many GL Transitions are also ported, some of which take customisation parameters
+    5. many GLSL transitions are also ported, some of which take customisation parameters
        to override defaults append parameters in parenthesis (see -X above)
-    6. some GL Transitions are only available in the custom ffmpeg build
+    6. certain GLSL transitions are only available in the custom ffmpeg build
     7. many transitions do not lend themselves well to easing, others have easing built in
        easings that overshoot (back & elastic) may cause weird effects!
 !USAGE
