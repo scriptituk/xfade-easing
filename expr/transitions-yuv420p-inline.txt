@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 2.1.2
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 2.1.3
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Inline transition expressions (yuv420p) for filter_complex filterchains
@@ -186,6 +186,9 @@ NATIVE
 GL_CANNABISLEAF
 if(eq(ld(0),1),A,st(1,10*pow(1-ld(0),3.5));st(2,(X/W-0.5)/ld(1));st(3,(0.5-Y/H)/ld(1)+0.35);st(1,atan2(ld(3),ld(2)));st(1,(1+sin(ld(1)))*(1+0.9*cos(8*ld(1)))*(1+0.1*cos(24*ld(1)))*(0.9+0.05*cos(200*ld(1))));if(gte(hypot(ld(2),ld(3)),0.18*ld(1)),A,B))
 
+GL_CORNERVANISH
+st(2,1-st(1,ld(0)/2));if(between(X/W,ld(1),ld(2))+between(1-Y/H,ld(1),ld(2)),B,A)
+
 GL_CRAZYPARAMETRICFUN
 st(1,4);st(2,1);st(3,120);st(4,0.1);st(5,1-ld(0));st(6,ld(1)-ld(2));st(7,ld(1)/ld(2)-1);st(1,ld(6)*cos(ld(5))+ld(2)*cos(ld(5)*ld(7)));st(2,ld(6)*sin(ld(5))-ld(2)*sin(ld(5)*ld(7)));st(6,X/W-0.5);st(7,0.5-Y/H);st(8,ld(5)*hypot(ld(6),ld(7))*ld(3));st(1,ld(6)*sin(ld(8)*ld(1))/ld(4));st(2,ld(7)*sin(ld(8)*ld(2))/ld(4));st(1,X+ld(1)*W);st(2,Y-ld(2)*H);st(1,ifnot(PLANE,a0(ld(1),ld(2)),if(eq(PLANE,1),a1(ld(1),ld(2)),if(eq(PLANE,2),a2(ld(1),ld(2)),a3(ld(1),ld(2))))));st(2,st(2,clip((ld(5)-0.2)/0.8,0,1))*ld(2)*(3-2*ld(2)));ld(1)*(1-ld(2))+B*ld(2)
 
@@ -195,14 +198,23 @@ st(1,0.5);st(2,0.5);st(3,3);st(4,0.1);st(5,1-ld(0));st(6,hypot(X/W-ld(1),1-Y/H-l
 GL_CROSSWARP
 st(1,(1-ld(0))*2+X/W-1);st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1)));st(2,X/W-0.5);st(3,0.5-Y/H);st(4,(ld(2)*(1-ld(1))+0.5)*W);st(5,(0.5-ld(3)*(1-ld(1)))*H);st(6,ifnot(PLANE,a0(ld(4),ld(5)),if(eq(PLANE,1),a1(ld(4),ld(5)),if(eq(PLANE,2),a2(ld(4),ld(5)),a3(ld(4),ld(5))))));st(4,(ld(2)*ld(1)+0.5)*W);st(5,(0.5-ld(3)*ld(1))*H);st(7,ifnot(PLANE,b0(ld(4),ld(5)),if(eq(PLANE,1),b1(ld(4),ld(5)),if(eq(PLANE,2),b2(ld(4),ld(5)),b3(ld(4),ld(5))))));ld(6)*(1-ld(1))+ld(7)*ld(1)
 
+GL_CROSSOUT
+st(1,0.05);st(2,(1-ld(0))/2);st(3,X/W-0.5);st(4,0.5-Y/H);st(5,ld(3)+ld(4));st(6,ld(4)-ld(3));if(between(ld(5),-ld(2),ld(2))+between(ld(6),-ld(2),ld(2)),B,st(7,ld(2)+ld(1));ifnot(between(ld(5),-ld(7),ld(7))+between(ld(6),-ld(7),ld(7)),A,st(7,abs(ifnot(eq(gte(ld(3),0),gte(ld(4),0)),ld(5),ld(6))));st(7,(ld(7)-ld(2))/ld(1));B*(1-ld(7))+A*ld(7)))
+
 GL_CUBE
 st(1,0.7);st(2,0.3);st(3,0.4);st(4,3);st(0,1-ld(0));st(2,ld(2)*2*(0.5-abs(0.5-ld(0))));st(7,X/W*(1+ld(2))-ld(2)/2);st(8,(1-Y/H)*(1+ld(2))-ld(2)/2);st(2,ld(0)*(1-ld(1)));st(5,(ld(7)-ld(0))/(1-ld(0)));st(6,(ld(8)-ld(2)*ld(5)/2)/(1-ld(2)*ld(5)));st(2,1-(ld(0)*ld(0)*(1-ld(1))+1*ld(1)));st(1,ld(7)/ld(0));st(2,(ld(8)-ld(2)*(1-ld(1))/2)/(1-ld(2)*(1-ld(1))));ifnot(st(0,-between(ld(5),0,1)*between(ld(6),0,1)),ifnot(st(0,between(ld(1),0,1)*between(ld(2),0,1)),st(2,ld(2)*-1.2-ld(4)/100);ifnot(st(0,2*between(ld(1),0,1)*between(ld(2),0,1)),st(6,ld(6)*-1.2-ld(4)/100);st(0,-2*between(ld(5),0,1)*between(ld(6),0,1)))));st(4,0);if(ld(0),if(lt(ld(0),0),st(1,ld(5));st(2,ld(6)));st(5,ld(1)*W);st(6,(1-ld(2))*H);if(lt(ld(0),0),st(1,ifnot(PLANE,a0(ld(5),ld(6)),if(eq(PLANE,1),a1(ld(5),ld(6)),if(eq(PLANE,2),a2(ld(5),ld(6)),a3(ld(5),ld(6)))))),st(1,ifnot(PLANE,b0(ld(5),ld(6)),if(eq(PLANE,1),b1(ld(5),ld(6)),if(eq(PLANE,2),b2(ld(5),ld(6)),b3(ld(5),ld(6)))))));if(eq(abs(ld(0)),2),st(3,ld(3)*(1-ld(2)));st(4,if(between(PLANE,1,2),128,if(ld(4)+PLANE,255,0)));ld(4)*(1-ld(3))+ld(1)*ld(3),ld(1)),if(between(PLANE,1,2),128,if(ld(4)+PLANE,255,0)))
+
+GL_DIAMOND
+st(1,0.05);st(2,1-ld(0));st(3,abs(X/W-0.5)+abs(0.5-Y/H));if(lt(ld(3),ld(2)),B,if(gt(ld(3),ld(2)+ld(1)),A,st(1,(ld(3)-ld(2))/ld(1));B*(1-ld(1))+A*ld(1)))
 
 GL_DIRECTIONALSCALED
 st(1,0);st(2,1);st(3,0.7);st(4,0);st(5,1-ld(0));st(3,1-(1-1/ld(3))*sin(ld(5)*PI));st(5,pow(sin(ld(5)*PI/2),3));st(1,X/W+ld(5)*sgn(ld(1)));st(2,1-Y/H+ld(5)*sgn(ld(2)));st(5,(ld(1)-floor(ld(1))-0.5)*ld(3)+0.5);st(6,(ld(2)-floor(ld(2))-0.5)*ld(3)+0.5);if(between(ld(5),0,1)*between(ld(6),0,1),st(5,ld(5)*W);st(6,(1-ld(6))*H);if(between(ld(1),0,1)*between(ld(2),0,1),ifnot(PLANE,a0(ld(5),ld(6)),if(eq(PLANE,1),a1(ld(5),ld(6)),if(eq(PLANE,2),a2(ld(5),ld(6)),a3(ld(5),ld(6))))),ifnot(PLANE,b0(ld(5),ld(6)),if(eq(PLANE,1),b1(ld(5),ld(6)),if(eq(PLANE,2),b2(ld(5),ld(6)),b3(ld(5),ld(6)))))),if(between(PLANE,1,2),128,if(ld(4)+PLANE,255,0)))
 
 GL_DIRECTIONALWARP
 st(1,0.1);st(2,-1);st(3,1);st(4,hypot(ld(2),ld(3)));st(2,ld(2)/ld(4));st(3,ld(3)/ld(4));st(4,abs(ld(2))+abs(ld(3)));st(2,ld(2)/ld(4));st(3,ld(3)/ld(4));st(4,(ld(2)+ld(3))/2);st(4,ld(2)*X/W+ld(3)*(1-Y/H)-(ld(4)-0.5+(1-ld(0))*(1+ld(1))));st(1,1-st(1,clip((ld(4)+ld(1))/(0+ld(1)),0,1))*ld(1)*(3-2*ld(1)));st(2,X/W-0.5);st(3,0.5-Y/H);st(4,(ld(2)*(1-ld(1))+0.5)*W);st(5,(0.5-ld(3)*(1-ld(1)))*H);st(6,ifnot(PLANE,a0(ld(4),ld(5)),if(eq(PLANE,1),a1(ld(4),ld(5)),if(eq(PLANE,2),a2(ld(4),ld(5)),a3(ld(4),ld(5))))));st(4,(ld(2)*ld(1)+0.5)*W);st(5,(0.5-ld(3)*ld(1))*H);st(7,ifnot(PLANE,b0(ld(4),ld(5)),if(eq(PLANE,1),b1(ld(4),ld(5)),if(eq(PLANE,2),b2(ld(4),ld(5)),b3(ld(4),ld(5))))));ld(6)*(1-ld(1))+ld(7)*ld(1)
+
+GL_DOUBLEDIAMOND
+st(1,0.05);st(3,1-st(2,ld(0)/2));st(4,abs(X/W-0.5)+abs(0.5-Y/H));if(between(ld(4),ld(2),ld(3)),if(between(ld(4),ld(2)+ld(1),ld(3)-ld(1)),B,st(1,min(ld(4)-ld(2),ld(3)-ld(4))/ld(1));A*(1-ld(1))+B*ld(1)),A)
 
 GL_DOORWAY
 st(1,0.4);st(2,0.4);st(3,3);st(4,0);st(0,1-ld(0));st(5,X/W);st(6,1-Y/H);st(7,0);st(8,2*abs(ld(5)-0.5)-ld(0));if(gt(ld(8),0),st(8,1/(1+ld(2)*ld(0)*(1-ld(8))));st(5,ld(5)+(1-gt(ld(5),0.5)*2)*ld(0)/2);st(6,(ld(6)+(1-ld(8))/2)*ld(8));st(7,between(ld(5),0,1)*between(ld(6),0,1)),st(8,ld(3)*(1-ld(0))+1*ld(0));st(5,(ld(5)-0.5)*ld(8)+0.5);st(6,(ld(6)-0.5)*ld(8)+0.5);st(7,2*between(ld(5),0,1)*between(ld(6),0,1));ifnot(ld(7),st(6,ld(6)*-1.2-0.02);st(7,3*between(ld(5),0,1)*between(ld(6),0,1))));if(ld(7),st(2,ld(5)*W);st(3,(1-ld(6))*H);if(eq(ld(7),1),ifnot(PLANE,a0(ld(2),ld(3)),if(eq(PLANE,1),a1(ld(2),ld(3)),if(eq(PLANE,2),a2(ld(2),ld(3)),a3(ld(2),ld(3))))),st(3,ifnot(PLANE,b0(ld(2),ld(3)),if(eq(PLANE,1),b1(ld(2),ld(3)),if(eq(PLANE,2),b2(ld(2),ld(3)),b3(ld(2),ld(3))))));if(eq(ld(7),2),ld(3),st(4,if(between(PLANE,1,2),128,if(ld(4)+PLANE,255,0)));st(1,ld(1)*(1-ld(6)));ld(4)*(1-ld(1))+ld(3)*ld(1))),if(between(PLANE,1,2),128,if(ld(4)+PLANE,255,0)))
@@ -212,6 +224,18 @@ st(1,X/W);st(2,1-Y/H);st(3,1-ld(0));st(4,0.03*ld(3)*cos(10*(ld(3)+ld(1))));st(4,
 
 GL_EXPONENTIAL_SWISH
 NATIVE
+
+GL_FANIN
+st(1,0.05);st(2,PI*(1-ld(0)));st(3,1-Y/H);st(3,atan2(abs(X/W-0.5),if(lt(ld(3),0.5),0.25-ld(3),ld(3)-0.75))-ld(2));if(lt(ld(3),0),B,if(lt(ld(3),ld(1)),st(3,ld(3)/ld(1));B*(1-ld(3))+A*ld(3),A))
+
+GL_FANOUT
+st(1,0.05);st(2,2*PI*(1-ld(0)));st(3,X/W);st(3,PI+atan2(Y/H-0.5,if(lt(ld(3),0.5),0.25-ld(3),ld(3)-0.75))-ld(2));if(lt(ld(3),0),B,if(lt(ld(3),ld(1)),st(3,ld(3)/ld(1));B*(1-ld(3))+A*ld(3),A))
+
+GL_FANUP
+st(1,0.05);st(2,PI/2*(1-ld(0)));st(3,atan2(abs(X/W-0.5),Y/H)-ld(2));if(lt(ld(3),0),B,if(lt(ld(3),ld(1)),st(3,ld(3)/ld(1));B*(1-ld(3))+A*ld(3),A))
+
+GL_FLOWER
+st(1,0.05);st(2,360);st(3,(X/W-0.5)*W/H);st(4,Y/H-0.5);st(5,hypot(ld(3),ld(4)));st(2,(1-ld(0))*ld(2)*PI/180);st(3,atan2(ld(3),ld(4))+ld(2));st(4,mod(abs(ld(3)),0.628319));st(6,W/H/0.731*(1-ld(0)));st(7,ld(6)*0.381962);st(2,ifnot(mod(trunc(ld(3)/0.628319),2),ld(4)/0.628319*(ld(6)-ld(7))+ld(7),(1-ld(4)/0.628319)*(ld(6)-ld(7))+ld(7)));if(gt(ld(5),ld(2)+ld(1)),A,if(gt(ld(5),ld(2)),st(1,(ld(5)-ld(2))/ld(1));B*(1-ld(1))+A*ld(1),B))
 
 GL_GRIDFLIP
 NATIVE
@@ -223,7 +247,7 @@ GL_HEXAGONALIZE
 st(1,50);st(2,20);st(0,1-ld(0));st(3,2*min(ld(0),1-ld(0)));if(gt(ld(1),0),st(3,ceil(ld(3)*ld(1))/ld(1)));if(gt(ld(3),0),st(2,st(1,sqrt(3))/3*ld(3)/ld(2));st(3,(X/W-0.5)/ld(2));st(4,((H-Y)/W-0.5)/ld(2));st(3,(ld(1)*ld(3)-ld(4))/3);st(4,2/3*ld(4));st(5,-ld(3)-ld(4));st(6,floor(ld(3)+0.5));st(7,floor(ld(4)+0.5));st(8,floor(ld(5)+0.5));st(3,abs(ld(6)-ld(3)));st(4,abs(ld(7)-ld(4)));st(5,abs(ld(8)-ld(5)));if(gt(ld(3),ld(4))*gt(ld(3),ld(5)),st(6,-ld(7)-ld(8)),if(gt(ld(4),ld(5)),st(7,-ld(6)-ld(8))));st(3,ld(1)*(ld(6)+ld(7)/2)*ld(2)+0.5);st(4,3/2*ld(7)*ld(2)+0.5);st(3,ld(3)*W);st(4,H-ld(4)*W);st(1,ifnot(PLANE,a0(ld(3),ld(4)),if(eq(PLANE,1),a1(ld(3),ld(4)),if(eq(PLANE,2),a2(ld(3),ld(4)),a3(ld(3),ld(4))))));st(2,ifnot(PLANE,b0(ld(3),ld(4)),if(eq(PLANE,1),b1(ld(3),ld(4)),if(eq(PLANE,2),b2(ld(3),ld(4)),b3(ld(3),ld(4))))));ld(1)*(1-ld(0))+ld(2)*ld(0),A*(1-ld(0))+B*ld(0))
 
 GL_INVERTEDPAGECURL
-st(0,(1-ld(0))*(1.5--0.16)+-0.16);st(1,1/2/PI);st(2,ld(0)/ld(1));st(3,X/W);st(4,1-Y/H);st(6,-0.173649*ld(4)+0.89-0.984808*ld(3));st(7,ld(6)-ld(0));if(gt(ld(7),ld(1)),st(3,A),st(9,-0.173649*ld(3)+0.984808*ld(4)-0.801);if(lt(ld(7),-ld(1)),st(7,-2*ld(1)-ld(7));st(8,acos(ld(7)/ld(1))+ld(2)-PI);st(6,ld(8)*ld(1));st(5,-0.173649*ld(9)-0.984808*ld(6)+0.985);st(6,0.984808*ld(9)+-0.173649*ld(6)+0.985);if(lt(ld(7),0)*between(ld(5),0,1)*between(ld(6),0,1)*(lt(ld(8),PI)+gt(ld(0),0.5)),st(8,(1-hypot(ld(5)-0.5,ld(6)-0.5)*1.414)*pow(-ld(7)/ld(1),3)/2);st(8,clip(ld(8)*255,0,B)),st(8,0));st(3,ifnot(PLANE,B-ld(8),B)),st(3,st(8,PI-acos(ld(7)/ld(1))+ld(2));if(gt(ld(7),0),A,st(4,ld(8)*ld(1));st(5,-0.173649*ld(9)-0.984808*ld(4)+0.985);st(6,0.984808*ld(9)+-0.173649*ld(4)+0.985);if(between(ld(5),0,1)*between(ld(6),0,1),st(5,ld(5)*W);st(6,(1-ld(6))*H);ifnot(PLANE,a0(ld(5),ld(6)),if(eq(PLANE,1),a1(ld(5),ld(6)),if(eq(PLANE,2),a2(ld(5),ld(6)),a3(ld(5),ld(6))))),B)));st(8,2*ld(2)-ld(8));st(4,mod(ld(8),2*PI));ifnot(gt(ld(4),PI)*lt(ld(0),0.5)+gt(ld(4),PI/2)*lt(ld(0),0),st(4,ld(8)*ld(1));st(5,-0.173649*ld(9)-0.984808*ld(4)+0.985);st(6,0.984808*ld(9)+-0.173649*ld(4)+0.985);st(8,if(lt(ld(5),0),-ld(5),if(gt(ld(5),1),ld(5)-1,if(gt(ld(5),0.5),1-ld(5),ld(5)))));st(9,if(lt(ld(6),0),-ld(6),if(gt(ld(6),1),ld(6)-1,if(gt(ld(6),0.5),1-ld(6),ld(6)))));st(8,if(between(ld(5),0,1)+between(ld(6),0,1),min(ld(8),ld(9)),hypot(ld(8),ld(9))));st(8,(1-ld(8)*30)/3);st(8,clip(ld(8)*ld(0)*255,0,ld(3)));ifnot(PLANE,st(3,ld(3)-ld(8)));if(between(ld(5),0,1)*between(ld(6),0,1),st(5,ld(5)*W);st(6,(1-ld(6))*H);if(lt(PLANE,3),ifnot(PLANE,st(3,a0(ld(5),ld(6))/255/5);st(3,ld(3)+0.8*(pow(1-abs(ld(7)/ld(1)),0.2)/2+0.5));st(3,ld(3)*255),st(3,128)),st(3,a3(ld(5),ld(6))))))));ld(3)
+st(0,(1-ld(0))*(1.5--0.16)+-0.16);st(1,1/2/PI);st(2,ld(0)/ld(1));st(3,X/W);st(4,1-Y/H);st(6,-0.173649*ld(4)+0.89-0.984808*ld(3));st(7,ld(6)-ld(0));if(gt(ld(7),ld(1)),st(3,A),st(9,-0.173649*ld(3)+0.984808*ld(4)+-0.801);if(lt(ld(7),-ld(1)),st(7,-2*ld(1)-ld(7));st(8,acos(ld(7)/ld(1))+ld(2)-PI);st(6,ld(8)*ld(1));st(5,-0.173649*ld(9)-0.984808*ld(6)+0.985);st(6,0.984808*ld(9)+-0.173649*ld(6)+0.985);if(lt(ld(7),0)*between(ld(5),0,1)*between(ld(6),0,1)*(lt(ld(8),PI)+gt(ld(0),0.5)),st(8,(1-hypot(ld(5)-0.5,ld(6)-0.5)*1.414)*pow(-ld(7)/ld(1),3)/2);st(8,clip(ld(8)*255,0,B)),st(8,0));st(3,ifnot(PLANE,B-ld(8),B)),st(3,st(8,PI-acos(ld(7)/ld(1))+ld(2));if(gt(ld(7),0),A,st(4,ld(8)*ld(1));st(5,-0.173649*ld(9)-0.984808*ld(4)+0.985);st(6,0.984808*ld(9)+-0.173649*ld(4)+0.985);if(between(ld(5),0,1)*between(ld(6),0,1),st(5,ld(5)*W);st(6,(1-ld(6))*H);ifnot(PLANE,a0(ld(5),ld(6)),if(eq(PLANE,1),a1(ld(5),ld(6)),if(eq(PLANE,2),a2(ld(5),ld(6)),a3(ld(5),ld(6))))),B)));st(8,2*ld(2)-ld(8));st(4,mod(ld(8),2*PI));ifnot(gt(ld(4),PI)*lt(ld(0),0.5)+gt(ld(4),PI/2)*lt(ld(0),0),st(4,ld(8)*ld(1));st(5,-0.173649*ld(9)-0.984808*ld(4)+0.985);st(6,0.984808*ld(9)+-0.173649*ld(4)+0.985);st(8,if(lt(ld(5),0),-ld(5),if(gt(ld(5),1),ld(5)-1,if(gt(ld(5),0.5),1-ld(5),ld(5)))));st(9,if(lt(ld(6),0),-ld(6),if(gt(ld(6),1),ld(6)-1,if(gt(ld(6),0.5),1-ld(6),ld(6)))));st(8,if(between(ld(5),0,1)+between(ld(6),0,1),min(ld(8),ld(9)),hypot(ld(8),ld(9))));st(8,(1-ld(8)*30)/3);st(8,clip(ld(8)*ld(0)*255,0,ld(3)));ifnot(PLANE,st(3,ld(3)-ld(8)));if(between(ld(5),0,1)*between(ld(6),0,1),st(5,ld(5)*W);st(6,(1-ld(6))*H);if(lt(PLANE,3),ifnot(PLANE,st(3,a0(ld(5),ld(6))/255/5);st(3,ld(3)+0.8*(pow(1-abs(ld(7)/ld(1)),0.2)/2+0.5));st(3,ld(3)*255),st(3,128)),st(3,a3(ld(5),ld(6))))))));ld(3)
 
 GL_KALEIDOSCOPE
 st(1,1);st(2,1);st(3,1.5);st(0,1-ld(0));st(4,X/W-0.5);st(5,0.5-Y/H);st(1,pow(ld(0),ld(3))*ld(1));st(3,0);while(lte(st(3,ld(3)+1),7),st(6,sin(ld(1)));st(7,cos(ld(1)));st(8,ld(6)*ld(4)+ld(7)*ld(5));st(5,ld(6)*ld(5)-ld(7)*ld(4));st(4,abs(mod(ld(8),2)-1));st(5,abs(mod(ld(5),2)-1));st(1,ld(1)+ld(2)));st(4,ld(4)*W);st(5,(1-ld(5))*H);st(7,ifnot(PLANE,a0(ld(4),ld(5)),if(eq(PLANE,1),a1(ld(4),ld(5)),if(eq(PLANE,2),a2(ld(4),ld(5)),a3(ld(4),ld(5))))));st(8,ifnot(PLANE,b0(ld(4),ld(5)),if(eq(PLANE,1),b1(ld(4),ld(5)),if(eq(PLANE,2),b2(ld(4),ld(5)),b3(ld(4),ld(5))))));st(1,A*(1-ld(0))+B*ld(0));st(2,ld(7)*(1-ld(0))+ld(8)*ld(0));st(3,1-2*abs(ld(0)-0.5));ld(1)*(1-ld(3))+ld(2)*ld(3)
