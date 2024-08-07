@@ -424,7 +424,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 
 - `gl_angular` [args: `startingAngle`,`clockwise`; default: `(90,0)`] (by: Fernando Kuteken)
 - `gl_BookFlip` (by: hong)
-- `gl_Bounce` [args: `shadow_alpha`,`shadow_height`,`bounces`,`direction`; default: `(0.6,0.075,3,0)`] (by: Adrian Purser)
+- `gl_Bounce` [args: `shadowAlpha`,`shadowHeight`,`bounces`,`direction`; default: `(0.6,0.075,3,0)`] (by: Adrian Purser)
 - `gl_BowTie` [args: `vertical`; default: `(0)`] (by: huynx)
 - `gl_cannabisleaf` (by: Flexi23)
 - `gl_CornerVanish` (by: Mark Craig)
@@ -447,7 +447,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_GridFlip` [args: `size.x`,`size.y`,`pause`,`dividerWidth`,`randomness`,`bgBkWhTr`; default: `(4,4,0.1,0.05,0.1,0)`] (by: TimDonselaar)
 - `gl_heart` (by: gre)
 - `gl_hexagonalize` [args: `steps`,`horizontalHexagons`; default: `(50,20)`] (by: Fernando Kuteken)
-- `gl_InvertedPageCurl` [args: `ReverseEffect`; default: `(0)`] (by: Hewlett-Packard)
+- `gl_InvertedPageCurl` [args: `angle`,`reverseEffect`; default: `(100,0)`] (by: Hewlett-Packard)
 - `gl_kaleidoscope` [args: `speed`,`angle`,`power`; default: `(1,1,1.5)`] (by: nwoeanhinnogaehr)
 - `gl_Mosaic` [args: `endx`,`endy`; default: `(2,-1)`] (by: Xaychru)
 - `gl_perlin` [args: `scale`,`smoothness`; default: `(4,0.01)`] (by: Rich Harris)
@@ -458,13 +458,13 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_randomNoisex` (by: towrabbit)
 - `gl_randomsquares` [args: `size.x`,`size.y`,`smoothness`; default: `(10,10,0.5)`] (by: gre)
 - `gl_ripple` [args: `amplitude`,`speed`; default: `(100,50)`] (by: gre)
-- `gl_Rolls` [args: `type`,`RotDown`; default: `(0,0)`] (by: Mark Craig)
-- `gl_RotateScaleVanish` [args: `FadeInSecond`,`ReverseEffect`,`ReverseRotation`,`bgBkWhTr`; default: `(1,0,0,0)`] (by: Mark Craig)
+- `gl_Rolls` [args: `type`,`rotDown`; default: `(0,0)`] (by: Mark Craig)
+- `gl_RotateScaleVanish` [args: `fadeInSecond`,`reverseEffect`,`reverseRotation`,`bgBkWhTr`; default: `(1,0,0,0)`] (by: Mark Craig)
 - `gl_rotateTransition` (by: haiyoucuv)
 - `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backGray`; default: `(0.5,0.5,1,8,0.15)`] (by: Fernando Kuteken)
-- `gl_Slides` [args: `type`,`In`; default: `(0,0)`] (by: Mark Craig)
+- `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] (by: Mark Craig)
 - `gl_squareswire` [args: `squares.h`,`squares.v`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] (by: gre)
-- `gl_static_wipe` [args: `u_transitionUpToDown`,`u_max_static_span`; default: `(1,0.5)`] (by: Ben Lucas)
+- `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] (by: Ben Lucas)
 - `gl_Stripe_Wipe` [args: `nlayers`,`layerSpread`,`color1`,`color2`,`shadowIntensity`,`shadowSpread`,`angle`; default: `(3,0.5,0x3319CCFF,0x66CCFFFF,0.7,0,0)`] (by: Boundless)
 - `gl_swap` [args: `reflection`,`perspective`,`depth`,`bgBkWhTr`; default: `(0.4,0.2,3,0)`] (by: gre)
 - `gl_Swirl` (by: Sergey Kosarevsky)
@@ -492,7 +492,7 @@ GLSL transitions can also be eased, although easing is integral with some:
 #### Customisation parameters
 
 Many GLSL transitions accept parameters to customise the transition effect.
-The parameters and default values are shown [above](#gl-transitions).
+The parameters and default values are shown [above](#glsl-transitions).
 
 *Example*: two pinwheel speeds: `-t 'gl_pinwheel(0.5)'` and `-t 'gl_pinwheel(10)'`
 
@@ -728,6 +728,7 @@ Options:
     -f pixel format (default: rgb24): use ffmpeg -pix_fmts for list
     -t transition name and arguments, if any (default: fade); use -L for list
        args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)'
+       or key=value pairs, e.g.: 'gl_perlin(smoothness=0.1, scale=5)' (custom ffmpeg only)
     -e easing function and arguments, if any (default: linear)
        CSS args in parenthesis as CSV, e.g.: 'cubic-bezier(0.17,0.67,0.83,0.67)'
     -x expr output filename (default: no expr), accepts expansions, - for stdout
