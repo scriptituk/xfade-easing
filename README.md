@@ -244,7 +244,7 @@ For lossy video with alpha use an alpha format and the .webm extension.
 *Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
 ```bash
 xfade-easing.sh -f rgba -e quadratic-in -t 'gl_RotateScaleVanish(FadeInSecond=0,ReverseEffect=1,trkMat=1)' -v alpha.mkv -z 250x skaro.png tardis.png
-ffmpeg -filter_complex 'movie=gallifrey.png,scale=250:-2[bg]; movie=alpha.mkv[fg]; [bg][fg]overlay' drwho.mp4
+ffmpeg -i gallifrey.png -i alpha.mkv -filter_complex '[0]scale=250:-2[b]; [b][1]overlay' drwho.mp4
 ```
 
 ![alpha](assets/alpha.gif)
