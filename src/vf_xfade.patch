@@ -1,5 +1,5 @@
 diff --git a/libavfilter/vf_xfade-dist.c b/libavfilter/vf_xfade.c
-index 890995a..b1c1383 100644
+index f61c708..c5bf06c 100644
 --- a/libavfilter/vf_xfade-dist.c
 +++ b/libavfilter/vf_xfade.c
 @@ -127,6 +127,10 @@ typedef struct XFadeContext {
@@ -30,12 +30,12 @@ index 890995a..b1c1383 100644
  #define FLAGS (AV_OPT_FLAG_FILTERING_PARAM | AV_OPT_FLAG_VIDEO_PARAM)
  
  static const AVOption xfade_options[] = {
--    { "transition", "set cross fade transition", OFFSET(transition), AV_OPT_TYPE_INT, {.i64=FADE}, -1, NB_TRANSITIONS-1, FLAGS, "transition" },
+-    { "transition", "set cross fade transition", OFFSET(transition), AV_OPT_TYPE_INT, {.i64=FADE}, -1, NB_TRANSITIONS-1, FLAGS, .unit = "transition" },
 +    { "easing", "set cross fade easing", OFFSET(easing_str), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, FLAGS },
-+    { "transition", "set cross fade transition", OFFSET(transition_str), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, FLAGS, "transition" },
-     {   "custom",    "custom transition",     0, AV_OPT_TYPE_CONST, {.i64=CUSTOM},    0, 0, FLAGS, "transition" },
-     {   "fade",      "fade transition",       0, AV_OPT_TYPE_CONST, {.i64=FADE},      0, 0, FLAGS, "transition" },
-     {   "wipeleft",  "wipe left transition",  0, AV_OPT_TYPE_CONST, {.i64=WIPELEFT},  0, 0, FLAGS, "transition" },
++    { "transition", "set cross fade transition", OFFSET(transition_str), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, FLAGS, .unit = "transition" },
+     {   "custom",    "custom transition",     0, AV_OPT_TYPE_CONST, {.i64=CUSTOM},    0, 0, FLAGS, .unit = "transition" },
+     {   "fade",      "fade transition",       0, AV_OPT_TYPE_CONST, {.i64=FADE},      0, 0, FLAGS, .unit = "transition" },
+     {   "wipeleft",  "wipe left transition",  0, AV_OPT_TYPE_CONST, {.i64=WIPELEFT},  0, 0, FLAGS, .unit = "transition" },
 @@ -2036,6 +2043,8 @@ static double b1(void *priv, double x, double y) { return getpix(priv, x, y, 1,
  static double b2(void *priv, double x, double y) { return getpix(priv, x, y, 2, 1); }
  static double b3(void *priv, double x, double y) { return getpix(priv, x, y, 3, 1); }

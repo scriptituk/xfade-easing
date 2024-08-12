@@ -1557,29 +1557,30 @@ static void xtransition##name##_transition(AVFilterContext *ctx,                
                                            float progress,                                   \
                                            int slice_start, int slice_end, int jobnr)        \
 {                                                                                            \
-    const float width = out->width, height = out->height; /* as floats */                    \
+    const float w = out->width, h = out->height; /* as floats */                             \
     XTransition e = {                                                                        \
         .progress = 1 - progress, /* 0 to 1 for xtransitions */                              \
-        .ratio = width / height,                                                             \
-        .s = ctx->priv,                                                                      \
+        .ratio = w / h, /* aspect */                                                         \
+        .s = ctx->priv, /* XFadeContext */                                                   \
     };                                                                                       \
     const float max_value = e.s->max_value; /* as float */                                   \
+    const int n = e.s->nb_planes;                                                            \
                                                                                              \
     for (int y = slice_start; y < slice_end; y++) {                                          \
-        e.p.y = 1 - y / height; /* y==0 is bottom */                                         \
-        for (int x = 0; x < out->width; x++) { /* int */                                     \
-            e.p.x = x / width;                                                               \
-            for (int p = 0; p < 4; p++) {                                                    \
-                if (p < e.s->nb_planes) {                                                    \
-                    e.a.p[p] = LINE(type, a, p, y)[x] / max_value;                           \
-                    e.b.p[p] = LINE(type, b, p, y)[x] / max_value;                           \
-                } else {                                                                     \
-                    e.a.p[p] = e.a.p[p - 1];                                                 \
-                    e.b.p[p] = e.b.p[p - 1];                                                 \
-                }                                                                            \
+        e.p.y = 1 - y / h; /* y==0 is bottom */                                              \
+        for (int x = 0; x < out->width; x++) { /* int width */                               \
+            e.p.x = x / w;                                                                   \
+            int p = 0;                                                                       \
+            for (; p < n; p++) {                                                             \
+                e.a.p[p] = LINE(type, a, p, y)[x] / max_value;                               \
+                e.b.p[p] = LINE(type, b, p, y)[x] / max_value;                               \
+            }                                                                                \
+            for (; p < 4; p++) {                                                             \
+                e.a.p[p] = e.a.p[p - 1];                                                     \
+                e.b.p[p] = e.b.p[p - 1];                                                     \
             }                                                                                \
             vec4 v = e.s->k->xtransitionf(&e, false); /* run */                              \
-            for (int p = 0; p < e.s->nb_planes; p++) {                                       \
+            for (p = 0; p < n; p++) {                                                        \
                 type d = av_clipf(v.p[p] * max_value, 0, max_value); /* (sometimes -ve) */   \
                 LINE(type, out, p, y)[x] = d;                                                \
             }                                                                                \

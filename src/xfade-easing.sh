@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=2.1.3
+export VERSION=2.1.4
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -1001,19 +1001,6 @@ _gl_transition() { # transition args
         _make 'st(3, (mix(ld(4), 1, ld(1))) * ld(2));'
         _make 'mix(A, B, ld(3))'
         ;;
-    gl_crosswarp) # by Eke Péter
-        _make 'st(1, (1 - P) * 2 + X / W - 1);'
-        _make 'st(1, smoothstep(0, 1, ld(1), 1));'
-        _make 'st(2, X / W - 0.5);'
-        _make 'st(3, 0.5 - Y / H);'
-        _make 'st(4, (ld(2) * (1 - ld(1)) + 0.5) * W);'
-        _make 'st(5, (0.5 - ld(3) * (1 - ld(1))) * H);'
-        _make 'st(6, a(ld(4), ld(5)));'
-        _make 'st(4, (ld(2) * ld(1) + 0.5) * W);'
-        _make 'st(5, (0.5 - ld(3) * ld(1)) * H);'
-        _make 'st(7, b(ld(4), ld(5)));'
-        _make 'mix(ld(6), ld(7), ld(1))'
-        ;;
     gl_CrossOut) # by Mark Craig
         _make "st(1, ${a[0]:-0.05});" # smoothness
         _make 'st(2, (1 - P) / 2);' # c
@@ -1031,6 +1018,19 @@ _gl_transition() { # transition args
         _make '  mix(B, A, ld(7))'
         _make ' )'
         _make ')'
+        ;;
+    gl_crosswarp) # by Eke Péter
+        _make 'st(1, (1 - P) * 2 + X / W - 1);'
+        _make 'st(1, smoothstep(0, 1, ld(1), 1));'
+        _make 'st(2, X / W - 0.5);'
+        _make 'st(3, 0.5 - Y / H);'
+        _make 'st(4, (ld(2) * (1 - ld(1)) + 0.5) * W);'
+        _make 'st(5, (0.5 - ld(3) * (1 - ld(1))) * H);'
+        _make 'st(6, a(ld(4), ld(5)));'
+        _make 'st(4, (ld(2) * ld(1) + 0.5) * W);'
+        _make 'st(5, (0.5 - ld(3) * ld(1)) * H);'
+        _make 'st(7, b(ld(4), ld(5)));'
+        _make 'mix(ld(6), ld(7), ld(1))'
         ;;
     gl_cube) # by gre
         _make "st(1, ${a[0]:-0.7});" # persp
@@ -1132,19 +1132,6 @@ _gl_transition() { # transition args
         _make 'st(7, b(ld(4), ld(5)));'
         _make 'mix(ld(6), ld(7), ld(1))'
         ;;
-    gl_DoubleDiamond) # by Mark Craig
-        _make "st(1, ${a[0]:-0.05});" # smoothness
-        _make 'st(3, 1 - st(2, P / 2));' # b2 b1
-        _make 'st(4, abs(X / W - 0.5) + abs(0.5 - Y / H));' # d
-        _make 'if(between(ld(4), ld(2), ld(3)),'
-        _make ' if(between(ld(4), ld(2) + ld(1), ld(3) - ld(1)),'
-        _make '  B,'
-        _make '  st(1, min(ld(4) - ld(2), ld(3) - ld(4)) / ld(1));'
-        _make '  mix(A, B, ld(1))'
-        _make ' ),'
-        _make ' A'
-        _make ')'
-        ;;
     gl_doorway) # by gre
         _make "st(1, ${a[0]:-0.4});" # reflection
         _make "st(2, ${a[1]:-0.4});" # perspective
@@ -1183,6 +1170,19 @@ _gl_transition() { # transition args
         _make '  )'
         _make ' ),'
         _make ' bwt(ld(4))'
+        _make ')'
+        ;;
+    gl_DoubleDiamond) # by Mark Craig
+        _make "st(1, ${a[0]:-0.05});" # smoothness
+        _make 'st(3, 1 - st(2, P / 2));' # b2 b1
+        _make 'st(4, abs(X / W - 0.5) + abs(0.5 - Y / H));' # d
+        _make 'if(between(ld(4), ld(2), ld(3)),'
+        _make ' if(between(ld(4), ld(2) + ld(1), ld(3) - ld(1)),'
+        _make '  B,'
+        _make '  st(1, min(ld(4) - ld(2), ld(3) - ld(4)) / ld(1));'
+        _make '  mix(A, B, ld(1))'
+        _make ' ),'
+        _make ' A'
         _make ')'
         ;;
     gl_Dreamy) # by mikolalysenko
@@ -2071,7 +2071,7 @@ _video() { # path
     readarray -d , -n 4 -t d <<<$VIDEOSTACK, # defaults
     readarray -d , -n 4 -t o <<<$o_vstack,,,, # options
     local stack=${o[0]:-${d[0]}} gap=${o[1]:-${d[1]}} fill=${o[2]:-${d[2]}} pad=${o[3]:-${d[3]}}
-    local script=$TMP-script.txt # filter_complex_script
+    local script=$TMP-script.txt # filter_complex script
     rm -f $script
     for i in $(seq 0 1 $m); do
         local in="${inputs[i]}"
@@ -2160,9 +2160,11 @@ EOT
     else
         _error 'unknown video type' && exit $ERROR
     fi
+    local major=$(ffmpeg -version | head -1 | cut -d' ' -f3 | cut -d. -f1)
+    local fcs="-/filter_complex $script"; [[ $major -lt 7 ]] && fcs="-filter_complex_script $script"
     local ffopts="-y -hide_banner -loglevel ${o_loglevel-warning} -stats_period 1"
     [[ -z $o_native ]] && ffopts+=' -filter_complex_threads 1'
-    ffmpeg $ffopts -filter_complex_script $script -map [v]:v -an -t $length $enc "$path"
+    ffmpeg $ffopts $fcs -map [v]:v -an -t $length $enc "$path"
     [[ $path =~ .gif ]] && which -s gifsicle && mv "$path" $TMP-video.gif && gifsicle -O3 -o "$path" $TMP-video.gif
 }
 
