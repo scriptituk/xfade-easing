@@ -132,7 +132,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex_scri
      `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
 1. `cd ffmpeg` and patch libavfilter/vf_xfade.c:
    - download [vf_xfade.patch](src/vf_xfade.patch) and run `git apply vf_xfade.patch`  
-   - or download [vf_xfade.c](src/vf_xfade.c) and if necessary patch manually (it’s from libavfilter version 9, June 7 2023), see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 7 changes  
+   - or download [vf_xfade.c](src/vf_xfade.c) and if necessary patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 7 small changes  
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
    to replicate an existing configuration run `ffmpeg -hide_banner -buildconf`
@@ -651,43 +651,48 @@ Windows performance has not been measured.
 | benchmark → <br/> transition ↓ | 2335&#8209;3120 <br/> M1,M2,M3 Macs | 1150&#8209;1655 <br/> 2017&#8209;19 Macs | 700&#8209;1150 <br/> 2013&#8209;16 Macs | 195&#8209;700 <br/> 2008&#8209;12 Macs |
 | :---: | :---: | :---: | :---: | :---: |
 | `fade` `wipeleft` `wipeup` | 2 | 4 | 6 | 12 |
-| `wiperight` `wipedown` `wipetl` | 3 | 6 | 9 | 18 |
-| `wipetr` `wipebl` | 4 | 8 | 12 | 24 |
-| `wipebr` | 5 | 10 | 14 | 30 |
+| `wiperight` `wipedown` | 3 | 6 | 9 | 18 |
+| `wipetl` | 4 | 8 | 12 | 24 |
+| `wipetr` `wipebl` `wipebr` | 5 | 10 | 14 | 30 |
 | `squeezeh` `squeezev` | 8 | 16 | 24 | 48 |
-| `rectcrop` `gl_CornerVanish` | 9 | 18 | 26 | 54 |
-| `fadefast` `fadeslow` | 10 | 20 | 30 | 60 |
-| `dissolve` `gl_Diamond` | 12 | 24 | 36 | 72 |
-| `gl_DoubleDiamond` `gl_FanUp` `gl_randomNoisex` | 14 | 28 | 42 | 84 |
-| `smoothleft` `coverleft` `coverright` `revealleft` `revealright` `coverup` `coverdown` `revealup` `revealdown` | 16 | 32 | 48 | 100 |
-| `slideleft` `slideright` `slideup` `slidedown` `smoothright` `smoothup` `smoothdown` `circlecrop` `vertopen` `vertclose` `horzopen` `horzclose` `diagtl` `gl_FanIn` `gl_pinwheel` | 18 | 36 | 54 | 110 |
-| `gl_FanOut` | 20 | 40 | 60 | 120 |
-| `diagtr` `diagbl` `diagbr` `radial` `gl_CrossOut` | 22 | 42 | 66 | 133 |
-| `gl_BookFlip` `gl_heart` | 24 | 46 | 72 | 147 |
-| `vuslice` `gl_polar_function` | 26 | 51 | 76 | 160 |
-| `hlslice` `gl_angular` `gl_Slides` | 28 | 54 | 84 | 171 |
-| `circleopen` `circleclose` `hrslice` `vdslice` | 30 | 60 | 88 | 180 |
-| `hlwind` `hrwind` `vuwind` `vdwind` `gl_PolkaDotsCurtain` | 32 | 63 | 95 | 200 |
-| `fadewhite` | 36 | 72 | 105 | 220 |
-| `gl_WaterDrop` `gl_windowblinds` | 38 | 76 | 114 | 228 |
-| `fadeblack` `gl_cannabisleaf` | 40 | 80 | 120 | 240 |
-| `pixelize` `gl_Bounce` `gl_randomsquares` | 42 | 84 | 126 | 260 |
-| `zoomin` | 46 | 88 | 133 | 280 |
-| `fadegrays` | 48 | 95 | 140 | 300 |
-| `gl_Dreamy` | 50 | 100 | 147 | 300 |
-| `gl_DirectionalScaled` `gl_Flower` `gl_rotateTransition` | 51 | 100 | 152 | 304 |
-| `gl_crosswarp` `gl_ripple` `gl_Rolls` | 57 | 114 | 168 | 340 |
+| `gl_CornerVanish` | 9 | 18 | 26 | 54 |
+| `fadefast` `fadeslow` `rectcrop` | 10 | 20 | 30 | 60 |
+| `dissolve` | 12 | 24 | 36 | 72 |
+| `gl_Diamond` `gl_DoubleDiamond` `gl_FanUp` `gl_randomNoisex` | 14 | 28 | 42 | 84 |
+| `smoothleft` `smoothup` `coverleft` `revealleft` `coverup` `revealup` | 16 | 32 | 48 | 100 |
+| `slideleft` `slideup` `slidedown` `circlecrop` `vertopen` `vertclose` `horzopen` `horzclose` `diagtl` `coverright` `revealright` `coverdown` `revealdown` `gl_FanIn` `gl_FanOut` `gl_pinwheel` | 18 | 36 | 54 | 110 |
+| `slideright` `smoothright` `smoothdown` `diagtr` `diagbl` | 20 | 40 | 60 | 120 |
+| `diagbr` `radial` `gl_CrossOut` | 22 | 42 | 66 | 133 |
+| `gl_BookFlip` `gl_heart` `gl_polar_function` | 24 | 46 | 72 | 147 |
+| `hlslice` `vuslice` | 26 | 51 | 76 | 160 |
+| `circleopen` `vdslice` | 28 | 54 | 84 | 171 |
+| `circleclose` `hrslice` `gl_angular` `gl_Slides` | 30 | 60 | 88 | 180 |
+| `hlwind` `hrwind` `vdwind` `gl_PolkaDotsCurtain` | 32 | 63 | 95 | 200 |
+| `vuwind` | 34 | 66 | 100 | 210 |
+| `gl_WaterDrop` | 36 | 72 | 105 | 220 |
+| `fadeblack` `fadewhite` `gl_windowblinds` | 38 | 76 | 114 | 228 |
+| `gl_cannabisleaf` | 40 | 80 | 120 | 240 |
+| `pixelize` `zoomin` | 42 | 84 | 126 | 260 |
+| `gl_Bounce` `gl_randomsquares` | 44 | 84 | 133 | 273 |
+| `gl_Dreamy` `gl_Flower` | 48 | 95 | 140 | 300 |
+| `fadegrays` `gl_rotateTransition` | 51 | 100 | 152 | 304 |
+| `gl_crosswarp` `gl_ripple` | 54 | 105 | 160 | 336 |
+| `gl_DirectionalScaled` | 57 | 114 | 168 | 340 |
+| `gl_Rolls` | 60 | 120 | 180 | 360 |
 | `gl_doorway` | 63 | 126 | 189 | 380 |
-| `gl_RotateScaleVanish` `gl_squareswire` `gl_Swirl` | 72 | 140 | 209 | 440 |
-| `gl_crosshatch` `gl_InvertedPageCurl` | 80 | 160 | 240 | 480 |
-| `gl_CrazyParametricFun` `gl_static_wipe` | 84 | 168 | 252 | 520 |
+| `gl_RotateScaleVanish` | 66 | 126 | 200 | 400 |
+| `gl_Swirl` | 69 | 133 | 200 | 420 |
+| `gl_InvertedPageCurl` `gl_squareswire` | 80 | 160 | 240 | 480 |
+| `gl_CrazyParametricFun` | 84 | 168 | 252 | 520 |
+| `gl_crosshatch` `gl_static_wipe` | 88 | 171 | 260 | 540 |
 | `gl_rotate_scale_fade` | 90 | 180 | 260 | 540 |
-| `gl_directionalwarp` | 95 | 189 | 280 | 580 |
-| `gl_cube` `gl_Mosaic` | 105 | 210 | 304 | 640 |
-| `gl_hexagonalize` `gl_swap` | 110 | 220 | 320 | 680 |
-| `gl_perlin` | 126 | 252 | 380 | 760 |
-| `gl_kaleidoscope` | 240 | 460 | 700 | 1460 |
-| `gl_powerKaleido` | 1020 | 2000 | 3020 | 6220 |
+| `gl_directionalwarp` | 100 | 200 | 300 | 620 |
+| `gl_cube` `gl_hexagonalize` | 105 | 210 | 304 | 640 |
+| `gl_Mosaic` | 110 | 220 | 320 | 680 |
+| `gl_swap` | 114 | 220 | 340 | 700 |
+| `gl_perlin` | 132 | 260 | 400 | 800 |
+| `gl_kaleidoscope` | 247 | 480 | 720 | 1500 |
+| `gl_powerKaleido` | 1000 | 1960 | 2960 | 6100 |
 
 The slowest supported transition `gl_powerKaleido` is clearly impractical for most purposes!
 The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring;
@@ -719,7 +724,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 2.1.3 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 2.1.4 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
