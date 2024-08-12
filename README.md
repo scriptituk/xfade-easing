@@ -652,28 +652,23 @@ Windows performance has not been measured.
 | :---: | :---: | :---: | :---: | :---: |
 | `fade` `wipeleft` `wipeup` | 2 | 4 | 6 | 12 |
 | `wiperight` `wipedown` | 3 | 6 | 9 | 18 |
-| `wipetl` | 4 | 8 | 12 | 24 |
-| `wipetr` `wipebl` `wipebr` | 5 | 10 | 14 | 30 |
+| `wipetl` `wipetr` `wipebl` `wipebr` | 5 | 10 | 14 | 30 |
 | `squeezeh` `squeezev` | 8 | 16 | 24 | 48 |
 | `gl_CornerVanish` | 9 | 18 | 26 | 54 |
 | `fadefast` `fadeslow` `rectcrop` | 10 | 20 | 30 | 60 |
 | `dissolve` | 12 | 24 | 36 | 72 |
 | `gl_Diamond` `gl_DoubleDiamond` `gl_FanUp` `gl_randomNoisex` | 14 | 28 | 42 | 84 |
 | `smoothleft` `smoothup` `coverleft` `revealleft` `coverup` `revealup` | 16 | 32 | 48 | 100 |
-| `slideleft` `slideup` `slidedown` `circlecrop` `vertopen` `vertclose` `horzopen` `horzclose` `diagtl` `coverright` `revealright` `coverdown` `revealdown` `gl_FanIn` `gl_FanOut` `gl_pinwheel` | 18 | 36 | 54 | 110 |
-| `slideright` `smoothright` `smoothdown` `diagtr` `diagbl` | 20 | 40 | 60 | 120 |
-| `diagbr` `radial` `gl_CrossOut` | 22 | 42 | 66 | 133 |
+| `slideleft` `slideup` `slidedown` `circlecrop` `vertopen` `vertclose` `horzopen` `horzclose` `coverright` `revealright` `coverdown` `revealdown` `gl_FanIn` `gl_FanOut` `gl_pinwheel` | 18 | 36 | 54 | 110 |
+| `slideright` `smoothright` `smoothdown` `diagtl` `diagtr` `diagbl` `diagbr` | 20 | 40 | 60 | 120 |
+| `radial` `gl_CrossOut` | 22 | 42 | 66 | 133 |
 | `gl_BookFlip` `gl_heart` `gl_polar_function` | 24 | 46 | 72 | 147 |
-| `hlslice` `vuslice` | 26 | 51 | 76 | 160 |
-| `circleopen` `vdslice` | 28 | 54 | 84 | 171 |
-| `circleclose` `hrslice` `gl_angular` `gl_Slides` | 30 | 60 | 88 | 180 |
-| `hlwind` `hrwind` `vdwind` `gl_PolkaDotsCurtain` | 32 | 63 | 95 | 200 |
-| `vuwind` | 34 | 66 | 100 | 210 |
+| `hlslice` `hrslice` `vdslice` `vuslice` | 28 | 54 | 84 | 171 |
+| `circleopen` `circleclose` `gl_angular` `gl_Slides` | 30 | 60 | 88 | 180 |
+| `hlwind` `hrwind` `vdwind` `vuwind` `gl_PolkaDotsCurtain` | 32 | 63 | 95 | 200 |
 | `gl_WaterDrop` | 36 | 72 | 105 | 220 |
 | `fadeblack` `fadewhite` `gl_windowblinds` | 38 | 76 | 114 | 228 |
-| `gl_cannabisleaf` | 40 | 80 | 120 | 240 |
-| `pixelize` `zoomin` | 42 | 84 | 126 | 260 |
-| `gl_Bounce` `gl_randomsquares` | 44 | 84 | 133 | 273 |
+| `gl_Bounce` `pixelize` `gl_cannabisleaf` `gl_randomsquares` `zoomin` | 42 | 84 | 126 | 260 |
 | `gl_Dreamy` `gl_Flower` | 48 | 95 | 140 | 300 |
 | `fadegrays` `gl_rotateTransition` | 51 | 100 | 152 | 304 |
 | `gl_crosswarp` `gl_ripple` | 54 | 105 | 160 | 336 |
@@ -685,11 +680,9 @@ Windows performance has not been measured.
 | `gl_InvertedPageCurl` `gl_squareswire` | 80 | 160 | 240 | 480 |
 | `gl_CrazyParametricFun` | 84 | 168 | 252 | 520 |
 | `gl_crosshatch` `gl_static_wipe` | 88 | 171 | 260 | 540 |
-| `gl_rotate_scale_fade` | 90 | 180 | 260 | 540 |
-| `gl_directionalwarp` | 100 | 200 | 300 | 620 |
+| `gl_directionalwarp` `gl_rotate_scale_fade` | 95 | 189 | 280 | 580 |
 | `gl_cube` `gl_hexagonalize` | 105 | 210 | 304 | 640 |
-| `gl_Mosaic` | 110 | 220 | 320 | 680 |
-| `gl_swap` | 114 | 220 | 340 | 700 |
+| `gl_Mosaic` `gl_swap` | 110 | 220 | 320 | 680 |
 | `gl_perlin` | 132 | 260 | 400 | 800 |
 | `gl_kaleidoscope` | 247 | 480 | 720 | 1500 |
 | `gl_powerKaleido` | 1000 | 1960 | 2960 | 6100 |
