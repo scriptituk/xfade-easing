@@ -46,7 +46,7 @@ At present extended transitions are limited to ported GLSL transitions but more 
 
 > [!NOTE]
 > Coming sometime…
-> - multiple easings/transitions interspersed in input file list of CLI script, for batch processing with varying transition effects  
+> - multiple easings/transitions interspersed in input file list of CLI script, for batch processing sequences of transition effects  
 > - audio support
 
 ## Example
@@ -99,7 +99,7 @@ dumps the xfade `expr` parameter:
 
 ### Using a script
 
-Some expressions are very long, so using [-filter_complex_script](https://ffmpeg.org/ffmpeg.html#filter_005fcomplex_005fscript-option) keeps things manageable and readable.
+Some expressions are very long, so using a filtergraph script keeps things manageable and readable.
 
 For this same example you can copy the easing expression from file [easings-script.txt](expr/easings-script.txt) and the transition expression from [transitions-rgb24-script.txt](expr/transitions-rgb24-script.txt) or [transitions-yuv420p-script.txt](expr/transitions-yuv420p-script.txt).
 Those contain multiline expressions for script use (but the inline expressions work too).
@@ -117,8 +117,13 @@ if(gt(Y, H * (1 - ld(0))), A, B)'
 ```
 and the command becomes
 ```bash
-ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex_script script.txt output.mp4`
+ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex script.txt output.mp4`
 ```
+
+> [!NOTE]
+> this option syntax has changed and is not documented:
+> - for ffmpeg version 7+ use `-/filter_complex filename`
+> - for earlier versions use `-filter_complex_script filename`
 
 ## Custom FFmpeg
 
@@ -144,6 +149,11 @@ the fix for `ld: warning: text-based stub file are out of sync` warnings [is her
 For simplicity, xfade-easing is implemented as static functions in the header file [xfade-easing.h](src/xfade-easing.h) and included into vf_xfade.c at an optimal place.
 As those functions have no external linkage and completely implement an interface that is only visible to the vf_xfade.c compilation unit, this approach is justified IMO, even if unusual, and obviates changing the Makefile. Implementation within header files is not uncommon.
 
+### Testing
+
+The custom FFmpeg version has been built and tested on Mac with Clang and Ubuntu Linux with GCC, not Windows.
+It uses C99 features so expect some warnings.
+
 ## Custom expressions
 
 Pre-generated easing and transition expressions are in the [expr/](expr) subdirectory for mix and match use.
@@ -158,7 +168,7 @@ This format is condensed into a single line stripped of whitespace.
 st(0,cos(20*(1-P)*PI/3)/2^(10*(1-P)))
 ```
 
-### Script, for -filter_complex_script
+### Script, for -/filter_complex
 
 This format is best for expressions that are too unwieldy for inline ffmpeg commands.
 
@@ -335,7 +345,7 @@ e.g. blend, drawtext, geq, overlay, rotate, zoompan, etc.
 – anywhere an ffmpeg expr is used to calculate filter options.
 
 For this purpose the [CLI script](#cli-script) includes text expansion codes `%g` & `%G` to generate generic easing expressions for the value in `ld(0)` (instead of `P` for xfade), leaving the result in `ld(0)`.
-You can also copy generic easing expressions from file [generic-easings-inline.txt](expr/generic-easings-inline.txt) for inline `-filter_complex` use, or [generic-easings-script.txt](expr/generic-easings-script.txt) for `-filter_complex_script` scripts.
+You can also copy generic easing expressions from file [generic-easings-inline.txt](expr/generic-easings-inline.txt) for inline `-filter_complex` use, or [generic-easings-script.txt](expr/generic-easings-script.txt) for `-/filter_complex` scripts.
 
 To ease other filters, store a normalised input value in `st(0,…)`, append the easing expression, then scale the eased result left in `ld(0)`.
 
@@ -717,7 +727,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 2.1.4 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 2.1.5 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
