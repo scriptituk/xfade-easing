@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <float.h>
 #include "libavutil/avstring.h"
+#include "libavutil/mem.h"
 #include "libavutil/parseutils.h"
 //#define RGB2YUV_SWSSCALE
 #ifdef RGB2YUV_SWSSCALE
@@ -142,19 +143,18 @@ static float rp_circular(const XFadeEasingContext *k, float t)
 static float rp_elastic(const XFadeEasingContext *k, float t)
 {
     const int mode = k->eargs.e.mode;
+    float p, c;
     if (mode == EASE_IN) return --t, cosf(20 * t * M_PIf / 3) * powf(2, 10 * t);
     if (mode == EASE_OUT) return 1 - cosf(20 * t * M_PIf / 3) / powf(2, 10 * t);
-    float p = 2 * t - 1, c = cosf(40 * p * M_PIf / 9) / 2;
-    p = powf(2, 10 * p);
+    p = 2 * t - 1, c = cosf(40 * p * M_PIf / 9) / 2, p = powf(2, 10 * p);
     return (t < P5f) ? c * p : 1 - c / p;
 }
 
 static float rp_back(const XFadeEasingContext *k, float t)
 {
     const int mode = k->eargs.e.mode;
-    float b = 1.70158f; // for 10% back
+    float r = 1 - t, b = 1.70158f; // for 10% back
     if (mode == EASE_IN) return t * t * (t * (b + 1) - b);
-    float r = 1 - t;
     if (mode == EASE_OUT) return 1 - r * r * (r * (b + 1) - b);
     b *= 1.525f;
     return (t < P5f) ? 2 * t * t * (2 * t * (b + 1) - b)
@@ -164,10 +164,10 @@ static float rp_back(const XFadeEasingContext *k, float t)
 static float rp_bounce(const XFadeEasingContext *k, float t)
 {
     const int mode = k->eargs.e.mode;
+    const float f = 121.f / 16.f;
     float s;
     if (mode == EASE_IN) t = 1 - t;
     else if (mode == EASE_INOUT) s = (t < P5f) ? 1 : -1, t = s * (1 - 2 * t);
-    const float f = 121.f / 16.f;
     t = (t < 4.f / 11.f) ? f * t * t
       : (t < 8.f / 11.f) ? f * powf(t - 6.f / 11.f, 2) + 3.f / 4.f
       : (t < 10.f / 11.f) ? f * powf(t - 9.f / 11.f, 2) + 15.f / 16.f
@@ -184,7 +184,7 @@ static float se_squareroot(const XFadeEasingContext *k, float t)
     const int mode = k->eargs.e.mode;
     return (mode == EASE_IN) ? sqrtf(t)
          : (mode == EASE_OUT) ? 1 - sqrtf(1 - t)
-         : (t < P5f) ? sqrtf(2 * t) / 2 : 1 - sqrtf(2 * (1 - t)) / 2;
+         : (t < P5f) ? sqrtf(t / 2) : 1 - sqrtf((1 - t) / 2);
 }
 
 static float se_cuberoot(const XFadeEasingContext *k, float t)
@@ -192,7 +192,7 @@ static float se_cuberoot(const XFadeEasingContext *k, float t)
     const int mode = k->eargs.e.mode;
     return (mode == EASE_IN) ? powf(t, 1.f / 3.f)
          : (mode == EASE_OUT) ? 1 - powf(1 - t, 1.f / 3.f)
-         : (t < P5f) ? powf(2 * t, 1.f / 3.f) / 2 : 1 - powf(2 * (1 - t), 1.f / 3.f) / 2;
+         : (t < P5f) ? powf(t / 4, 1.f / 3.f) : 1 - powf((1 - t) / 4, 1.f / 3.f);
 }
 
 // CSS easings
@@ -839,11 +839,11 @@ static vec4 gl_Exponential_Swish(const XTransition *e, bool init) // by Boundles
         uv1 = add2f(rot(sub2f(uv1, P5f), deg * pa1), P5f);
         uv1.x = (uv1.x + (e->ratio - 1) / 2) / e->ratio;
         if (wrap.x == 2)
-            uv0.x = acosf(cosf(M_PIf * uv0.x)) / M_PIf, uv1.x = acosf(cosf(M_PIf * uv1.x)) / M_PIf;
+            uv0.x = acosf(cosf(M_PIf * uv0.x)) * M_1_PIf, uv1.x = acosf(cosf(M_PIf * uv1.x)) * M_1_PIf;
         else if (wrap.x == 1)
             uv0.x = fract(uv0.x), uv1.x = fract(uv1.x);
         if (wrap.y == 2)
-            uv0.y = acosf(cosf(M_PIf * uv0.y)) / M_PIf, uv1.y = acosf(cosf(M_PIf * uv1.y)) / M_PIf;
+            uv0.y = acosf(cosf(M_PIf * uv0.y)) * M_1_PIf, uv1.y = acosf(cosf(M_PIf * uv1.y)) * M_1_PIf;
         else if (wrap.y == 1)
             uv0.y = fract(uv0.y), uv1.y = fract(uv1.y);
         bool b = (p < P5f);
@@ -1027,8 +1027,8 @@ static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-P
     const float cylinderAngle = 2 * M_PIf * amount;
     const float cylinderRadius = M_1_PIf / 2;
     const float ang = angle * M_PIf / 180;
-    vec2 point = add2(rot(e->p, ang), o1);
-    float hitAngle, yc = point.y - amount;
+    vec2 point = add2(rot(e->p, ang), o1), p;
+    float yc = point.y - amount, hitAngle;
     vec4 colour = reverseEffect ? e->b : e->a;
 
     if (yc > cylinderRadius) // flat surface
@@ -1037,7 +1037,7 @@ static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-P
         // behindSurface()
         yc = -cylinderRadius - cylinderRadius - yc;
         hitAngle = acosf(yc / cylinderRadius) + cylinderAngle - M_PIf;
-        vec2 p = { point.x, hitAngle / 2 / M_PIf };
+        p = VEC2(point.x, hitAngle * M_1_PIf / 2);
         point = add2(rot(p, -ang), o2);
         colour = reverseEffect ? e->a : e->b;
         if (yc < 0 && between2(point, 0, 1) && (hitAngle < M_PIf || amount > P5f)) { // shadow over to page
@@ -1052,7 +1052,7 @@ static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-P
     // seeThrough()
     hitAngle = M_PIf - acosf(yc / cylinderRadius) + cylinderAngle;
     if (yc < 0) { // get from colour going through its turn
-        vec2 p = { point.x, hitAngle / 2 / M_PIf };
+        p = VEC2(point.x, hitAngle * M_1_PIf / 2);
         vec2 q = add2(rot(p, -ang), o2);
         bool b = between2(q, 0, 1);
         if (reverseEffect)
@@ -1065,7 +1065,7 @@ static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-P
     float hitAngleMod = glmod(hitAngle, 2 * M_PIf);
     if ((hitAngleMod > M_PIf && amount < P5f) || (hitAngleMod > M_PI_2f && amount < 0))
         return colour;
-    vec2 p = { point.x, hitAngle / 2 / M_PIf };
+    p = VEC2(point.x, hitAngle * M_1_PIf / 2);
     point = add2(rot(p, -ang), o2);
     // seeThroughWithShadow()
     // distanceToEdge()
@@ -1160,7 +1160,7 @@ static vec4 gl_pinwheel(const XTransition *e, bool init) // by Mr Speaker
     PARAM_1(float, speed, 1)
     PARAM_END
     float circPos = atan2f(e->p.y - P5f, e->p.x - P5f) + e->progress * speed;
-    float modPos = glmod(circPos, M_PIf / 4);
+    float modPos = glmod(circPos, M_PI_4f);
     return (e->progress <= modPos) ? e->a : e->b;
 }
 
@@ -1169,7 +1169,7 @@ static vec4 gl_polar_function(const XTransition *e, bool init) // by Fernando Ku
     PARAM_BEGIN
     PARAM_1(int, segments, 5)
     PARAM_END
-    float angle = atan2f(e->p.y - P5f, e->p.x - P5f) - P5f * M_PIf;
+    float angle = atan2f(e->p.y - P5f, e->p.x - P5f) - M_PI_2f;
     float radius = cosf(segments * angle) / 4 + 1;
     float difference = length(sub2f(e->p, P5f));
     return (difference > radius * e->progress) ? e->a : e->b;

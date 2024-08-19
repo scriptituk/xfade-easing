@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=2.1.4
+export VERSION=2.1.5
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -578,12 +578,12 @@ _se_easing() { # easing mode
     squareroot) # opposite to quadratic (not Pohoreski's sqrt)
         i='sqrt(T)'
         o='1 - sqrt(R)'
-        io='if(lt(T, 0.5), sqrt(2 * T), 2 - sqrt(2 * R)) / 2'
+        io='if(lt(T, 0.5), sqrt(T / 2), 1 - sqrt(R / 2))'
     ;;
     cuberoot) # opposite to cubic
         i='1 - pow(R, 1/3)'
         o='pow(T, 1/3)'
-        io='if(lt(T, 0.5), pow(2 * T, 1/3), 2 - pow(2 * R, 1/3)) / 2'
+        io='if(lt(T, 0.5), pow(T / 4, 1/3), 1 - pow(R / 4, 1/3))'
     ;;
     *)
         echo '' && return
@@ -1949,7 +1949,7 @@ _transition() { # transition args
         while [[ $x =~ $s\( ]]; do
             r=$(_heredoc FUNC | gawk -v e="$x" -v f=$s -f-)
             x=${r%%:*} # search
-            readarray -d : -t a < <(echo -n "${r#*:}") # args
+            readarray -d : -t a <<<"${r#*:}:" ; unset a[-1] # args
             [[ $s == mix && -n $is_xf ]] && a+=(xf) # xfade mix args are different
             r=$(_$s "${a[@]}") # replace
             x=${x/@/$r} # expand
@@ -1981,7 +1981,7 @@ _plot() { # path easings
     _dep gnuplot || return $ERROR
     local path=$(_expand "$1")
     local m=$(_heredoc EASINGS | gawk -v m="$2" -f-)
-    readarray -d : -t easings < <(echo -n $m) # (here-string <<< adds \n)
+    readarray -d : -t easings <<<$m: ; unset easings[-1] # (<<< adds \n)
     local title=${o_ptitle-$PLOTTITLE} legends
     [[ -z $o_ptitle && ${#easings[@]} -eq 1 ]] && title=${easings[0]}
     local easing expr e
@@ -2032,7 +2032,7 @@ _video() { # path
             inputs=(sheep goat)
             for i in 0 1; do
                 file=$TMP-${inputs[i]}.png
-                _heredoc ${inputs[i]^^} | base64 -D -o $file
+                _heredoc ${inputs[i]^^} | base64 --decode > $file
                 inputs[$i]=$file
             done
         else
