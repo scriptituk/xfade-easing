@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=2.1.5
+export VERSION=2.1.6
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -1720,6 +1720,15 @@ _gl_transition() { # transition args
         _make " st(1, ${a[4]:-0.15});" # backGray
         _make ' grey(ld(1))'
         _make ')'
+        ;;
+    gl_SimplePageCurl) # by Andrew Hung
+        _make NATIVE
+#       ${a[0]:-80} # angle
+#       ${a[0]:-0.1} # radius
+#       ${a[0]:-0} # roll
+#       ${a[0]:-0} # reverseEffect
+#       ${a[0]:-0.8} # opacity
+#       ${a[0]:-0.2} # shadow
         ;;
     gl_Slides) # by Mark Craig
         _make "st(1, ${a[0]:-0});" # type

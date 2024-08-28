@@ -365,23 +365,20 @@ static inline bool between2(vec2 v, float min, float max)
 #define _getToColor2(x, y) getColor(e, (x), (y), 1)
 #define _getToColor_VA(_1,_2,NAME,...) NAME
 #define getToColor(...) _getToColor_VA(__VA_ARGS__, _getToColor2, _getToColor1)(__VA_ARGS__)
-static vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_xfade.c getpix()
+static vec4 getColor(const XTransition *e, float x, float y, int z) // cf. vf_xfade.c getpix()
 {
     const XFadeContext *s = e->s;
-    const AVFrame *in = s->xf[nb];
-    const int w = in->width, h = in->height;
-    const int xi = av_clip(x * w, 0, w - 1), yi = av_clip((1 - y) * h, 0, h - 1);
+    const AVFrame *f = s->xf[z];
     const float max_value = s->max_value; // as float
-    vec4 ret;
-    for (int p = 0; p < 4; p++) {
-        if (p < s->nb_planes) {
-            uint16_t d = (s->depth > 8) ? LINE(uint16_t, in, p, yi)[xi] : LINE(uint8_t, in, p, yi)[xi];
-            ret.p[p] = d / max_value;
-            continue;
-        }
-        ret.p[p] = ret.p[p - 1];
-    }
-    return ret;
+    const int n = s->nb_planes, d = (s->depth > 8), w = f->width, h = f->height;
+    const int i = av_clip(x * w, 0, w - 1), j = av_clip((1 - y) * h, 0, h - 1);
+    vec4 c;
+    int p;
+    for (p = 0; p < n; p++)
+        c.p[p] = (d ? LINE(uint16_t, f, p, j)[i] : LINE(uint8_t, f, p, j)[i]) / max_value;
+    for (; p < 4; p++)
+        c.p[p] = c.p[p - 1];
+    return c;
 }
 
 static vec4 rgba2vec4(const XTransition *e, unsigned int rgba) // colour to plane
@@ -462,7 +459,7 @@ static __attribute__ ((noinline)) double arg( // get arg or default parameter va
     if (a->argc > i && !a->argv[i].param && !isnan(a->argv[i].value))
         ret = a->argv[i].value; // positional param
     ret:
-    xe_debug(NULL, "param %s = %g = %d = 0x%x\n", param, ret, (int)ret, (unsigned)ret);
+    xe_debug(NULL, "param: %s %s = %g == %d(int) == 0x%X(unsigned)\n", type, param, ret, (int)ret, (unsigned)ret);
     return ret; // double to store 32-bit (10-digit) precision colour values
 }
 
@@ -1330,6 +1327,66 @@ static vec4 gl_rotate_scale_fade(const XTransition *e, bool init) // by Fernando
     return gray(e, backGray);
 }
 
+static vec4 gl_SimplePageCurl(const XTransition *e, bool init) // by Andrew Hung
+{
+    PARAM_BEGIN
+    PARAM_1(int, angle, 80)
+    PARAM_1(float, radius, 0.1)
+    PARAM_1(bool, roll, 0)
+    PARAM_1(bool, reverseEffect, 0)
+    PARAM_1(float, opacity, 0.8)
+    PARAM_1(float, shadow, 0.2)
+    // setup
+    static vec2 dir, i, m; // constants
+    float phi = M_PIf * angle / 180 - M_PI_2f; // target curl angle
+    dir = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi))); // direction unit vector
+    i = mul2f(dir, dot(mul2f(sign2(dir), P5f), dir)); // initial position, curl axis on quadrant corner
+    m = sub2(mul2f(dir, -radius), i); // final position, curl just out of view
+    m = sub2(m, i); // travel extent, perpendicular to curl axis
+    PARAM_END // end config setup
+    // get point relative to curl axis
+    vec2 p = add2(i, mul2f(m, (reverseEffect ? 1 - e->progress : e->progress))); // current position
+    vec2 q = sub2f(e->p, P5f); // distance of current point from centre
+    float dist = dot(sub2(q, p), dir); // distance of point from curl axis
+    p = sub2(q, mul2f(dir, dist)); // point perpendicular to curl axis
+    // map point to curl
+    vec4 c = reverseEffect ? e->a : e->b;
+    bool o = false, s = false; // opacity & shadow flags
+    if (dist < 0) { // point is over flat A
+        c = reverseEffect ? e->b : e->a;
+        if (!roll) {
+            p = add2f(add2(p, mul2f(dir, M_PIf * radius - dist)), P5f);
+            if (between2(p, 0, 1)) // on flat back of A
+                c = reverseEffect ? getToColor(p) : getFromColor(p), o = true;
+        }
+    } else if (radius > 0) { // curled A
+        // map to cylinder point
+        float theta = asinf(dist / radius);
+        vec2 p2 = add2f(add2(p, mul2f(dir, (M_PIf - theta) * radius)), P5f);
+        vec2 p1 = add2f(add2(p, mul2f(dir, theta * radius)), P5f);
+        if (between2(p2, 0, 1)) // on curling back of A
+            c = reverseEffect ? getToColor(p2) : getFromColor(p2), o = s = true;
+        else if (between2(p1, 0, 1)) // on curling front of A
+            c = reverseEffect ? getToColor(p1) : getFromColor(p1);
+        else // on B
+            s = true;
+    }
+    if (o) { // need opacity
+        c.p0 += opacity * (1 - c.p0);
+        if (e->s->is_rgb)
+            c.p1 += opacity * (1 - c.p1), c.p2 += opacity * (1 - c.p2);
+    }
+    if (s) { // need shadow
+        // TODO: ok over A, makes a tideline over B for large radius
+//      d = (1. - distance(p, q) * 1.414) * pow(?, shadow);
+        float d = powf(av_clipf(fabsf(dist - radius) / radius, 0, 1), shadow);
+        c.p0 *= d;
+        if (e->s->is_rgb)
+            c.p1 *= d, c.p2 *= d;
+    }
+    return c;
+}
+
 static vec4 gl_Slides(const XTransition *e, bool init) // by Mark Craig
 {
     PARAM_BEGIN
@@ -1937,6 +1994,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_RotateScaleVanish")) k->xtransitionf = gl_RotateScaleVanish;
     else if (!av_strcasecmp(t, "gl_rotateTransition")) k->xtransitionf = gl_rotateTransition;
     else if (!av_strcasecmp(t, "gl_rotate_scale_fade")) k->xtransitionf = gl_rotate_scale_fade;
+    else if (!av_strcasecmp(t, "gl_SimplePageCurl")) k->xtransitionf = gl_SimplePageCurl;
     else if (!av_strcasecmp(t, "gl_Slides")) k->xtransitionf = gl_Slides;
     else if (!av_strcasecmp(t, "gl_squareswire")) k->xtransitionf = gl_squareswire;
     else if (!av_strcasecmp(t, "gl_static_wipe")) k->xtransitionf = gl_static_wipe;
@@ -1973,7 +2031,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     for (int i = 0; i < a->argc; i++)
         av_log(ctx, AV_LOG_DEBUG, "%s%s=%g", i ? ", " : "", a->argv[i].param, a->argv[i].value);
     av_log(ctx, AV_LOG_DEBUG, ")\n");
-    XTransition e = { .s = s };
+    XTransition e = { .s = s, .ratio = (float)ctx->inputs[0]->w / ctx->inputs[0]->h };
     k->xtransitionf(&e, true); // init params
 
     return 0;
