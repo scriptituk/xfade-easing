@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.6] - 2024-08-25
+
+### Added
+
+- gl_SimplePageCurl transition by Andrew Hung greatly altered:
+  - 360° curl in any direction
+  - variable cylinder radius
+  - roll rendering option
+  - reverse-effect uncurl/unroll option
+  - variable underside opacity
+  - variable shadow intensity
+
 ## [2.1.5] - 2024-08-19
 
 ### Fixed

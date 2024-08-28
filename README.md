@@ -472,6 +472,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_RotateScaleVanish` [args: `fadeInSecond`,`reverseEffect`,`reverseRotation`,`bgBkWhTr`; default: `(1,0,0,0)`] (by: Mark Craig)
 - `gl_rotateTransition` (by: haiyoucuv)
 - `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backGray`; default: `(0.5,0.5,1,8,0.15)`] (by: Fernando Kuteken)
+- `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`opacity`,`shadow`; default: `(80,0.1,0,0,0.8,0.2)`] (by: Andrew Hung)
 - `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] (by: Mark Craig)
 - `gl_squareswire` [args: `squares.h`,`squares.v`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] (by: gre)
 - `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] (by: Ben Lucas)
@@ -556,6 +557,14 @@ e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`
 - `gl_InvertedPageCurl` has two parameters:
   - `angle` may be `100` (default) or `30` degrees from horizontal
   - `reverseEffect` produces an uncurl effect (custom ffmpeg only)
+- `gl_SimplePageCurl` (custom ffmpeg only) is more versatile than `gl_InvertedPageCurl`:
+  - `angle` may be any 360° direction
+  - `radius` is the cylinder radius
+  - `roll` to roll instead of curl (`gl_InvertedPageCurl` only rolls)
+  - `reverseEffect` to uncurl or unroll
+  - `opacity` the underside opacity
+  - `shadow` the shadow intensity
+  - roll rendering option
 - several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
 but this implementation provides an additional `bgBkWhTr` parameter to control the background:
 `0`=black (default), `1`=white, `-1`=transparent
@@ -564,7 +573,11 @@ but this implementation provides an additional `bgBkWhTr` parameter to control t
 (useful for sheet music with repeats)  
 `-t 'gl_InvertedPageCurl(30,0)'` and `-t 'gl_InvertedPageCurl(30,1)'` concatenated
 
-![gl_InvertedPageCurl(30,1)](assets/flipchart.gif)
+![gl_InvertedPageCurl(30)](assets/flipchart.gif)
+
+*Example*: `gl_SimplePageCurl` with various options
+
+![gl_SimplePageCurl](assets/art.gif)
 
 #### Porting
 
@@ -727,7 +740,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 2.1.5 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 2.1.6 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
@@ -937,7 +950,8 @@ a GL transition with arguments and cubic-bezier easing, running at 30fps for 7 s
 - [GLSL Data Types](https://www.khronos.org/opengl/wiki/Data_Type_(GLSL)) and [OpenGL Reference Pages](https://registry.khronos.org/OpenGL-Refpages/gl4/)
 - [GLSL Vector and Matrix Operations](https://en.wikibooks.org/wiki/GLSL_Programming/Vector_and_Matrix_Operations) GLSL specific built-in data types and functions
 - [The Book of Shaders](https://thebookofshaders.com/) a guide through the universe of Fragment Shaders
-- [Shadertoy](https://www.shadertoy.com/view/NdGfzG) GLSL video transitions by Mark Craig
+- [Shadertoy mrmcsoftware](https://www.shadertoy.com/view/NdGfzG) GLSL video transitions by Mark Craig
+- [Shadertoy laserdog](https://www.shadertoy.com/view/ls3cDB) GLSL simple page curl transitions by Andrew Hung [breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
 - [libavfilter/vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) xfade source code
 - [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c) expr source code
 - [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) Node.js package, concats videos with GL Transitions
