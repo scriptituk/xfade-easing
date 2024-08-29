@@ -541,7 +541,7 @@ etc.
 
 #### Colour parameters
 
-Colour values follow ffmpeg rules at [Color](https://ffmpeg.org/ffmpeg-utils.html#Color))
+Colour values follow ffmpeg rules at [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)
 (custom ffmpeg variant only),  
 e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`
 
