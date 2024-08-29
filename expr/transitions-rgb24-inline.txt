@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 2.1.5
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 2.1.6
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Inline transition expressions (rgb24) for filter_complex filterchains
@@ -290,6 +290,9 @@ st(1,X/W-0.5);st(2,0.5-Y/H);st(3,1-ld(0));st(5,ld(3)*PI*2);st(4,sin(ld(5)));st(5
 
 GL_ROTATE_SCALE_FADE
 st(1,0.5);st(2,0.5);st(3,1);st(4,8);st(5,X/W-ld(1));st(6,1-Y/H-ld(2));st(7,hypot(ld(5),ld(6)));st(5,ld(5)/ld(7));st(6,ld(6)/ld(7));st(3,2*PI*ld(3)*(1-ld(0)));st(8,2*abs(ld(0)-0.5));st(8,ld(4)*(1-ld(8))+1*ld(8));st(4,ld(5)*cos(ld(3))-ld(6)*sin(ld(3)));st(6,ld(5)*sin(ld(3))+ld(6)*cos(ld(3)));st(1,ld(1)+ld(4)*ld(7)/ld(8));st(2,ld(2)+ld(6)*ld(7)/ld(8));if(between(ld(1),0,1)*between(ld(2),0,1),st(1,ld(1)*W);st(2,(1-ld(2))*H);st(3,ifnot(PLANE,a0(ld(1),ld(2)),if(eq(PLANE,1),a1(ld(1),ld(2)),if(eq(PLANE,2),a2(ld(1),ld(2)),a3(ld(1),ld(2))))));st(4,ifnot(PLANE,b0(ld(1),ld(2)),if(eq(PLANE,1),b1(ld(1),ld(2)),if(eq(PLANE,2),b2(ld(1),ld(2)),b3(ld(1),ld(2))))));st(5,1-ld(0));ld(3)*(1-ld(5))+ld(4)*ld(5),st(1,0.15);if(eq(PLANE,3),255,ld(1)*255))
+
+GL_SIMPLEPAGECURL
+NATIVE
 
 GL_SLIDES
 st(1,0);st(2,0);st(5,st(4,1-st(3,if(ld(2),1-ld(0),ld(0))))/2);ifnot(ld(1),st(6,ld(5));st(7,0),if(eq(ld(1),1),st(6,ld(4));st(7,ld(5)),if(eq(ld(1),2),st(6,ld(5));st(7,ld(4)),if(eq(ld(1),3),st(6,0);st(7,ld(5)),if(eq(ld(1),4),st(6,ld(4));st(7,0),if(eq(ld(1),5),st(6,st(7,ld(4))),if(eq(ld(1),6),st(6,0);st(7,ld(4)),if(eq(ld(1),7),st(6,st(7,0)),st(6,st(7,ld(5)))))))))));st(4,X/W);st(5,Y/H);if(between(ld(4),ld(6),ld(6)+ld(3))*between(ld(5),ld(7),ld(7)+ld(3)),st(4,(ld(4)-ld(6))/ld(3)*W);st(5,(ld(5)-ld(7))/ld(3)*H);if(ld(2),ifnot(PLANE,b0(ld(4),ld(5)),if(eq(PLANE,1),b1(ld(4),ld(5)),if(eq(PLANE,2),b2(ld(4),ld(5)),b3(ld(4),ld(5))))),ifnot(PLANE,a0(ld(4),ld(5)),if(eq(PLANE,1),a1(ld(4),ld(5)),if(eq(PLANE,2),a2(ld(4),ld(5)),a3(ld(4),ld(5)))))),if(ld(2),A,B))
