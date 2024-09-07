@@ -86,33 +86,29 @@ typedef struct XFadeEasingContext {
 static int xe_error(void *avcl, const char *fmt, ...);
 static void xe_debug(void *avcl, const char *fmt, ...);
 
-// ubiquitous point 5 float
-#define P5f 0.5f
+#define P5f 0.5f /* ubiquitous point 5 float */
+#define M_1_2PIf (M_1_PIf * P5f) /* 1/(2*pi) */
+#define M_2PIf (M_PIf + M_PIf) /* 2*pi */
 
 ////////////////////////////////////////////////////////////////////////////////
 // easing functions
 ////////////////////////////////////////////////////////////////////////////////
 
-static float rp_pow(const XFadeEasingContext *k, float t, int power)
+static float power_ease(const XFadeEasingContext *k, float t, float power)
 {
     const int mode = k->eargs.e.mode;
-    float a, m;
-    --power;
-    if (mode == EASE_IN)       a = 0, m = 1;
-    else if (mode == EASE_OUT) a = 1, m = -1, t = 1 - t;
-    else if (t < P5f)          a = 0, m = 1 << power;
-    else                       a = 1, m = -(1 << power), t = 1 - t;
-    do m *= t; while (power--);
-    return a + m;
+    return (mode == EASE_IN) ? powf(t, power)
+         : (mode == EASE_OUT) ? 1 - powf(1 - t, power)
+         : (t < P5f) ? powf(2 * t, power) / 2 : 1 - powf(2 * (1 - t), power) / 2;
 }
 
-static float rp_quadratic(const XFadeEasingContext *k, float t) { return rp_pow(k, t, 2); }
+static float rp_quadratic(const XFadeEasingContext *k, float t) { return power_ease(k, t, 2); }
 
-static float rp_cubic(const XFadeEasingContext *k, float t) { return rp_pow(k, t, 3); }
+static float rp_cubic(const XFadeEasingContext *k, float t) { return power_ease(k, t, 3); }
 
-static float rp_quartic(const XFadeEasingContext *k, float t) { return rp_pow(k, t, 4); }
+static float rp_quartic(const XFadeEasingContext *k, float t) { return power_ease(k, t, 4); }
 
-static float rp_quintic(const XFadeEasingContext *k, float t) { return rp_pow(k, t, 5); }
+static float rp_quintic(const XFadeEasingContext *k, float t) { return power_ease(k, t, 5); }
 
 static float rp_sinusoidal(const XFadeEasingContext *k, float t)
 {
@@ -136,8 +132,7 @@ static float rp_circular(const XFadeEasingContext *k, float t)
     const int mode = k->eargs.e.mode;
     return (mode == EASE_IN) ? 1 - sqrtf(1 - t * t)
          : (mode == EASE_OUT) ? sqrtf(t * (2 - t))
-         : (t < P5f) ? (1 - sqrtf(1 - 4 * t * t)) / 2
-                     : (--t, (1 + sqrtf(1 - 4 * t * t)) / 2);
+         : (t < P5f) ? (1 - sqrtf(1 - 4 * t * t)) / 2 : (--t, (1 + sqrtf(1 - 4 * t * t)) / 2);
 }
 
 static float rp_elastic(const XFadeEasingContext *k, float t)
@@ -181,18 +176,12 @@ static float rp_bounce(const XFadeEasingContext *k, float t)
 
 static float se_squareroot(const XFadeEasingContext *k, float t)
 {
-    const int mode = k->eargs.e.mode;
-    return (mode == EASE_IN) ? sqrtf(t)
-         : (mode == EASE_OUT) ? 1 - sqrtf(1 - t)
-         : (t < P5f) ? sqrtf(t / 2) : 1 - sqrtf((1 - t) / 2);
+    return power_ease(k, t, 0.5f);
 }
 
 static float se_cuberoot(const XFadeEasingContext *k, float t)
 {
-    const int mode = k->eargs.e.mode;
-    return (mode == EASE_IN) ? powf(t, 1.f / 3.f)
-         : (mode == EASE_OUT) ? 1 - powf(1 - t, 1.f / 3.f)
-         : (t < P5f) ? powf(t / 4, 1.f / 3.f) : 1 - powf((1 - t) / 4, 1.f / 3.f);
+    return power_ease(k, t, 1.f / 3.f);
 }
 
 // CSS easings
@@ -217,7 +206,7 @@ static float css_linear(const XFadeEasingContext *k, float t)
     else if (i == n - 1)
         --i;
     p += i;
-    if (p[1].x - p[0].x < 1e-6f) // nearly equal
+    if (p[1].x - p[0].x < FLT_EPSILON) // nearly equal
         return p[1].y;
     return p[0].y + (t - p[0].x) / (p[1].x - p[0].x) * (p[1].y - p[0].y);
 }
@@ -231,7 +220,7 @@ static float css_cubic_bezier(const XFadeEasingContext *k, float t)
 {
     const union Bezier *a = &k->eargs.b;
     float epsilon = 1 / (1000 * k->duration); // as per TimingFunction.cpp
-    return solve_cubic_bezier(a->x1, a->y1, a->x2, a->y2, t, epsilon);
+    return solve_cubic_bezier(a->x1, a->y1, a->x2, a->y2, t, epsilon); // licensed code
 }
 
 // see https://drafts.csswg.org/css-easing-2/
@@ -279,8 +268,6 @@ typedef struct {
 
 static inline vec2 vec2i(ivec2 v) { return VEC2(v.x, v.y); }
 
-static inline float glmod(float x, float y) { return x - y * floorf(x / y); } // C fmod uses trunc
-
 static inline vec2 add2f(vec2 v, float f) { return VEC2(v.x + f, v.y + f); }
 
 static inline vec2 sub2f(vec2 v, float f) { return VEC2(v.x - f, v.y - f); }
@@ -303,11 +290,15 @@ static inline vec2 floor2(vec2 v) { return VEC2(floorf(v.x), floorf(v.y)); }
 
 static inline vec2 fract2(vec2 v) { return VEC2(fract(v.x), fract(v.y)); }
 
+static inline float glmod(float x, float y) { return x - y * floorf(x / y); } // C fmod uses trunc
+
 static inline vec2 mod2(vec2 v, float f) { return VEC2(glmod(v.x, f), glmod(v.y, f)); }
 
 static inline vec2 abs2(vec2 v) { return VEC2(fabsf(v.x), fabsf(v.y)); }
 
 static inline float asum(vec2 v) { return fabsf(v.x) + fabsf(v.y); }
+
+static inline float atn2(vec2 v) { return atan2f(v.y, v.x); }
 
 static inline vec2 sign2(vec2 v) { return VEC2(sign(v.x), sign(v.y)); }
 
@@ -337,6 +328,10 @@ static inline vec4 mix4(vec4 a, vec4 b, float m)
 {
     return VEC4(mix(b.p0, a.p0, m), mix(b.p1, a.p1, m), mix(b.p2, a.p2, m), mix(b.p3, a.p3, m));
 }
+
+static inline float degrees(float a) { return a * 180 / M_PIf; }
+
+static inline float radians(float a) { return a / 180 * M_PIf; }
 
 static inline float frandf(float x, float y)
 {
@@ -414,7 +409,6 @@ static vec4 rgba2vec4(const XTransition *e, unsigned int rgba) // colour to plan
         sws_freeContext(ctx);
 #endif
     }
-    xe_debug(NULL, "rgb(%u,%u,%u) => %s(%u,%u,%u)\n", R,G,B, e->s->is_rgb ? "gbr" : "yuv", dst[0],dst[1],dst[2]);
     return VEC4(dst[0] / 255.f, dst[1] / 255.f, dst[2] / 255.f, A / 255.f);
 }
 
@@ -473,9 +467,9 @@ static vec4 gl_angular(const XTransition *e, bool init) // by Fernando Kuteken
     PARAM_1(float, startingAngle, 90)
     PARAM_1(bool, clockwise, 0)
     PARAM_END
-    float offset = startingAngle * M_PIf / 180;
-    float angle = atan2f(e->p.y - P5f, e->p.x - P5f) + offset;
-    float normalizedAngle = angle * M_1_PIf / 2 + P5f;
+    float offset = radians(startingAngle);
+    float angle = atn2(sub2f(e->p, P5f)) + offset;
+    float normalizedAngle = angle * M_1_2PIf + P5f;
     if (clockwise)
         normalizedAngle *= -1;
     normalizedAngle = fract(normalizedAngle);
@@ -591,7 +585,7 @@ static vec4 gl_cannabisleaf(const XTransition *e, bool init) // by Flexi23
     vec2 leaf_uv = div2f(sub2f(e->p, P5f), 10 * powf(e->progress, 3.5f));
     leaf_uv.y += 0.35f; // leaf offset
     float r = 0.18f; // leaf size
-    float o = atan2f(leaf_uv.y, leaf_uv.x);
+    float o = atn2(leaf_uv);
     // for curve see https://www.wolframalpha.com/input/?i=cannabis+curve{
     float curve = (1 + sinf(o)) * (1 + 0.9f * cosf(8 * o)) * (1 + 0.1f * cosf(24 * o)) * (0.9f + 0.05f * cosf(200 * o));
     return step(r * curve, length(leaf_uv)) ? e->a : e->b;
@@ -808,12 +802,14 @@ static vec4 gl_Exponential_Swish(const XTransition *e, bool init) // by Boundles
     PARAM_2(ivec2, wrap, 2, 2)
     PARAM_1(float, blur, 0) // changed from 0.5 which makes it extremely slow
     PARAM_1(int, bgBkWhTr, 0)
-    PARAM_END
-    const XFadeEasingContext *k = e->s->k;
-    const float deg = angle / 180 * M_PIf;
-    const float frames = k->duration * k->framerate;
+    XFadeEasingContext *k = e->s->k;
+    static float deg, frames, ratio2; static vec4 bgcolor; // constants
+    deg = radians(angle);
+    frames = k->duration * k->framerate;
+    ratio2 = (e->ratio - 1) / 2;
+    bgcolor = bwt(e, bgBkWhTr);
+    PARAM_END // end config setup
     const int iters = 50; // TODO: experiment with this
-    const vec4 bgcolor = bwt(e, bgBkWhTr);
     vec2 uv = sub2f(e->p, P5f), uv0, uv1;
     vec4 comp = {{ 0 }};
     for (int i = 0; i < iters; i++) {
@@ -828,13 +824,13 @@ static vec4 gl_Exponential_Swish(const XTransition *e, bool init) // by Boundles
         else
             uv0 = uv1 = uv;
         uv0 = sub2(add2f(uv0, P5f), mul2f(offset, pa0 / px2));
-        uv0.x = uv0.x * e->ratio - (e->ratio - 1) / 2;
+        uv0.x = uv0.x * e->ratio - ratio2;
         uv0 = add2f(rot(sub2f(uv0, P5f), -deg * pa0), P5f);
-        uv0.x = (uv0.x + (e->ratio - 1) / 2) / e->ratio;
+        uv0.x = (uv0.x + ratio2) / e->ratio;
         uv1 = add2(add2f(uv1, P5f), mul2f(offset, pa1 / px3));
-        uv1.x = uv1.x * e->ratio - (e->ratio - 1) / 2;
+        uv1.x = uv1.x * e->ratio - ratio2;
         uv1 = add2f(rot(sub2f(uv1, P5f), deg * pa1), P5f);
-        uv1.x = (uv1.x + (e->ratio - 1) / 2) / e->ratio;
+        uv1.x = (uv1.x + ratio2) / e->ratio;
         if (wrap.x == 2)
             uv0.x = acosf(cosf(M_PIf * uv0.x)) * M_1_PIf, uv1.x = acosf(cosf(M_PIf * uv1.x)) * M_1_PIf;
         else if (wrap.x == 1)
@@ -876,7 +872,7 @@ static vec4 gl_FanOut(const XTransition *e, bool init) // by Mark Craig
     PARAM_BEGIN
     PARAM_1(float, smoothness, 0.05)
     PARAM_END
-    float theta = 2 * M_PIf * e->progress;
+    float theta = M_2PIf * e->progress;
     float d = M_PIf + atan2f(P5f - e->p.y, (e->p.x < P5f) ? 0.25f - e->p.x : e->p.x - 0.75f) - theta;
     if (d < 0)
         return e->b;
@@ -900,18 +896,18 @@ static vec4 gl_Flower(const XTransition *e, bool init) // by Mark Craig
     PARAM_BEGIN
     PARAM_1(float, smoothness, 0.05)
     PARAM_1(float, rotation, 360)
-    static float ang, fang; // constant
-    ang = 162.f * M_PIf / 180;
+    static float ang, fang; // constants
+    ang = radians(162.f);
     vec2 v = { cosf(ang), sinf(ang) - 1 };
     float h = dot(v, v);
-    ang = 234.f * M_PIf / 180;
+    ang = radians(234.f);
     v = VEC2(cosf(ang), sinf(ang) - 1);
     h = h - dot(v, v) / 4;
-    ang = 36.f * M_PIf / 180;
+    ang = radians(36.f);
     fang = (1 - sqrtf(h)) / cosf(ang);
     PARAM_END // end config setup
     v = VEC2((e->p.x - P5f) * e->ratio, P5f - e->p.y);
-    float theta = e->progress * M_PIf * rotation / 180;
+    float theta = radians(e->progress * rotation);
     float theta1 = atan2f(v.x, v.y) + theta;
     float theta2 = glmod(fabsf(theta1), ang);
     float ro = e->ratio / 0.731f * e->progress;
@@ -936,9 +932,10 @@ static vec4 gl_GridFlip(const XTransition *e, bool init) // by TimDonselaar
     PARAM_1(float, dividerWidth, 0.05)
     PARAM_1(float, randomness, 0.1)
     PARAM_1(int, bgBkWhTr, 0)
-    PARAM_END
-    vec4 bgcolor = bwt(e, bgBkWhTr);
-    vec2 rectangleSize = inv2(vec2i(size));
+    static vec2 rectangleSize; static vec4 bgcolor; // constants
+    rectangleSize = inv2(vec2i(size));
+    bgcolor = bwt(e, bgBkWhTr);
+    PARAM_END // end config setup
     vec2 rectanglePos = floor2(mul2(vec2i(size), e->p));
     float top = rectangleSize.y * (rectanglePos.y + 1),
           bottom = rectangleSize.y * rectanglePos.y,
@@ -1005,93 +1002,17 @@ static vec4 gl_hexagonalize(const XTransition *e, bool init) // by Fernando Kute
     return mix4(e->a, e->b, e->progress);
 }
 
-// see https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html
-// omits antiAlias() code
+static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bool reverseEffect);
 static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-Packard
 {
     PARAM_BEGIN
     PARAM_1(int, angle, 100)
+    PARAM_1(float, radius, M_1_2PIf)
     PARAM_1(bool, reverseEffect, 0)
-    static vec2 o1 = { -0.801f, 0.89f }, o2 = { 0.985f, 0.985f }; // constant
-    if (angle == 30) // TODO: add more angles
-        o1 = VEC2(0.12f, 0.258f), o2 = VEC2(0.15f, -0.5f); // values from WebVfx link
-    else if (angle != 100)
+    if (angle != 30 && angle != 100) // TODO: add more angles
         xe_error(NULL, "invalid gl_InvertedPageCurl angle %d, use 100 (default) or 30\n", angle), angle = 100;
-    PARAM_END // end config setup
-    #define MIN_AMOUNT -0.16f
-    #define MAX_AMOUNT 1.5f
-    const float amount = (reverseEffect ? (1 - e->progress) : e->progress) * (MAX_AMOUNT - MIN_AMOUNT) + MIN_AMOUNT;
-    const float cylinderAngle = 2 * M_PIf * amount;
-    const float cylinderRadius = M_1_PIf / 2;
-    const float ang = angle * M_PIf / 180;
-    vec2 point = add2(rot(e->p, ang), o1), p;
-    float yc = point.y - amount, hitAngle;
-    vec4 colour = reverseEffect ? e->b : e->a;
-
-    if (yc > cylinderRadius) // flat surface
-        return colour;
-    if (yc < -cylinderRadius) { // behind surface
-        // behindSurface()
-        yc = -cylinderRadius - cylinderRadius - yc;
-        hitAngle = acosf(yc / cylinderRadius) + cylinderAngle - M_PIf;
-        p = VEC2(point.x, hitAngle * M_1_PIf / 2);
-        point = add2(rot(p, -ang), o2);
-        colour = reverseEffect ? e->a : e->b;
-        if (yc < 0 && between2(point, 0, 1) && (hitAngle < M_PIf || amount > P5f)) { // shadow over to page
-            float shadow = (1 - length(sub2f(point, P5f)) * M_SQRT2f) * powf(-yc / cylinderRadius, 3) / 2;
-            colour.p0 -= shadow; // (can go -ve)
-            if (e->s->is_rgb)
-                colour.p1 -= shadow, colour.p2 -= shadow;
-        }
-        return colour;
-        // end behindSurface()
-    }
-    // seeThrough()
-    hitAngle = M_PIf - acosf(yc / cylinderRadius) + cylinderAngle;
-    if (yc < 0) { // get from colour going through its turn
-        p = VEC2(point.x, hitAngle * M_1_PIf / 2);
-        vec2 q = add2(rot(p, -ang), o2);
-        bool b = between2(q, 0, 1);
-        if (reverseEffect)
-            colour = b ? getToColor(q) : e->a;
-        else
-            colour = b ? getFromColor(q) : e->b;
-    }
-    // end seeThrough()
-    hitAngle = cylinderAngle + cylinderAngle - hitAngle;
-    float hitAngleMod = glmod(hitAngle, 2 * M_PIf);
-    if ((hitAngleMod > M_PIf && amount < P5f) || (hitAngleMod > M_PI_2f && amount < 0))
-        return colour;
-    p = VEC2(point.x, hitAngle * M_1_PIf / 2);
-    point = add2(rot(p, -ang), o2);
-    // seeThroughWithShadow()
-    // distanceToEdge()
-    float dx = (point.x < 0) ? -point.x : (point.x > 1) ? point.x - 1 : (point.x > P5f) ? 1 - point.x : point.x;
-    float dy = (point.y < 0) ? -point.y : (point.y > 1) ? point.y - 1 : (point.y > P5f) ? 1 - point.y : point.y;
-    float dist = (betweenf(point.x, 0, 1) || betweenf(point.y, 0, 1)) ? fminf(dx, dy) : hypotf(dx, dy);
-    // end distanceToEdge()
-    float shadow = (1 - dist * 30) / 3;
-    if (shadow > 0) { // shadow over from page
-        shadow *= amount;
-        colour.p0 -= shadow;
-        if (e->s->is_rgb)
-            colour.p1 -= shadow, colour.p2 -= shadow;
-    }
-    // end seeThroughWithShadow()
-    if (!between2(point, 0, 1))
-        return colour;
-    // backside
-    colour = reverseEffect ? getToColor(point) : getFromColor(point);
-    float grey = colour.p0;
-    if (e->s->is_rgb)
-        grey = (grey + colour.p1 + colour.p2) / 3; // simple average
-    grey /= 5;
-    grey += 0.8f * (powf(1 - fabsf(yc / cylinderRadius), 0.2f) / 2 + P5f);
-    colour.p0 = grey;
-    if (!e->s->is_rgb)
-        grey = P5f;
-    colour.p1 = colour.p2 = grey;
-    return colour;
+    PARAM_END
+    return inverted_page_curl(e, angle, radius, reverseEffect); // licensed code
 }
 
 static vec4 gl_kaleidoscope(const XTransition *e, bool init) // by nwoeanhinnogaehr
@@ -1156,7 +1077,7 @@ static vec4 gl_pinwheel(const XTransition *e, bool init) // by Mr Speaker
     PARAM_BEGIN
     PARAM_1(float, speed, 1)
     PARAM_END
-    float circPos = atan2f(e->p.y - P5f, e->p.x - P5f) + e->progress * speed;
+    float circPos = atn2(sub2f(e->p, P5f)) + e->progress * speed;
     float modPos = glmod(circPos, M_PI_4f);
     return (e->progress <= modPos) ? e->a : e->b;
 }
@@ -1166,7 +1087,7 @@ static vec4 gl_polar_function(const XTransition *e, bool init) // by Fernando Ku
     PARAM_BEGIN
     PARAM_1(int, segments, 5)
     PARAM_END
-    float angle = atan2f(e->p.y - P5f, e->p.x - P5f) - M_PI_2f;
+    float angle = atn2(sub2f(e->p, P5f)) - M_PI_2f;
     float radius = cosf(segments * angle) / 4 + 1;
     float difference = length(sub2f(e->p, P5f));
     return (difference > radius * e->progress) ? e->a : e->b;
@@ -1189,17 +1110,18 @@ static vec4 gl_powerKaleido(const XTransition *e, bool init) // by Boundless
     PARAM_1(float, scale, 2)
     PARAM_1(float, z, 1.5)
     PARAM_1(float, speed, 5)
-    PARAM_END
-    const float rad = 120; // change this value to get different mirror effects
-    const float deg = rad / 180 * M_PIf;
-    float dist = scale / 10;
+    static float rad, dist; // constants
+    const float deg = 120; // change this value to get different mirror effects
+    rad = radians(deg);
+    dist = scale / 10;
+    PARAM_END // end config setup
     vec2 uv = mul2f(sub2f(e->p, P5f), e->ratio * z);
     float a = e->progress * speed;
     uv = rot(uv, a);
     for (int iter = 0; iter < 10; iter++) {
-        for (float i = 0; i < 2 * M_PIf; i += deg) {
+        for (float i = 0; i < M_2PIf; i += rad) {
             vec2 v = { cosf(i), sinf(i) };
-            bool b = asinf(v.x) > 0; // == glmod(i + M_PI_2f, 2 * M_PIf) < M_PIf
+            bool b = asinf(v.x) > 0; // == glmod(i + M_PI_2f, M_2PIf) < M_PIf
             bool d = uv.y - v.x * dist > v.y / v.x * (uv.x + v.y * dist);
             if (b == d) {
                 vec2 p = { uv.x + v.y * dist * 2, uv.y - v.x * dist * 2 };
@@ -1284,7 +1206,7 @@ static vec4 gl_RotateScaleVanish(const XTransition *e, bool init) // by Mark Cra
     PARAM_1(bool, trkMat, 0)
     PARAM_END
     float t = reverseEffect ? 1 - e->progress : e->progress;
-    float theta = (reverseRotation ? -t : t) * 2 * M_PIf;
+    float theta = (reverseRotation ? -t : t) * M_2PIf;
     vec2 c2 = rot(VEC2((e->p.x - P5f) * e->ratio, e->p.y - P5f), theta);
     float rad = fmaxf(0.00001f, 1 - t);
     vec2 uv2 = { c2.x / rad + e->ratio / 2, c2.y / rad + P5f };
@@ -1303,7 +1225,7 @@ static vec4 gl_RotateScaleVanish(const XTransition *e, bool init) // by Mark Cra
 static vec4 gl_rotateTransition(const XTransition *e, bool init) // by haiyoucuv
 {
     PARAM_NONE
-    vec2 p = add2f(rot(sub2f(e->p, P5f), e->progress * 2 * M_PIf), P5f);
+    vec2 p = add2f(rot(sub2f(e->p, P5f), e->progress * M_2PIf), P5f);
     return mix4(getFromColor(p), getToColor(p), e->progress);
 }
 
@@ -1318,7 +1240,7 @@ static vec4 gl_rotate_scale_fade(const XTransition *e, bool init) // by Fernando
     vec2 difference = sub2(e->p, center);
     float dist = length(difference);
     vec2 dir = div2f(difference, dist);
-    float angle = -2 * M_PIf * rotations * e->progress;
+    float angle = -M_2PIf * rotations * e->progress;
     vec2 rotatedDir = rot(dir, angle);
     float currentScale = mixf(scale, 1, 2 * fabsf(e->progress - P5f));
     vec2 rotatedUv = add2(center, mul2f(rotatedDir, dist / currentScale));
@@ -1327,43 +1249,137 @@ static vec4 gl_rotate_scale_fade(const XTransition *e, bool init) // by Fernando
     return gray(e, backGray);
 }
 
+static vec4 gl_SimpleBookCurl(const XTransition *e, bool init) // by Raymond Luckhurst
+{
+    PARAM_BEGIN
+    PARAM_1(int, angle, 150)
+    PARAM_1(float, radius, 0.1)
+    PARAM_1(float, shadow, 0.2)
+    // setup
+    static float k, m1, m2; static vec2 q; // constants
+//static int dbg=0;
+    int ang = (angle % 360 + 360) % 360; // 0 <= ang < 360
+    q = VEC2(1, -1); // quadrant corner
+    if (ang >= 90) q.y = 1; // (1, 1);
+    if (ang >= 180) q.x = -1; // (-1, 1);
+    if (ang >= 270) q.y = -1; // (-1, -1);
+    float phi = radians(ang) - M_PI_2f; // target curl angle
+    vec2 dir = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi))); // direction unit vector
+    vec2 i = abs2(dir);
+    k = (i.x == 0) ? M_PI_2 : atn2(i); // absolute curl angle
+    i = mul2f(dir, dot(mul2f(q, P5f), dir)); // initial position, curl axis on corner
+    m1 = length(i); // length for rotating
+    m2 = M_PIf * radius; // length of half-cylinder arc
+//xe_debug(NULL, "gl_SimpleBookCurl ang=%d phi=%g=%g dir=%g,%g q=%g,%g k=%g=%g i=%g,%g m1=%g m2=%g\n", ang, phi, degrees(phi), dir.x, dir.y, q.x, q.y, k, degrees(k), i.x, i.y, m1, m2);
+    PARAM_END // end config setup
+    // get new angle & progress point
+    float rad = radius; // working radius
+    vec2 p; // working curl axis point
+    float m = (m1 + m2) * e->progress; // current position along lengths
+    if (m < m1) { // rotating page
+        XFadeEasingContext x = { .eargs = { .e.mode = EASE_INOUT } };
+        phi = k * (1 - rp_sinusoidal(&x, m / m1)); // eased new absolute curl angle
+        dir = normalize(mul2(VEC2(cosf(phi), sinf(phi)), mul2f(q, P5f))); // new direction
+        p = mul2f(dir, m1 - m);
+/*      if (P5f - (m1 - m) * fabsf(dir.y) > FLT_EPSILON) { // curled beyond spine
+            i = mul2f(dir, dot(VEC2(0, q.y * P5f), dir)); // for curl axis on spine
+            phi = M_PI_2f - phi;
+            dir = normalize(mul2(VEC2(P5f * tan(phi) + distance(i, p) * cos(phi), P5f), q));
+            p = mul2f(dir, dot(VEC2(0, q.y * P5f), dir)); // clamped curl axis to spine
+if(!dbg)dbg=1,xe_debug(NULL, "gl_SimpleBookCurl_dbg phi=%g=%g dir=%g,%g p=%g,%g i=%g,%g m=%g\n", phi, degrees(phi), dir.x, dir.y, p.x, p.y, i.x, i.y, m);
+        }*/ // TODO: finish this - prevent small radii crossing spine
+    } else { // straightening curl
+        XFadeEasingContext x = { .eargs = { .e.mode = EASE_OUT } };
+        if (m2 > 0)
+            rad *= 1 - rp_quadratic(&x, (m - m1) / m2); // eased new radius
+        dir = VEC2(q.x, 0); // new direction
+        p = VEC2(0, 0);
+    }
+    // get point relative to curl axis
+    i = sub2f(e->p, P5f); // distance of current point from centre
+    float dist = dot(sub2(i, p), dir); // distance of point from curl axis
+    p = sub2(i, mul2f(dir, dist)); // point perpendicular to curl axis
+    // map point to curl
+    vec4 c = e->b; // return colour
+    bool s = false; // shadow flag
+    if (dist < 0) { // point is over flat A
+        c = e->a;
+        p = add2f(mul2(add2(p, mul2f(dir, M_PIf * rad - dist)), VEC2(-1, 1)), P5f);
+        if (between2(p, 0, 1)) // on flat back of A
+            c = getToColor(p);
+    } else if (rad > 0) { // curled A
+        // map to cylinder point
+        phi = asinf(dist / rad);
+        vec2 p2 = add2f(mul2(add2(p, mul2f(dir, (M_PIf - phi) * rad)), VEC2(-1, 1)), P5f);
+        vec2 p1 = add2f(add2(p, mul2f(dir, phi * rad)), P5f);
+        if (between2(p2, 0, 1)) // on curling back of A
+            c = getToColor(p2), s = true;
+        else if (between2(p1, 0, 1)) // on curling front of A
+            c = getFromColor(p1);
+        else // on B
+            s = true;
+    }
+    if (s) { // need shadow
+        // TODO: ok over A, makes a tideline over B for large radius
+//      d = (1. - distance(p, q) * 1.414) * powf(?, shadow);
+        float d = powf(av_clipf(fabsf(dist - rad) / rad, 0, 1), shadow);
+        c.p0 *= d;
+        if (e->s->is_rgb)
+            c.p1 *= d, c.p2 *= d;
+    }
+    return c;
+}
+
+// see https://www.shadertoy.com/view/ls3cDB
+// and https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/
 static vec4 gl_SimplePageCurl(const XTransition *e, bool init) // by Andrew Hung
 {
     PARAM_BEGIN
     PARAM_1(int, angle, 80)
-    PARAM_1(float, radius, 0.1)
+    PARAM_1(float, radius, 0.15)
     PARAM_1(bool, roll, 0)
     PARAM_1(bool, reverseEffect, 0)
+    PARAM_1(bool, greyback, 0)
     PARAM_1(float, opacity, 0.8)
     PARAM_1(float, shadow, 0.2)
     // setup
     static vec2 dir, i, m; // constants
-    float phi = M_PIf * angle / 180 - M_PI_2f; // target curl angle
+    int ang = (angle % 360 + 360) % 360; // 0 <= ang < 360
+    vec2 q = VEC2(1, -1); // quadrant corner
+    if (ang >= 90) q.y = 1; // (1, 1);
+    if (ang >= 180) q.x = -1; // (-1, 1);
+    if (ang >= 270) q.y = -1; // (-1, -1);
+    float phi = radians(ang) - M_PI_2f; // target curl angle
     dir = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi))); // direction unit vector
-    i = mul2f(dir, dot(mul2f(sign2(dir), P5f), dir)); // initial position, curl axis on quadrant corner
-    m = sub2(mul2f(dir, -radius), i); // final position, curl just out of view
-    m = sub2(m, i); // travel extent, perpendicular to curl axis
+    i = mul2f(dir, dot(mul2f(q, P5f), dir)); // initial position, curl axis on corner
+    m = sub2(mul2f(dir, -radius *2), i); // final position, curl & shadow just out of view
+    m = sub2(m, i); // path extent, perpendicular to curl axis
     PARAM_END // end config setup
     // get point relative to curl axis
     vec2 p = add2(i, mul2f(m, (reverseEffect ? 1 - e->progress : e->progress))); // current position
-    vec2 q = sub2f(e->p, P5f); // distance of current point from centre
+    q = sub2f(e->p, P5f); // distance of current point from centre
     float dist = dot(sub2(q, p), dir); // distance of point from curl axis
     p = sub2(q, mul2f(dir, dist)); // point perpendicular to curl axis
     // map point to curl
     vec4 c = reverseEffect ? e->a : e->b;
-    bool o = false, s = false; // opacity & shadow flags
+    bool r = false, o = false, s = false; // roll & opacity & shadow flags
     if (dist < 0) { // point is over flat A
         c = reverseEffect ? e->b : e->a;
         if (!roll) {
             p = add2f(add2(p, mul2f(dir, M_PIf * radius - dist)), P5f);
-            if (between2(p, 0, 1)) // on flat back of A
-                c = reverseEffect ? getToColor(p) : getFromColor(p), o = true;
+            r = true;
+        } else if (-dist < radius) {
+            phi = asin(-dist / radius);
+            p = add2f(add2(p, mul2f(dir, (M_PIf + phi) * radius)), P5f);
+            r = true;
         }
+        if (r && between2(p, 0, 1)) // on back of A
+            c = reverseEffect ? getToColor(p) : getFromColor(p), o = true;
     } else if (radius > 0) { // curled A
         // map to cylinder point
-        float theta = asinf(dist / radius);
-        vec2 p2 = add2f(add2(p, mul2f(dir, (M_PIf - theta) * radius)), P5f);
-        vec2 p1 = add2f(add2(p, mul2f(dir, theta * radius)), P5f);
+        phi = asinf(dist / radius);
+        vec2 p2 = add2f(add2(p, mul2f(dir, (M_PIf - phi) * radius)), P5f);
+        vec2 p1 = add2f(add2(p, mul2f(dir, phi * radius)), P5f);
         if (between2(p2, 0, 1)) // on curling back of A
             c = reverseEffect ? getToColor(p2) : getFromColor(p2), o = s = true;
         else if (between2(p1, 0, 1)) // on curling front of A
@@ -1372,13 +1388,14 @@ static vec4 gl_SimplePageCurl(const XTransition *e, bool init) // by Andrew Hung
             s = true;
     }
     if (o) { // need opacity
+        if (greyback)
+            c.p0 = (c.p0 + c.p1 + c.p2) / 3, c.p1 = c.p2 = e->s->is_rgb ? c.p0 : P5f;
         c.p0 += opacity * (1 - c.p0);
         if (e->s->is_rgb)
             c.p1 += opacity * (1 - c.p1), c.p2 += opacity * (1 - c.p2);
     }
     if (s) { // need shadow
-        // TODO: ok over A, makes a tideline over B for large radius
-//      d = (1. - distance(p, q) * 1.414) * pow(?, shadow);
+        // TODO: fix shadowing same as gl_SimpleBookCurl
         float d = powf(av_clipf(fabsf(dist - radius) / radius, 0, 1), shadow);
         c.p0 *= d;
         if (e->s->is_rgb)
@@ -1418,10 +1435,11 @@ static vec4 gl_squareswire(const XTransition *e, bool init) // by gre
     PARAM_2(ivec2, squares, 10, 10)
     PARAM_2(vec2, direction, 1.0, 0.5)
     PARAM_1(float, smoothness, 1.6)
-    PARAM_END
-    vec2 v = normalize(direction);
+    static float d; static vec2 v; // constants
+    v = normalize(direction);
     v = div2f(v, asum(v));
-    float d = (v.x + v.y) / 2;
+    d = (v.x + v.y) / 2;
+    PARAM_END // end config setup
     float m = dot(e->p, v) - (d - P5f + e->progress * (1 + smoothness));
     float pr = smoothstep(-smoothness, 0, m);
     vec2 squarep = fract2(mul2(e->p, vec2i(squares)));
@@ -1459,8 +1477,9 @@ static vec4 gl_Stripe_Wipe(const XTransition *e, bool init) // by Boundless
     PARAM_1(float, shadowIntensity, 0.7)
     PARAM_1(float, shadowSpread, 0)
     PARAM_1(float, angle, 0)
-    PARAM_END
-    float rad = angle * M_PIf / 180;
+    static float rad; // constants
+    rad = radians(angle);
+    PARAM_END // end config setup
     vec2 p = e->p;
     p.x = p.x * e->ratio - (e->ratio - 1) / 2;
     float offset = fabsf(sinf(rad)) + fabsf(cosf(rad) * e->ratio);
@@ -1652,7 +1671,8 @@ XTRANSITION_TRANSITION(16, uint16_t, 2)
 // argument parsing
 ////////////////////////////////////////////////////////////////////////////////
 
-static int xe_error(void *avcl, const char *fmt, ...) // reduces verbosity
+// reduces verbosity
+static int xe_error(void *avcl, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -1661,7 +1681,8 @@ static int xe_error(void *avcl, const char *fmt, ...) // reduces verbosity
     return AVERROR(EINVAL);
 }
 
-static void xe_debug(void *avcl, const char *fmt, ...) // emits parsing trail
+// emits parsing trail
+static void xe_debug(void *avcl, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -1670,7 +1691,8 @@ static void xe_debug(void *avcl, const char *fmt, ...) // emits parsing trail
     va_end(args);
 }
 
-static void rmspace(char *s) // remove extraneous spaces in place
+// remove extraneous spaces in place
+static void rmspace(char *s)
 {
     char *d = s;
     char c, l = 0;
@@ -1702,7 +1724,8 @@ static void rmspace(char *s) // remove extraneous spaces in place
     *d = 0;
 }
 
-static char *csvtok(char *s, char **p) // like strtok_r but doesn't skip empty values between commas
+// like strtok_r but doesn't skip empty values between commas
+static char *csvtok(char *s, char **p)
 {
     char *c = s ? s : (s = *p);
     if (!*c)
@@ -1717,7 +1740,8 @@ static char *csvtok(char *s, char **p) // like strtok_r but doesn't skip empty v
     return s;
 }
 
-static double argv(char *s, char **p) // parse a number or colour
+// parse a number or colour
+static double argv(char *s, char **p)
 {
     char *c;
     double d = av_strtod(s, &c); // try number
@@ -1733,7 +1757,8 @@ static double argv(char *s, char **p) // parse a number or colour
     return d;
 }
 
-static int parse_standard_easing(AVFilterContext *ctx, char *args) // standard/supplementary easing mode
+// standard/supplementary easing mode
+static int parse_standard_easing(AVFilterContext *ctx, char *args)
 {
     XFadeContext *s = ctx->priv;
     struct Standard *a = &s->k->eargs.e;
@@ -1750,7 +1775,8 @@ static int parse_standard_easing(AVFilterContext *ctx, char *args) // standard/s
     return 0;
 }
 
-static int parse_linear_easing(AVFilterContext *ctx, char *args) // CSS linear()
+// CSS linear()
+static int parse_linear_easing(AVFilterContext *ctx, char *args)
 {
     if (!args)
         return 0;
@@ -1814,7 +1840,8 @@ static int parse_linear_easing(AVFilterContext *ctx, char *args) // CSS linear()
     return 0;
 }
 
-static int parse_cubic_bezier_easing(AVFilterContext *ctx, char *args) // CSS cubic-bezier()
+// CSS cubic-bezier()
+static int parse_cubic_bezier_easing(AVFilterContext *ctx, char *args)
 {
     XFadeContext *s = ctx->priv;
     union Bezier *a = &s->k->eargs.b;
@@ -1837,7 +1864,8 @@ static int parse_cubic_bezier_easing(AVFilterContext *ctx, char *args) // CSS cu
     return 0;
 }
 
-static int parse_steps_easing(AVFilterContext *ctx, char *args) // CSS steps()
+// CSS steps()
+static int parse_steps_easing(AVFilterContext *ctx, char *args)
 {
     if (!args)
         return xe_error(ctx, "expected 2 easing parameters\n");
@@ -1994,6 +2022,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_RotateScaleVanish")) k->xtransitionf = gl_RotateScaleVanish;
     else if (!av_strcasecmp(t, "gl_rotateTransition")) k->xtransitionf = gl_rotateTransition;
     else if (!av_strcasecmp(t, "gl_rotate_scale_fade")) k->xtransitionf = gl_rotate_scale_fade;
+    else if (!av_strcasecmp(t, "gl_SimpleBookCurl")) k->xtransitionf = gl_SimpleBookCurl;
     else if (!av_strcasecmp(t, "gl_SimplePageCurl")) k->xtransitionf = gl_SimplePageCurl;
     else if (!av_strcasecmp(t, "gl_Slides")) k->xtransitionf = gl_Slides;
     else if (!av_strcasecmp(t, "gl_squareswire")) k->xtransitionf = gl_squareswire;
@@ -2031,16 +2060,15 @@ static int parse_xtransition(AVFilterContext *ctx)
     for (int i = 0; i < a->argc; i++)
         av_log(ctx, AV_LOG_DEBUG, "%s%s=%g", i ? ", " : "", a->argv[i].param, a->argv[i].value);
     av_log(ctx, AV_LOG_DEBUG, ")\n");
-    XTransition e = { .s = s, .ratio = (float)ctx->inputs[0]->w / ctx->inputs[0]->h };
-    k->xtransitionf(&e, true); // init params
 
     return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// install
+// configuration
 ////////////////////////////////////////////////////////////////////////////////
 
+// install
 static int config_xfade_easing(AVFilterContext *ctx)
 {
     xe_debug(ctx, "config_xfade_easing\n");
@@ -2061,7 +2089,8 @@ static int config_xfade_easing(AVFilterContext *ctx)
         return ret;
 
     k->duration = (float)s->duration / AV_TIME_BASE; // seconds
-    AVRational r = ctx->outputs[0]->frame_rate;
+    AVFilterLink *l = ctx->outputs[0];
+    AVRational r = l->frame_rate;
     k->framerate = (float)r.num / r.den;
     if (s->is_rgb) {
         k->black = VEC4(0, 0, 0, 1);
@@ -2071,6 +2100,9 @@ static int config_xfade_easing(AVFilterContext *ctx)
         k->white = VEC4(1, P5f, P5f, 1);
     };
     k->transparent = VEC4(P5f, P5f, P5f, 0); // transparent grey
+
+    XTransition e = { .s = s, .ratio = (float)l->w / l->h };
+    k->xtransitionf(&e, true); // init params & statics
 
     return 0;
 }
@@ -2088,15 +2120,14 @@ static void xe_data_free(XFadeEasingContext *k)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// external code
+// licensed code
 ////////////////////////////////////////////////////////////////////////////////
 
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
@@ -2115,7 +2146,6 @@ static void xe_data_free(XFadeEasingContext *k)
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 // This is refactored WebKit C++ code from UnitBezier.h; all I've done is shrink it and reduce precision to float
 // WebKit: https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/graphics/UnitBezier.h
 // called by https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/animation/TimingFunction.cpp
@@ -2124,7 +2154,6 @@ static void xe_data_free(XFadeEasingContext *k)
 // Gecko: https://github.com/mozilla/gecko-dev/blob/master/dom/smil/SMILKeySpline.cpp
 //        https://github.com/mozilla/gecko-dev/blob/master/servo/components/style/bezier.rs
 // good explanation at https://probablymarcus.com/blocks/2015/02/26/using-bezier-curves-as-easing-functions.html
-
 static float solve_cubic_bezier(float x1, float y1, float x2, float y2, float x, float epsilon)
 {
     float t, s, d;
@@ -2137,18 +2166,18 @@ static float solve_cubic_bezier(float x1, float y1, float x2, float y2, float x,
         d = (x2 < 1) ? (y2 - 1) / (x2 - 1) : (y2 == 1 && x1 < 1) ? (y1 - 1) / (x1 - 1) : (y2 == 1 && y1 == 1); // end
         return 1 + d * (x - 1);
     }
-    int i;
-    #define NB_SPLINE_SAMPLES 11
     // polynomial coefficients
     const float cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx,
                 cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    // find t, the parametric value x came from
+    int i;
+    // linear interpolation of spline curve for initial guess
+    #define NB_SPLINE_SAMPLES 11
     const float dt = 1.f / (NB_SPLINE_SAMPLES - 1); // delta
     float ss[NB_SPLINE_SAMPLES];
     for (i = 0; i < NB_SPLINE_SAMPLES; i++)
-        ss[i] = (t = i * dt, ((ax * t + bx) * t + cx) * t); // sampleCurveX (Horner’s scheme)
-    // find t, the parametric value x came from
+        ss[i] = (t = i * dt, fmaf(fmaf(ax, t, bx), t, cx) * t); // sampleCurveX (Horner’s scheme)
     float t0 = 0, t1 = 0;
-    // linear interpolation of spline curve for initial guess
     for (t = x, i = 1; i < NB_SPLINE_SAMPLES; i++) {
         if (x <= ss[i]) {
             t1 = dt * i, t0 = t1 - dt;
@@ -2159,26 +2188,133 @@ static float solve_cubic_bezier(float x1, float y1, float x2, float y2, float x,
     // a few iterations of Newton-Raphson method
     #define kMaxNewtonIterations 4
     const float kBezierEpsilon = 1e-7f;
-    float newtonEpsilon = fminf(kBezierEpsilon, epsilon);
+    const float newtonEpsilon = fminf(kBezierEpsilon, epsilon);
     for (i = 0; i < kMaxNewtonIterations; i++) {
-        s = ((ax * t + bx) * t + cx) * t - x; // sampleCurveX - x
+        s = fmaf(fmaf(fmaf(ax, t, bx), t, cx), t, -x); // sampleCurveX - x
         if (fabsf(s) < newtonEpsilon) goto end;
-        d = (3 * ax * t + 2 * bx) * t + cx; // sampleCurveDerivativeX
+        d = (d = ax * t, fmaf(d + d + d + bx + bx, t, cx)); // sampleCurveDerivativeX
         if (fabsf(d) < kBezierEpsilon) break;
         t -= s / d;
     }
     if (fabsf(s) < epsilon) goto end;
     // fall back to bisection method for reliability
     while (t0 < t1) {
-        s = ((ax * t + bx) * t + cx) * t; // sampleCurveX
+        s = fmaf(fmaf(ax, t, bx), t, cx) * t; // sampleCurveX
         if (fabsf(s - x) < epsilon) goto end;
         if (x > s) t0 = t; else t1 = t;
         t = (t1 + t0) / 2;
     }
     // failure
     end:
-    return ((ay * t + by) * t + cy) * t; // sampleCurveY
+    return fmaf(fmaf(ay, t, by), t, cy) * t; // sampleCurveY
 }
-
 // TODO: maybe add WebKit SpringSolver too ?
 // https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/graphics/SpringSolver.h
+
+/*
+Copyright (c) 2010 Hewlett-Packard Development Company, L.P. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+   * Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+     copyright notice, this list of conditions and the following disclaimer
+     in the documentation and/or other materials provided with the distribution.
+   * Neither the name of Hewlett-Packard nor the names of its
+     contributors may be used to endorse or promote products derived from
+     this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+// see https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html
+// TODO: add antiAlias() code
+static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bool reverseEffect)
+{
+    #define MIN_AMOUNT -0.16f
+    #define MAX_AMOUNT 1.5f
+    const float amount = (reverseEffect ? (1 - e->progress) : e->progress) * (MAX_AMOUNT - MIN_AMOUNT) + MIN_AMOUNT;
+    const float cylinderAngle = M_2PIf * amount;
+    const float cylinderRadius = radius;
+    const float ang = radians(angle);
+    vec2 o1 = { -0.801f, 0.89f }, o2 = { 0.985f, 0.985f }; // for 100 degrees
+    if (angle == 30) // values from WebVfx link
+        o1 = VEC2(0.12f, 0.258f), o2 = VEC2(0.15f, -0.5f); // from WebVfx link
+    vec2 point = add2(rot(e->p, ang), o1), p;
+    float yc = point.y - amount, hitAngle;
+    vec4 colour = reverseEffect ? e->b : e->a;
+    if (yc > cylinderRadius) // flat surface
+        return colour;
+    if (yc < -cylinderRadius) { // behind surface
+        // behindSurface()
+        yc = -cylinderRadius - cylinderRadius - yc;
+        hitAngle = acosf(yc / cylinderRadius) + cylinderAngle - M_PIf;
+        p = VEC2(point.x, hitAngle * M_1_2PIf);
+        point = add2(rot(p, -ang), o2);
+        colour = reverseEffect ? e->a : e->b;
+        if (yc < 0 && between2(point, 0, 1) && (hitAngle < M_PIf || amount > P5f)) { // shadow over to page
+            float shadow = (1 - length(sub2f(point, P5f)) * M_SQRT2f) * powf(-yc / cylinderRadius, 3) / 2;
+            colour.p0 -= shadow; // (can go -ve)
+            if (e->s->is_rgb)
+                colour.p1 -= shadow, colour.p2 -= shadow;
+        }
+        return colour;
+        // end behindSurface()
+    }
+    // seeThrough()
+    hitAngle = M_PIf - acosf(yc / cylinderRadius) + cylinderAngle;
+    if (yc < 0) { // get from colour going through its turn
+        p = VEC2(point.x, hitAngle * M_1_2PIf);
+        vec2 q = add2(rot(p, -ang), o2);
+        bool r = between2(q, 0, 1);
+        if (reverseEffect)
+            colour = r ? getToColor(q) : e->a;
+        else
+            colour = r ? getFromColor(q) : e->b;
+    }
+    // end seeThrough()
+    hitAngle = cylinderAngle + cylinderAngle - hitAngle;
+    float hitAngleMod = glmod(hitAngle, M_2PIf);
+    if ((hitAngleMod > M_PIf && amount < P5f) || (hitAngleMod > M_PI_2f && amount < 0))
+        return colour;
+    p = VEC2(point.x, hitAngle * M_1_2PIf);
+    point = add2(rot(p, -ang), o2);
+    // seeThroughWithShadow()
+    // distanceToEdge()
+    float dx = (point.x < 0) ? -point.x : (point.x > 1) ? point.x - 1 : (point.x > P5f) ? 1 - point.x : point.x;
+    float dy = (point.y < 0) ? -point.y : (point.y > 1) ? point.y - 1 : (point.y > P5f) ? 1 - point.y : point.y;
+    float dist = (betweenf(point.x, 0, 1) || betweenf(point.y, 0, 1)) ? fminf(dx, dy) : hypotf(dx, dy);
+    // end distanceToEdge()
+    float shadow = (1 - dist * 30) / 3;
+    if (shadow > 0) { // shadow over from page
+        shadow *= amount;
+        colour.p0 -= shadow;
+        if (e->s->is_rgb)
+            colour.p1 -= shadow, colour.p2 -= shadow;
+    }
+    // end seeThroughWithShadow()
+    if (!between2(point, 0, 1))
+        return colour;
+    // backside
+    colour = reverseEffect ? getToColor(point) : getFromColor(point);
+    float grey = colour.p0;
+    if (e->s->is_rgb)
+        grey = (grey + colour.p1 + colour.p2) / 3; // simple average
+    grey /= 5;
+    grey += 0.8f * (powf(1 - fabsf(yc / cylinderRadius), 0.2f) / 2 + P5f);
+    colour.p0 = grey;
+    if (!e->s->is_rgb)
+        grey = P5f;
+    colour.p1 = colour.p2 = grey;
+    return colour;
+}
