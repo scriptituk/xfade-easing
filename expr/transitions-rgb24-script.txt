@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 2.1.6
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 2.1.7
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Script transition expressions (rgb24) for filter_complex_script filterchains
@@ -803,8 +803,8 @@ if(gt(ld(3), 0),
 )
 
 GL_INVERTEDPAGECURL
+st(1, 0.159);
 st(0, (1 - ld(0)) * (1.5 - -0.16) + -0.16);
-st(1, 1 / 2 / PI);
 st(2, ld(0) / ld(1));
 st(3, X / W);
 st(4, 1 - Y / H);
@@ -1158,6 +1158,9 @@ if(between(ld(1), 0, 1) * between(ld(2), 0, 1),
  st(1, 0.15);
  if(eq(PLANE,3), 255, ld(1)*255)
 )
+
+GL_SIMPLEBOOKCURL
+NATIVE
 
 GL_SIMPLEPAGECURL
 NATIVE
