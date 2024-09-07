@@ -457,7 +457,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_GridFlip` [args: `size.x`,`size.y`,`pause`,`dividerWidth`,`randomness`,`bgBkWhTr`; default: `(4,4,0.1,0.05,0.1,0)`] (by: TimDonselaar)
 - `gl_heart` (by: gre)
 - `gl_hexagonalize` [args: `steps`,`horizontalHexagons`; default: `(50,20)`] (by: Fernando Kuteken)
-- `gl_InvertedPageCurl` [args: `angle`,`reverseEffect`; default: `(100,0)`] (by: Hewlett-Packard)
+- `gl_InvertedPageCurl` [args: `angle`,`radius`,`reverseEffect`; default: `(100,0.159,0)`] (by: Hewlett-Packard)
 - `gl_kaleidoscope` [args: `speed`,`angle`,`power`; default: `(1,1,1.5)`] (by: nwoeanhinnogaehr)
 - `gl_Mosaic` [args: `endx`,`endy`; default: `(2,-1)`] (by: Xaychru)
 - `gl_perlin` [args: `scale`,`smoothness`; default: `(4,0.01)`] (by: Rich Harris)
@@ -472,7 +472,8 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_RotateScaleVanish` [args: `fadeInSecond`,`reverseEffect`,`reverseRotation`,`bgBkWhTr`; default: `(1,0,0,0)`] (by: Mark Craig)
 - `gl_rotateTransition` (by: haiyoucuv)
 - `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backGray`; default: `(0.5,0.5,1,8,0.15)`] (by: Fernando Kuteken)
-- `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`opacity`,`shadow`; default: `(80,0.1,0,0,0.8,0.2)`] (by: Andrew Hung)
+- `gl_SimpleBookCurl` [args: `angle`,`radius`,`shadow`; default: `(150,0.1,0.2)`] (by: Raymond Luckhurst)
+- `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`greyback`,`opacity`,`shadow`; default: `(80,0.15,0,0,0,0.8,0.2)`] (by: Andrew Hung)
 - `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] (by: Mark Craig)
 - `gl_squareswire` [args: `squares.h`,`squares.v`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] (by: gre)
 - `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] (by: Ben Lucas)
@@ -554,30 +555,75 @@ e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`
 - `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay – see Dr Who example under [Transparency](#transparency)
 (I might add this feature to other transitions)
 - `gl_Exponential_Swish` option `blur` default was originally `0.5` but blurring makes it unacceptably slow
-- `gl_InvertedPageCurl` has two parameters:
-  - `angle` may be `100` (default) or `30` degrees from horizontal
-  - `reverseEffect` produces an uncurl effect (custom ffmpeg only)
-- `gl_SimplePageCurl` (custom ffmpeg only) is more versatile than `gl_InvertedPageCurl`:
-  - `angle` may be any 360° direction
+- `gl_InvertedPageCurl` takes 3 parameters:
+  - `angle` may be `100` (default) or `30` degrees from horizontal east
   - `radius` is the cylinder radius
-  - `roll` to roll instead of curl (`gl_InvertedPageCurl` only rolls)
-  - `reverseEffect` to uncurl or unroll
-  - `opacity` the underside opacity
-  - `shadow` the shadow intensity
-  - roll rendering option
+  - `reverseEffect` produces an uncurl effect (custom ffmpeg only)
 - several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
 but this implementation provides an additional `bgBkWhTr` parameter to control the background:
 `0`=black (default), `1`=white, `-1`=transparent
 
 *Example*: `gl_InvertedPageCurl` 30° with uncurl
 (useful for sheet music with repeats)  
-`-t 'gl_InvertedPageCurl(30,0)'` and `-t 'gl_InvertedPageCurl(30,1)'` concatenated
+`-t 'gl_InvertedPageCurl(30,0.15,0)'` and `-t 'gl_InvertedPageCurl(30,0.15,1)'` concatenated
 
 ![gl_InvertedPageCurl(30)](assets/flipchart.gif)
 
-*Example*: `gl_SimplePageCurl` with various options
+#### Curls and Rolls
+
+Transition `gl_InvertedPageCurl` is transpiled from the
+[InvertedPageCurl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/InvertedPageCurl.glsl)
+GL transition which originated from the
+[WebVfx WebGL pagecurl shader](https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html)
+which is itself based on code by [Calyptus Life AB](http://blog.calyptus.eu/) which seems no longer available.
+The Hewlett-Packard accreditation by Sergey Kosarevsky is obscure but maintained here.
+
+Transition `gl_SimplePageCurl` (custom ffmpeg only at present) is adapted from the elegant
+[simple page curl effect ](https://www.shadertoy.com/view/ls3cDB) by Andrew Hung
+who also provides an excellent [shader breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
+to demystify the deformation effect.  
+It is more versatile than `gl_InvertedPageCurl` and takes the following parameters:
+- `angle` may be any 360° angle
+  (horizontal east is 0°, curl direction is `angle - π/2` anticlockwise)
+- `radius` sets the cylinder radius
+- `roll` to roll the turning page into a cylinder (`gl_InvertedPageCurl` only rolls)
+- `reverseEffect` to uncurl or unroll
+- `greyback` to render underside greyscale instead of colour
+- `opacity` the underside opacity
+- `shadow` the shadow intensity
+
+The main differences from `gl_InvertedPageCurl` are:
+- curling in any direction, not just right-to-left at 30° or 100°
+- takes aspect ratio into account, ensuring accurate angle
+- can render back of turning page either rolling or just curled over
+- back of turning page in colour or greyscale with variable opacity
+- smaller default radius of 0.15, not 1/2π
+
+*Example*: using `gl_SimplePageCurl` to emulate `gl_InvertedPageCurl`  
+`-t 'gl_InvertedPageCurl(30)'` vs `-t 'gl_SimplePageCurl(24.8,0.159,1,0,1,0.8,0.1)'`  
+these parameters factor in the disregarded aspect ratio (5:4 here), 1/2π radius, roll effect, greyscale overleaf, and shadowing.
+
+![gl_PageCurl](assets/curl.gif)
+
+There is barely any noticeable difference,
+which confirms Mr Hung’s observation that complex mathematics is unjustified: scalar product projections and simple trigonometry are sufficient.
+
+*Example*: `gl_SimplePageCurl` with various `angle` and `roll` options
 
 ![gl_SimplePageCurl](assets/art.gif)
+
+Transition `gl_SimpleBookCurl` (custom ffmpeg only) is adapted from `gl_SimplePageCurl` to clamp the curl to the ‘spine’ at the horizontal centre of the book.
+It takes the following parameters:
+- `angle` may be any 360° angle
+  (horizontal east is 0°, curl direction is `angle - π/2` anticlockwise);
+  in effect, angles from 180° to 359° (or -1° to -180°) page backwards
+- `radius` sets the cylinder radius
+- `shadow` the shadow intensity
+
+*Example*: `gl_SimpleBookCurl` with various `angle` and `radius` values paging forwards and backwards, overlaid onto a desk texture
+(credit: [Ethical Corporation Magazine](https://1.reutersevents.com/LP=36432))
+
+![gl_SimpleBookCurl](assets/journal.gif)
 
 #### Porting
 
@@ -740,7 +786,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 2.1.6 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 2.1.7 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
@@ -947,11 +993,11 @@ a GL transition with arguments and cubic-bezier easing, running at 30fps for 7 s
 - [CSS Easing Functions Level 2](https://drafts.csswg.org/css-easing-2/) W3C Editor’s Draft
 - [GL Transitions homepage](https://gl-transitions.com) and [Gallery](https://gl-transitions.com/gallery) and [Editor](https://gl-transitions.com/editor)
 - [GL Transitions repository](https://github.com/gl-transitions/gl-transitions) on GitHub
-- [GLSL Data Types](https://www.khronos.org/opengl/wiki/Data_Type_(GLSL)) and [OpenGL Reference Pages](https://registry.khronos.org/OpenGL-Refpages/gl4/)
+- [OpenGL Reference Pages](https://registry.khronos.org/OpenGL-Refpages/gl4/) and [GLSL Data Types](https://www.khronos.org/opengl/wiki/Data_Type_(GLSL))
 - [GLSL Vector and Matrix Operations](https://en.wikibooks.org/wiki/GLSL_Programming/Vector_and_Matrix_Operations) GLSL specific built-in data types and functions
 - [The Book of Shaders](https://thebookofshaders.com/) a guide through the universe of Fragment Shaders
 - [Shadertoy mrmcsoftware](https://www.shadertoy.com/view/NdGfzG) GLSL video transitions by Mark Craig
-- [Shadertoy laserdog](https://www.shadertoy.com/view/ls3cDB) GLSL simple page curl transitions by Andrew Hung [breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
+- [Shadertoy laserdog](https://www.shadertoy.com/view/ls3cDB) GLSL simple page curl transitions by Andrew Hung; his [breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
 - [libavfilter/vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) xfade source code
 - [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c) expr source code
 - [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) Node.js package, concats videos with GL Transitions

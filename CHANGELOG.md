@@ -4,11 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.7] - 2024-09-05
+
+### Added
+
+- `gl_SimpleBookCurl` transition by Raymond Luckhurst:
+  - 360° curl in any direction to simulate page-forward and page-back
+  - variable cylinder radius
+  - variable shadow intensity
+- `gl_SimplePageCurl` option `greyback` to render overleaf greyscale instead of colour
+- section [Curls and Rolls](README.md#curls-and-rolls) in README
+
+### Fixed
+
+- `gl_SimplePageCurl` roll rendering radius not diameter
+
+### Changed
+
+- improved performance of C version by initialising transition vars during config
+
 ## [2.1.6] - 2024-08-25
 
 ### Added
 
-- gl_SimplePageCurl transition by Andrew Hung greatly altered:
+- `gl_SimplePageCurl` transition by Andrew Hung greatly altered:
   - 360° curl in any direction
   - variable cylinder radius
   - roll rendering option
