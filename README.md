@@ -259,8 +259,11 @@ ffmpeg -i gallifrey.png -i alpha.mkv -filter_complex '[0]scale=250:-2[b]; [b][1]
 
 ![alpha](assets/alpha.gif)
 
-This demonstrates the additional `trkMat` option which tracks the Tardis alpha value to expose Skaro behind then Gallifrey’s Citadel when the transition ends, both planets being opaque images.  
+This demonstrates the additional `trkMat` option which tracks the Tardis alpha value to expose Skaro behind,
+then Gallifrey’s Citadel when the transition ends, both planets being opaque images.  
 (trkMat is only availble in the custom ffmpeg variant)
+
+See also the example under [Transition `gl_SimpleBookCurl`](#transition-gl_simplebookcurl).
 
 ## Easing expressions
 
@@ -571,14 +574,20 @@ but this implementation provides an additional `bgBkWhTr` parameter to control t
 
 #### Curls and Rolls
 
-Transition `gl_InvertedPageCurl` is transpiled from the
+##### Transition `gl_InvertedPageCurl`
+
+This is transpiled from the
 [InvertedPageCurl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/InvertedPageCurl.glsl)
 GL transition which originated from the
 [WebVfx WebGL pagecurl shader](https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html)
 which is itself based on code by [Calyptus Life AB](http://blog.calyptus.eu/) which seems no longer available.
 The Hewlett-Packard accreditation by Sergey Kosarevsky is obscure but maintained here.
 
-Transition `gl_SimplePageCurl` (custom ffmpeg only at present) is adapted from the elegant
+##### Transition `gl_SimplePageCurl`
+
+(custom ffmpeg only at present)
+
+This is adapted from the elegant
 [simple page curl effect ](https://www.shadertoy.com/view/ls3cDB) by Andrew Hung
 who also provides an excellent [shader breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
 to demystify the deformation effect.  
@@ -588,7 +597,7 @@ It is more versatile than `gl_InvertedPageCurl` and takes the following paramete
 - `radius` sets the cylinder radius
 - `roll` to roll the turning page into a cylinder (`gl_InvertedPageCurl` only rolls)
 - `reverseEffect` to uncurl or unroll
-- `greyback` to render underside greyscale instead of colour
+- `greyback` to render overleaf greyscale instead of colour
 - `opacity` the underside opacity
 - `shadow` the shadow intensity
 
@@ -596,7 +605,7 @@ The main differences from `gl_InvertedPageCurl` are:
 - curling in any direction, not just right-to-left at 30° or 100°
 - takes aspect ratio into account, ensuring accurate angle
 - can render back of turning page either rolling or just curled over
-- back of turning page in colour or greyscale with variable opacity
+- back of turning page rendered in colour or greyscale with variable opacity
 - smaller default radius of 0.15, not 1/2π
 
 *Example*: using `gl_SimplePageCurl` to emulate `gl_InvertedPageCurl`  
@@ -609,10 +618,16 @@ There is barely any noticeable difference,
 which confirms Mr Hung’s observation that complex mathematics is unjustified: scalar product projections and simple trigonometry are sufficient.
 
 *Example*: `gl_SimplePageCurl` with various `angle` and `roll` options
+(abstract and Renaissance art by Kandinsky and Titian)
 
 ![gl_SimplePageCurl](assets/art.gif)
 
-Transition `gl_SimpleBookCurl` (custom ffmpeg only) is adapted from `gl_SimplePageCurl` to clamp the curl to the ‘spine’ at the horizontal centre of the book.
+##### Transition `gl_SimpleBookCurl`
+
+(custom ffmpeg only)
+
+This is adapted from `gl_SimplePageCurl` to clamp the curl to the virtual ‘spine’ at the horizontal centre,
+then to flatten the radius to zero, using built-in easing to appear more realistic.  
 It takes the following parameters:
 - `angle` may be any 360° angle
   (horizontal east is 0°, curl direction is `angle - π/2` anticlockwise);
