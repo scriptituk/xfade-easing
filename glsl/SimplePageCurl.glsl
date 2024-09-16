@@ -36,13 +36,13 @@ vec4 transition (vec2 uv) {
 
     // map point to curl
     vec4 a = getFromColor(uv), b = getToColor(uv), c = uncurl ? a : b;
-    bool r = false, o = false, s = false; // roll & opacity & shadow flags
+    bool r = false, o = false, s = false; // reverse-side & opacity & shadow flags
     if (dist < 0.) { // point is over flat or rolling A
         c = uncurl ? b : a;
         if (!roll) {
             p += dir * (M_PI * radius - dist) + .5;
             r = true;
-        } else if (-dist < radius) {
+        } else if (-dist < radius) { // possibly on roll over
             phi = asin(-dist / radius);
             p += dir * (M_PI + phi) * radius + .5;
             r = true;
