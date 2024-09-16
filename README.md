@@ -1,5 +1,7 @@
 # Easing and extensions for FFmpeg Xfade filter
+
 ### Standard easings &bull; CSS easings &bull; transpiled GLSL transitions &bull; custom expressions 
+
 ## Summary
 
 This project is a port of standard easing equations, CSS easings and many [GLSL transitions](#glsl-transitions) for use in tandem with easing or alone.
@@ -8,11 +10,12 @@ The easing expressions can be used for other filters besides xfade.
 <img src="assets/xfade-easing.gif" alt="Summary" align="right">
 
 There are 2 variants:
-1. **custom ffmpeg** build with added xfade `easing` option
+1. **custom ffmpeg** build with xfade `easing` and `reverse` options
 2. **custom expressions** for use with standard ffmpeg build
 
-Xfade is a FFmpeg video transition filter with many built-in transitions and an expression evaluator for custom effects.
-But the progress rate is linear. starting and stopping abruptly and proceeding at constant speed, so transitions lack interest.
+Xfade is a FFmpeg video transition filter with many built-in transitions and an expression evaluator for custom transitions.
+However the progress rate is linear, starting and stopping abruptly and proceeding at constant speed,
+therefore transitions lack interest.
 Easing inserts a progress envelope to smooth transitions in a natural way.
 
 Example usage:
@@ -21,9 +24,9 @@ set the new `easing` option to the easing name, with optional CSS-easing argumen
 and the `transition` option to the transition name, with optional customisation arguments.  
 *Example* (quartic-out,radial):  
 `xfade=duration=3:offset=10:easing=quartic-out:transition=radial`  
-*Example* (CSS,GL):  
+*Example* (CSS,GL,reversed):  
 `xfade=duration=3:offset=10:easing='cubic-bezier(0.12,0.57,0.63,0.21)'`  
-`:transition='gl_cube(floating=5,unzoom=0.8)'`  
+`:transition='gl_cube(floating=5,unzoom=0.8)':reverse=1`  
 * **custom expression**:
 set the xfade `transition` option to `custom` and the `expr` option to the concatenation of a standard easing expression and a transition expression
 (this variant does not support CSS easings).  
@@ -40,14 +43,11 @@ Installation involves a [few patches](https://htmlpreview.github.io/?https://git
 The **custom expression** variant is convenient but clunky
 – see [Performance](#custom-expression-performance) –
 and runs on plain vanilla ffmpeg but with restrictions:
-it doesn’t support CSS easing and certain transitions.
+it doesn’t support CSS easings, certain transitions, or the [reverse](#reversing-xfade-effects) feature.
 
 At present extended transitions are limited to ported GLSL transitions but more effects may be added downstream.
 
-> [!NOTE]
-> Coming sometime…
-> - multiple easings/transitions interspersed in input file list of CLI script, for batch processing sequences of transition effects  
-> - audio support
+---
 
 ## Example
 
@@ -125,6 +125,8 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex scr
 > - for ffmpeg version 7+ use `-/filter_complex filename`
 > - for earlier versions use `-filter_complex_script filename`
 
+---
+
 ## Custom FFmpeg
 
 ### Building ffmpeg
@@ -137,14 +139,15 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex scr
      `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
 1. `cd ffmpeg` and patch libavfilter/vf_xfade.c:
    - download [vf_xfade.patch](src/vf_xfade.patch) and run `git apply vf_xfade.patch`  
-   - or download [vf_xfade.c](src/vf_xfade.c) and if necessary patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 7 small changes  
+   - or download [vf_xfade.c](src/vf_xfade.c) and if necessary patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 9 small changes  
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
    to replicate an existing configuration run `ffmpeg -hide_banner -buildconf`
 1. run `make`, it takes a while  
+the C99 code mixes declarations and statements so may produce profuse compiler warnings  
 the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/questions/51314888/ld-warning-text-based-stub-file-are-out-of-sync-falling-back-to-library-file)
 1. if required run `make install` or use ffmpeg in the root source directory
-1. test using `ffmpeg -hide_banner --help filter=xfade`: there should be an `easing` option under `xfade AVOptions`
+1. test using `ffmpeg -hide_banner --help filter=xfade`: there should be `easing` and `reverse` options under `xfade AVOptions`
 
 For simplicity, xfade-easing is implemented as static functions in the header file [xfade-easing.h](src/xfade-easing.h) and included into vf_xfade.c at an optimal place.
 As those functions have no external linkage and completely implement an interface that is only visible to the vf_xfade.c compilation unit, this approach is justified IMO, even if unusual, and obviates changing the Makefile. Implementation within header files is not uncommon.
@@ -153,6 +156,8 @@ As those functions have no external linkage and completely implement an interfac
 
 The custom FFmpeg version has been built and tested on Mac with Clang and Ubuntu Linux with GCC, not Windows.
 It uses C99 features so expect some warnings.
+
+---
 
 ## Custom expressions
 
@@ -231,41 +236,9 @@ ld(7) * (1 - ld(3)) + B * ld(3)
 
 These ease `ld(0)` instead od `P` - see [Easing other filters](#easing-other-filters).
 
-### Pixel format
+---
 
-Transitions that affect colour components work differently for RGB than non-RGB colour spaces and for different bit depths.
-For the custom expression variant, [xfade-easing.sh](#cli-script) emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing the RGB signal type `AV_PIX_FMT_FLAG_RGB` from the `-f` option format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and the bit depth from `ffmpeg -pix_fmts` data.
-It can then set the black, white and mid plane values correctly.
-See [How does FFmpeg identify color spaces?](https://trac.ffmpeg.org/wiki/colorspace#HowdoesFFmpegidentifycolorspaces) for details.
-
-The expression files in [expr/](expr) cater for RGB and YUV formats with 8-bit component depth.
-For faster processing of greyscale media use `xfade-easing.sh -f gray`.
-Greyscale is not RGB therefore it is processed as a luma plane.
-
-If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-script) `-f` option.
-
-### Transparency
-
-The expression files in [expr/](expr) also cater for RGBA and YUVA formats with 4 planes.
-
-For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-f -v ` options with an alpha format, e.g. `rgba`/`yuva420p`, and .mkv filename extension.
-For lossy video with alpha use an alpha format and the .webm extension.
-
-*Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
-```bash
-xfade-easing.sh -f rgba -e quadratic-in -t 'gl_RotateScaleVanish(FadeInSecond=0,ReverseEffect=1,trkMat=1)' -v alpha.mkv -z 250x skaro.png tardis.png
-ffmpeg -i gallifrey.png -i alpha.mkv -filter_complex '[0]scale=250:-2[b]; [b][1]overlay' drwho.mp4
-```
-
-![alpha](assets/alpha.gif)
-
-This demonstrates the additional `trkMat` option which tracks the Tardis alpha value to expose Skaro behind,
-then Gallifrey’s Citadel when the transition ends, both planets being opaque images.  
-(trkMat is only availble in the custom ffmpeg variant)
-
-See also the example under [Transition `gl_SimpleBookCurl`](#transition-gl_simplebookcurl).
-
-## Easing expressions
+## Easing
 
 ### Standard easings (Robert Penner)
 
@@ -331,6 +304,11 @@ documented at [W3C here](https://drafts.csswg.org/css-easing-2/#step-easing-func
 
 ![step easing](assets/css-steps.gif)
 
+#### Reversed CSS easing
+
+Standard easings have ease-in and ease-out modes but not CSS easings.
+See [Reversing xfade effects](#reversing-xfade-effects) to achieve this with the custom ffmpeg build.
+
 ### Overshoots
 
 The `elastic` and `back` easings overshoot and undershoot, causing many transitions to clip and others to show colour distortion.
@@ -389,7 +367,9 @@ y='st(0, clip((t - 1) / 3, 0, 1));
    lerp(line_h + 3, h - line_h * 2 + 5, ld(0))'
 ```
 
-## Transition expressions
+---
+
+## Transitions
 
 ### Xfade transitions
 
@@ -474,7 +454,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_Rolls` [args: `type`,`rotDown`; default: `(0,0)`] (by: Mark Craig)
 - `gl_RotateScaleVanish` [args: `fadeInSecond`,`reverseEffect`,`reverseRotation`,`bgBkWhTr`; default: `(1,0,0,0)`] (by: Mark Craig)
 - `gl_rotateTransition` (by: haiyoucuv)
-- `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backGray`; default: `(0.5,0.5,1,8,0.15)`] (by: Fernando Kuteken)
+- `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backColor`; default: `(0.5,0.5,1,8,0.15)`] (by: Fernando Kuteken)
 - `gl_SimpleBookCurl` [args: `angle`,`radius`,`shadow`; default: `(150,0.1,0.2)`] (by: Raymond Luckhurst)
 - `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`greyback`,`opacity`,`shadow`; default: `(80,0.15,0,0,0,0.8,0.2)`] (by: Andrew Hung)
 - `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] (by: Mark Craig)
@@ -491,8 +471,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
 Here are the ported GLSL transitions with default parameters and no easing –
-see also the [GL Transitions Gallery](https://gl-transitions.com/gallery) (which lacks many recent contributor transitions)
-and [38+ Video Transitions](https://www.shadertoy.com/view/NdGfzG) by Mark Craig:
+see also the [GL Transitions Gallery](https://gl-transitions.com/gallery) (which lacks many recent contributor transitions):
 
 ![GL gallery](assets/gl-gallery.gif)
 
@@ -509,7 +488,7 @@ GLSL transitions can also be eased, although easing is integral with some:
 Many GLSL transitions accept parameters to customise the transition effect.
 The parameters and default values are shown [above](#glsl-transitions).
 
-*Example*: two pinwheel speeds: `-t 'gl_pinwheel(0.5)'` and `-t 'gl_pinwheel(10)'`
+*Example*: two pinwheel speeds: `'gl_pinwheel(0.5)'` and `'gl_pinwheel(10)'`
 
 ![gl_pinwheel(10)](assets/gl_pinwheel_10.gif)
 
@@ -543,102 +522,29 @@ st(4, hypot(ld(2), ld(3)));
 etc.
 ```
 
-#### Colour parameters
-
-Colour values follow ffmpeg rules at [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)
-(custom ffmpeg variant only),  
-e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`
-
 #### Altered GL Transitions
 
 - `gl_angular` has an additional `clockwise` parameter
 - `gl_Bounce` has an additional `direction` parameter to control bounce direction:
 `0`=south, `1`=west, `2`=north, `3`=east
 - `gl_BowTie` combines `BowTieHorizontal` and `BowTieVertical` using parameter `vertical`
-- `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay – see Dr Who example under [Transparency](#transparency)
-(I might add this feature to other transitions)
 - `gl_Exponential_Swish` option `blur` default was originally `0.5` but blurring makes it unacceptably slow
-- `gl_InvertedPageCurl` takes 3 parameters:
+- `gl_InvertedPageCurl` omits anti-aliased edges and takes 3 parameters:
   - `angle` may be `100` (default) or `30` degrees from horizontal east
   - `radius` is the cylinder radius
   - `reverseEffect` produces an uncurl effect (custom ffmpeg only)
+- `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay – see Dr Who example under [Transparency](#transparency)
+(I might add this feature to other transitions)
+- `gl_rotate_scale_fade` option `backColor` is restricted to greyscale for the custom expression variant
 - several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
 but this implementation provides an additional `bgBkWhTr` parameter to control the background:
 `0`=black (default), `1`=white, `-1`=transparent
 
 *Example*: `gl_InvertedPageCurl` 30° with uncurl
 (useful for sheet music with repeats)  
-`-t 'gl_InvertedPageCurl(30,0.15,0)'` and `-t 'gl_InvertedPageCurl(30,0.15,1)'` concatenated
+`'gl_InvertedPageCurl(30,0.15,0)'` and `'gl_InvertedPageCurl(30,0.15,1)'` concatenated
 
 ![gl_InvertedPageCurl(30)](assets/flipchart.gif)
-
-#### Curls and Rolls
-
-##### Transition `gl_InvertedPageCurl`
-
-This is transpiled from the
-[InvertedPageCurl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/InvertedPageCurl.glsl)
-GL transition which originated from the
-[WebVfx WebGL pagecurl shader](https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html)
-which is itself based on code by [Calyptus Life AB](http://blog.calyptus.eu/) which seems no longer available.
-The Hewlett-Packard accreditation by Sergey Kosarevsky is obscure but maintained here.
-
-##### Transition `gl_SimplePageCurl`
-
-(custom ffmpeg only at present)
-
-This is adapted from the elegant
-[simple page curl effect ](https://www.shadertoy.com/view/ls3cDB) by Andrew Hung
-who also provides an excellent [shader breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
-to demystify the deformation effect.  
-It is more versatile than `gl_InvertedPageCurl` and takes the following parameters:
-- `angle` may be any 360° angle
-  (horizontal east is 0°, curl direction is `angle - π/2` anticlockwise)
-- `radius` sets the cylinder radius
-- `roll` to roll the turning page into a cylinder (`gl_InvertedPageCurl` only rolls)
-- `reverseEffect` to uncurl or unroll
-- `greyback` to render overleaf greyscale instead of colour
-- `opacity` the underside opacity
-- `shadow` the shadow intensity
-
-The main differences from `gl_InvertedPageCurl` are:
-- curling in any direction, not just right-to-left at 30° or 100°
-- takes aspect ratio into account, ensuring accurate angle
-- can render back of turning page either rolling or just curled over
-- back of turning page rendered in colour or greyscale with variable opacity
-- smaller default radius of 0.15, not 1/2π
-
-*Example*: using `gl_SimplePageCurl` to emulate `gl_InvertedPageCurl`  
-`-t 'gl_InvertedPageCurl(30)'` vs `-t 'gl_SimplePageCurl(24.8,0.159,1,0,1,0.8,0.1)'`  
-these parameters factor in the disregarded aspect ratio (5:4 here), 1/2π radius, roll effect, greyscale overleaf, and shadowing.
-
-![gl_PageCurl](assets/curl.gif)
-
-There is barely any noticeable difference,
-which confirms Mr Hung’s observation that complex mathematics is unjustified: scalar product projections and simple trigonometry are sufficient.
-
-*Example*: `gl_SimplePageCurl` with various `angle` and `roll` options
-(abstract and Renaissance art by Kandinsky and Titian)
-
-![gl_SimplePageCurl](assets/art.gif)
-
-##### Transition `gl_SimpleBookCurl`
-
-(custom ffmpeg only)
-
-This is adapted from `gl_SimplePageCurl` to clamp the curl to the virtual ‘spine’ at the horizontal centre,
-then to flatten the radius to zero, using built-in easing to appear more realistic.  
-It takes the following parameters:
-- `angle` may be any 360° angle
-  (horizontal east is 0°, curl direction is `angle - π/2` anticlockwise);
-  in effect, angles from 180° to 359° (or -1° to -180°) page backwards
-- `radius` sets the cylinder radius
-- `shadow` the shadow intensity
-
-*Example*: `gl_SimpleBookCurl` with various `angle` and `radius` values paging forwards and backwards, overlaid onto a desk texture
-(credit: [Ethical Corporation Magazine](https://1.reutersevents.com/LP=36432))
-
-![gl_SimpleBookCurl](assets/journal.gif)
 
 #### Porting
 
@@ -718,6 +624,121 @@ typedef struct { // modelled on GL Transition Specification v1
 } XTransition;
 ```
 
+### Curls and Rolls
+
+##### Transition `gl_InvertedPageCurl`
+
+This is transpiled from the
+[InvertedPageCurl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/InvertedPageCurl.glsl)
+GL transition which originated from the
+[WebVfx WebGL pagecurl shader](https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html)
+which is itself based on code by [Calyptus Life AB](http://blog.calyptus.eu/) which seems no longer available.
+The Hewlett-Packard accreditation by Sergey Kosarevsky is obscure but preserved here.
+
+##### Transition `gl_SimplePageCurl`
+
+(custom ffmpeg only at present)
+
+This is adapted from the elegant
+[simple page curl effect ](https://www.shadertoy.com/view/ls3cDB) by Andrew Hung
+who also provides an excellent [shader breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
+to demystify the deformation effect.  
+It is more versatile than `gl_InvertedPageCurl` and takes the following parameters:
+- `angle` may be any 360° angle
+  (horizontal east is 0°, curl direction is `angle - 90°` anticlockwise)
+- `radius` sets the cylinder radius
+- `roll` to roll the turning page into a cylinder (`gl_InvertedPageCurl` only rolls)
+- `reverseEffect` to uncurl or unroll
+- `greyback` to render overleaf greyscale instead of colour
+- `opacity` the underside opacity
+- `shadow` the shadow intensity
+
+The main differences from `gl_InvertedPageCurl` are:
+- curling in any direction, not just right-to-left at 30° or 100°
+- takes aspect ratio into account, ensuring accurate angle
+- can render back of turning page either rolling or just curled over
+- back of turning page rendered in colour or greyscale with variable opacity
+- smaller default radius of 0.15, not 1/2π
+
+*Example*: using `gl_SimplePageCurl` to emulate `gl_InvertedPageCurl`  
+`'gl_InvertedPageCurl(30)'` vs `'gl_SimplePageCurl(24.8,0.159,1,0,1,0.8,0.1)'`  
+these parameters factor in the disregarded aspect ratio (5:4 here), 1/2π radius, roll effect, greyscale overleaf, and shadowing.
+
+![gl_PageCurl](assets/curl.gif)
+
+There is barely any noticeable difference,
+which confirms Mr Hung’s observation that complex mathematics is unjustified: scalar product projections and simple trigonometry are sufficient.
+
+*Example*: `gl_SimplePageCurl` with various `angle` and `roll` options
+(Abstract and Renaissance art by Kandinsky and Titian)
+
+![gl_SimplePageCurl](assets/art.gif)
+
+##### Transition `gl_SimpleBookCurl`
+
+(custom ffmpeg only)
+
+This is adapted from `gl_SimplePageCurl` to clamp the curl to the virtual ‘spine’ at the horizontal centre,
+then to flatten the radius to zero, using built-in easing to appear more realistic.  
+It takes the following parameters:
+- `angle` may be any 360° angle
+  (horizontal east is 0°, curl direction is `angle - π/2` anticlockwise);
+  in effect, angles from 180° to 359° (or -1° to -180°) page backwards
+- `radius` sets the cylinder radius
+- `shadow` the shadow intensity
+
+*Example*: `gl_SimpleBookCurl` with various `angle` and `radius` values paging forwards and backwards, rotated and overlaid onto a desk texture
+(credit: [Ethical Corporation Magazine](https://1.reutersevents.com/LP=36432))
+
+![gl_SimpleBookCurl](assets/journal.gif)
+
+### Pixel format
+
+Transitions that affect colour components work differently for RGB than non-RGB colour spaces and for different bit depths.
+For the custom expression variant, [xfade-easing.sh](#cli-script) emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing the RGB signal type `AV_PIX_FMT_FLAG_RGB` from the `-f` option format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and the bit depth from `ffmpeg -pix_fmts` data.
+It can then set the black, white and mid plane values correctly.
+See [How does FFmpeg identify color spaces?](https://trac.ffmpeg.org/wiki/colorspace#HowdoesFFmpegidentifycolorspaces) for details.
+
+The expression files in [expr/](expr) cater for RGB and YUV formats with 8-bit component depth.
+For faster processing of greyscale media use `xfade-easing.sh -f gray`.
+Greyscale is not RGB therefore it is processed as a luma plane.
+
+If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-script) `-f` option.
+
+### Transparency
+
+The expression files in [expr/](expr) also cater for RGBA and YUVA formats with 4 planes.
+
+For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-f -v ` options with an alpha format, e.g. `rgba`/`yuva420p`, and .mkv filename extension.
+For lossy video with alpha use an alpha format and the .webm extension.
+
+*Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
+```bash
+xfade-easing.sh -f rgba -e quadratic-in -t 'gl_RotateScaleVanish(FadeInSecond=0,ReverseEffect=1,trkMat=1)' -v alpha.mkv -z 250x skaro.png tardis.png
+ffmpeg -i gallifrey.png -i alpha.mkv -filter_complex '[0]scale=250:-2[b]; [b][1]overlay' drwho.mp4
+```
+
+![alpha](assets/alpha.gif)
+
+This demonstrates the additional `trkMat` option which tracks the Tardis alpha value to expose Skaro behind,
+then Gallifrey’s Citadel when the transition ends, both planets being opaque images.  
+(trkMat is only availble in the custom ffmpeg variant)
+
+See also the example under [Transition `gl_SimpleBookCurl`](#transition-gl_simplebookcurl).
+
+### Colour parameters
+
+For the custom expression variant,
+colour values are specified as a decimal proportion of maximum and rendered as greyscale.  
+e.g. `gl_rotate_scale_fade(backColor=0.75)`
+
+For the custom ffmpeg variant,
+decimal values from 0 to 1 are interpreted as greyscale, as above,
+but colour values may also be specified in the ffmpeg syntax at
+[Color](https://ffmpeg.org/ffmpeg-utils.html#Color),  
+e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`  
+This is not entirely satisfactory because a value of 1, no matter how specified, is rendered white but 2 is nearly black.
+
 ### Custom expression performance
 
 FFmpeg `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in libavutil/eval.c.
@@ -791,6 +812,37 @@ Other faster ways to use GL Transitions with FFmpeg are:
 - [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which requires installation and a lot of temporary storage
 - [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) is a native FFmpeg filter which requires building ffmpeg from source
 
+---
+
+## Reversing xfade effects
+
+(custom ffmpeg only)
+
+This is a generic xfade `reverse` option that has been added to reverse transition and/or easing effects.
+It takes a single digit:
+
+- `0` no reverse (default)  
+- `1` swap the inputs and reverse the transition effect  
+- `2` reverse the easing effect  
+- `3` swap the inputs and reverse the transition and easing effects  
+
+It is necessary to swap the inputs during the reversed transition to match the inputs before and after the transition,
+i.e. during the `offset` time and after the `offset`+`duration` time.
+This is tricky but not impossible to implement in the [xfade-easing.sh](#cli-script) script for custom expressions.
+The script has a `-b` option to pass reverse values through to xfade for the custom ffmpeg variant.
+
+Most standard xfade transitions have reversed equivalents, e.g. `wipeleft` and `wiperight` but few GLSL transitions have.
+Unlike standard easings, CSS easings also have no mirror-image reversal mode.
+
+*Example*: using the same CSS Cubic Bézier coefficients [as above](#cubic-bézier-easing)  
+easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'` transition: `gl_FanUp` reverse: `0`–`3`
+
+![reverse effect](assets/reverse.gif)
+
+There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
+
+---
+
 ## CLI script
 
 [xfade-easing.sh](src/xfade-easing.sh) is a Bash 4 shell wrapper for ffmpeg. It can:
@@ -801,7 +853,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 2.1.7 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.0.0 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
@@ -809,10 +861,12 @@ Usage: xfade-easing.sh [options] [image/video inputs]
 Options:
     -f pixel format (default: rgb24): use ffmpeg -pix_fmts for list
     -t transition name and arguments, if any (default: fade); use -L for list
-       args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)'
+       args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)' (both variants)
        or key=value pairs, e.g.: 'gl_perlin(smoothness=0.1, scale=5)' (custom ffmpeg only)
     -e easing function and arguments, if any (default: linear)
        CSS args in parenthesis as CSV, e.g.: 'cubic-bezier(0.17,0.67,0.83,0.67)'
+    -b reverse transition and/or easing effect (custom ffmpeg only) (default: 0)
+       1 reverses the inputs and transition effect; 2 reverses the easing; 3 reverses both
     -x expr output filename (default: no expr), accepts expansions, - for stdout
     -a append to expr output file
     -s expr output format string with text expansion (default: '%x')
@@ -823,12 +877,12 @@ Options:
        %c expands to the CSS easing arguments
        %a expands to the GL transition arguments; %A to the default arguments (if any)
        %x expands to the generated expr, condensed, intended for inline filterchains
-       %X uncondensed version of %x, intended for -filter_complex_script files
+       %X uncondensed version of %x, intended for -/filter_complex script files
        %p expands to the progress easing expression, condensed, for inline filterchains
        %g expands to the generic easing expression (for other filters), condensed
        %z expands to the eased transition expression only, condensed
           for the uneased transition expression only, omit -e option and use %x or %X
-       %P, %G, %Z, uncondensed versions of %p, %g, %z, for -filter_complex_script files
+       %P, %G, %Z, uncondensed versions of %p, %g, %z, for -/filter_complex script files
        %n inserts a newline
     -p easing plot filename (default: no plot), accepts expansions
        formats: gif, jpg, png, svg, pdf, eps, html <canvas>, from file extension
@@ -997,6 +1051,8 @@ a 3s page curl effect, static for 2s, with cubic-in easing using greyscale forma
 - `xfade-easing.sh -t 'gl_PolkaDotsCurtain(10,0.5,0)' -e 'cubic-bezier(0.4,1.2,0.6,-1.1)' -v life.mp4 -l 7 -d 5 -z 500x -f yuv420p -r 30 balloons.png fruits.png`
 a GL transition with arguments and cubic-bezier easing, running at 30fps for 7 seconds, processing in YUV (Y'CbCr) colour space throughout  
 ![gl_PolkaDotsCurtain quadratic ](assets/life.gif)
+
+---
 
 ## See also
 
