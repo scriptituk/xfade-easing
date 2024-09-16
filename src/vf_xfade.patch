@@ -1,19 +1,20 @@
 diff --git a/libavfilter/vf_xfade-dist.c b/libavfilter/vf_xfade.c
-index f61c708..c5bf06c 100644
+index f61c708..64b785e 100644
 --- a/libavfilter/vf_xfade-dist.c
 +++ b/libavfilter/vf_xfade.c
-@@ -127,6 +127,10 @@ typedef struct XFadeContext {
+@@ -127,6 +127,11 @@ typedef struct XFadeContext {
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);
  
 +    char *easing_str; // easing name with optional args
 +    char *transition_str; // transition name with optional args
++    int reverse; // reverse option bit flags (enum ReverseOpts)
 +    struct XFadeEasingContext *k; // xfade-easing data
 +
      AVExpr *e;
  } XFadeContext;
  
-@@ -158,18 +162,21 @@ static const enum AVPixelFormat pix_fmts[] = {
+@@ -158,18 +163,22 @@ static const enum AVPixelFormat pix_fmts[] = {
      AV_PIX_FMT_NONE
  };
  
@@ -32,20 +33,26 @@ index f61c708..c5bf06c 100644
  static const AVOption xfade_options[] = {
 -    { "transition", "set cross fade transition", OFFSET(transition), AV_OPT_TYPE_INT, {.i64=FADE}, -1, NB_TRANSITIONS-1, FLAGS, .unit = "transition" },
 +    { "easing", "set cross fade easing", OFFSET(easing_str), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, FLAGS },
++    { "reverse", "reverse easing/transition", OFFSET(reverse), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 3, FLAGS },
 +    { "transition", "set cross fade transition", OFFSET(transition_str), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, FLAGS, .unit = "transition" },
      {   "custom",    "custom transition",     0, AV_OPT_TYPE_CONST, {.i64=CUSTOM},    0, 0, FLAGS, .unit = "transition" },
      {   "fade",      "fade transition",       0, AV_OPT_TYPE_CONST, {.i64=FADE},      0, 0, FLAGS, .unit = "transition" },
      {   "wipeleft",  "wipe left transition",  0, AV_OPT_TYPE_CONST, {.i64=WIPELEFT},  0, 0, FLAGS, .unit = "transition" },
-@@ -2036,6 +2043,8 @@ static double b1(void *priv, double x, double y) { return getpix(priv, x, y, 1,
- static double b2(void *priv, double x, double y) { return getpix(priv, x, y, 2, 1); }
- static double b3(void *priv, double x, double y) { return getpix(priv, x, y, 3, 1); }
+@@ -2002,10 +2011,12 @@ REVEALV_TRANSITION(up,   16, uint16_t, 2, -)
+ REVEALV_TRANSITION(down,  8, uint8_t,  1, )
+ REVEALV_TRANSITION(down, 16, uint16_t, 2, )
  
 +#include "xfade-easing.h" // easing & extended transitions
 +
- static int config_output(AVFilterLink *outlink)
+ static inline double getpix(void *priv, double x, double y, int plane, int nb)
  {
-     AVFilterContext *ctx = outlink->src;
-@@ -2100,6 +2109,9 @@ static int config_output(AVFilterLink *outlink)
+     XFadeContext *s = priv;
+-    AVFrame *in = s->xf[nb];
++    AVFrame *in = s->xf[nb ^ s->reverse & REVERSE_TRANSITION];
+     const uint8_t *src = in->data[FFMIN(plane, s->nb_planes - 1)];
+     int linesize = in->linesize[FFMIN(plane, s->nb_planes - 1)];
+     const int w = in->width;
+@@ -2100,6 +2111,9 @@ static int config_output(AVFilterLink *outlink)
      if (s->duration)
          s->duration_pts = av_rescale_q(s->duration, AV_TIME_BASE_Q, outlink->time_base);
  
@@ -55,12 +62,17 @@ index f61c708..c5bf06c 100644
      switch (s->transition) {
      case CUSTOM:     s->transitionf = s->depth <= 8 ? custom8_transition     : custom16_transition;     break;
      case FADE:       s->transitionf = s->depth <= 8 ? fade8_transition       : fade16_transition;       break;
-@@ -2194,7 +2206,7 @@ static int xfade_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
+@@ -2193,8 +2207,12 @@ static int xfade_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
+     ThreadData *td = arg;
      int slice_start = (outlink->h *  jobnr   ) / nb_jobs;
      int slice_end   = (outlink->h * (jobnr+1)) / nb_jobs;
++    int i = s->reverse & REVERSE_TRANSITION; // input 0 or 1
++    float p = td->progress;
  
 -    s->transitionf(ctx, td->xf[0], td->xf[1], td->out, td->progress, slice_start, slice_end, jobnr);
-+    s->transitionf(ctx, td->xf[0], td->xf[1], td->out, ease(s, td->progress), slice_start, slice_end, jobnr);
++    p = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - p) : ease(s, p); // eased progress
++    if (i) p = 1 - p;
++    s->transitionf(ctx, td->xf[i], td->xf[i ^ 1], td->out, p, slice_start, slice_end, jobnr);
  
      return 0;
  }

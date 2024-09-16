@@ -76,110 +76,117 @@ body {
       <td bgcolor="#CCCCCC">&nbsp;</td>
 
       <td bgcolor="#FF9999">
-      132:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;XFadeEasingContext&nbsp;*k;&nbsp;//&nbsp;xfade-easing&nbsp;data</td>
-    </tr>
-
-    <tr>
-      <td bgcolor="#CCCCCC">&nbsp;</td>
-
-      <td bgcolor="#FF9999">133:&nbsp;</td>
-    </tr>
-
-    <tr>
-      <td>130:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVExpr&nbsp;*e;</td>
-
-      <td>134:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVExpr&nbsp;*e;</td>
-    </tr>
-
-    <tr>
-      <td>131:&nbsp;}&nbsp;XFadeContext;</td>
-
-      <td>135:&nbsp;}&nbsp;XFadeContext;</td>
-    </tr>
-
-    <tr>
-      <td>132:&nbsp;</td>
-
-      <td>136:&nbsp;</td>
-    </tr>
-
-    <tr>
-      <td>158:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AV_PIX_FMT_NONE</td>
-
-      <td>162:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AV_PIX_FMT_NONE</td>
-    </tr>
-
-    <tr>
-      <td>159:&nbsp;};</td>
-
-      <td>163:&nbsp;};</td>
-    </tr>
-
-    <tr>
-      <td>160:&nbsp;</td>
-
-      <td>164:&nbsp;</td>
+      132:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;reverse;&nbsp;//&nbsp;reverse&nbsp;option&nbsp;bit&nbsp;flags&nbsp;(enum&nbsp;ReverseOpts)</td>
     </tr>
 
     <tr>
       <td bgcolor="#CCCCCC">&nbsp;</td>
 
       <td bgcolor="#FF9999">
-      165:&nbsp;static&nbsp;void&nbsp;xe_data_free(struct&nbsp;XFadeEasingContext&nbsp;*k);</td>
-    </tr>
-
-    <tr>
-      <td>161:&nbsp;static&nbsp;av_cold&nbsp;void&nbsp;uninit(AVFilterContext&nbsp;*ctx)</td>
-
-      <td>166:&nbsp;static&nbsp;av_cold&nbsp;void&nbsp;uninit(AVFilterContext&nbsp;*ctx)</td>
-    </tr>
-
-    <tr>
-      <td>162:&nbsp;{</td>
-
-      <td>167:&nbsp;{</td>
-    </tr>
-
-    <tr>
-      <td>163:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;ctx-&gt;priv;</td>
-
-      <td>168:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;ctx-&gt;priv;</td>
-    </tr>
-
-    <tr>
-      <td>164:&nbsp;</td>
-
-      <td>169:&nbsp;</td>
-    </tr>
-
-    <tr>
-      <td>165:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;av_expr_free(s-&gt;e);</td>
-
-      <td>170:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;av_expr_free(s-&gt;e);</td>
+      133:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;XFadeEasingContext&nbsp;*k;&nbsp;//&nbsp;xfade-easing&nbsp;data</td>
     </tr>
 
     <tr>
       <td bgcolor="#CCCCCC">&nbsp;</td>
 
-      <td bgcolor="#FF9999">171:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xe_data_free(s-&gt;k);</td>
+      <td bgcolor="#FF9999">134:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>130:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVExpr&nbsp;*e;</td>
+
+      <td>135:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVExpr&nbsp;*e;</td>
+    </tr>
+
+    <tr>
+      <td>131:&nbsp;}&nbsp;XFadeContext;</td>
+
+      <td>136:&nbsp;}&nbsp;XFadeContext;</td>
+    </tr>
+
+    <tr>
+      <td>132:&nbsp;</td>
+
+      <td>137:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>158:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AV_PIX_FMT_NONE</td>
+
+      <td>163:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AV_PIX_FMT_NONE</td>
+    </tr>
+
+    <tr>
+      <td>159:&nbsp;};</td>
+
+      <td>164:&nbsp;};</td>
+    </tr>
+
+    <tr>
+      <td>160:&nbsp;</td>
+
+      <td>165:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      166:&nbsp;static&nbsp;void&nbsp;xe_data_free(struct&nbsp;XFadeEasingContext&nbsp;*k);</td>
+    </tr>
+
+    <tr>
+      <td>161:&nbsp;static&nbsp;av_cold&nbsp;void&nbsp;uninit(AVFilterContext&nbsp;*ctx)</td>
+
+      <td>167:&nbsp;static&nbsp;av_cold&nbsp;void&nbsp;uninit(AVFilterContext&nbsp;*ctx)</td>
+    </tr>
+
+    <tr>
+      <td>162:&nbsp;{</td>
+
+      <td>168:&nbsp;{</td>
+    </tr>
+
+    <tr>
+      <td>163:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;ctx-&gt;priv;</td>
+
+      <td>169:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;ctx-&gt;priv;</td>
+    </tr>
+
+    <tr>
+      <td>164:&nbsp;</td>
+
+      <td>170:&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td>165:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;av_expr_free(s-&gt;e);</td>
+
+      <td>171:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;av_expr_free(s-&gt;e);</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">172:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xe_data_free(s-&gt;k);</td>
     </tr>
 
     <tr>
       <td>166:&nbsp;}</td>
 
-      <td>172:&nbsp;}</td>
+      <td>173:&nbsp;}</td>
     </tr>
 
     <tr>
       <td>167:&nbsp;</td>
 
-      <td>173:&nbsp;</td>
+      <td>174:&nbsp;</td>
     </tr>
 
     <tr>
       <td>168:&nbsp;#define&nbsp;OFFSET(x)&nbsp;offsetof(XFadeContext,&nbsp;x)</td>
 
-      <td>174:&nbsp;#define&nbsp;OFFSET(x)&nbsp;offsetof(XFadeContext,&nbsp;x)</td>
+      <td>175:&nbsp;#define&nbsp;OFFSET(x)&nbsp;offsetof(XFadeContext,&nbsp;x)</td>
     </tr>
 
     <tr>
@@ -187,19 +194,19 @@ body {
       169:&nbsp;#define&nbsp;FLAGS&nbsp;(AV_OPT_FLAG_FILTERING_PARAM&nbsp;|&nbsp;AV_OPT_FLAG_VIDEO_PARAM)</td>
 
       <td>
-      175:&nbsp;#define&nbsp;FLAGS&nbsp;(AV_OPT_FLAG_FILTERING_PARAM&nbsp;|&nbsp;AV_OPT_FLAG_VIDEO_PARAM)</td>
+      176:&nbsp;#define&nbsp;FLAGS&nbsp;(AV_OPT_FLAG_FILTERING_PARAM&nbsp;|&nbsp;AV_OPT_FLAG_VIDEO_PARAM)</td>
     </tr>
 
     <tr>
       <td>170:&nbsp;</td>
 
-      <td>176:&nbsp;</td>
+      <td>177:&nbsp;</td>
     </tr>
 
     <tr>
       <td>171:&nbsp;static&nbsp;const&nbsp;AVOption&nbsp;xfade_options[]&nbsp;=&nbsp;{</td>
 
-      <td>177:&nbsp;static&nbsp;const&nbsp;AVOption&nbsp;xfade_options[]&nbsp;=&nbsp;{</td>
+      <td>178:&nbsp;static&nbsp;const&nbsp;AVOption&nbsp;xfade_options[]&nbsp;=&nbsp;{</td>
     </tr>
 
     <tr>
@@ -207,14 +214,21 @@ body {
       172:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;"transition",&nbsp;"set&nbsp;cross&nbsp;fade&nbsp;transition",&nbsp;OFFSET(transition),&nbsp;AV_OPT_TYPE_INT,&nbsp;{.i64=FADE},&nbsp;-1,&nbsp;NB_TRANSITIONS-1,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
 
       <td bgcolor="#99FF99">
-      178:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;"easing",&nbsp;"set&nbsp;cross&nbsp;fade&nbsp;easing",&nbsp;OFFSET(easing_str),&nbsp;AV_OPT_TYPE_STRING,&nbsp;{.str=NULL},&nbsp;0,&nbsp;0,&nbsp;FLAGS&nbsp;},</td>
+      179:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;"easing",&nbsp;"set&nbsp;cross&nbsp;fade&nbsp;easing",&nbsp;OFFSET(easing_str),&nbsp;AV_OPT_TYPE_STRING,&nbsp;{.str=NULL},&nbsp;0,&nbsp;0,&nbsp;FLAGS&nbsp;},</td>
     </tr>
 
     <tr>
       <td bgcolor="#99CC99">&nbsp;</td>
 
       <td bgcolor="#99FF99">
-      179:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;"transition",&nbsp;"set&nbsp;cross&nbsp;fade&nbsp;transition",&nbsp;OFFSET(transition_str),&nbsp;AV_OPT_TYPE_STRING,&nbsp;{.str=NULL},&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
+      180:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;"reverse",&nbsp;"reverse&nbsp;easing/transition",&nbsp;OFFSET(reverse),&nbsp;AV_OPT_TYPE_INT,&nbsp;{&nbsp;.i64&nbsp;=&nbsp;0&nbsp;},&nbsp;0,&nbsp;3,&nbsp;FLAGS&nbsp;},</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#99CC99">&nbsp;</td>
+
+      <td bgcolor="#99FF99">
+      181:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;"transition",&nbsp;"set&nbsp;cross&nbsp;fade&nbsp;transition",&nbsp;OFFSET(transition_str),&nbsp;AV_OPT_TYPE_STRING,&nbsp;{.str=NULL},&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
     </tr>
 
     <tr>
@@ -222,7 +236,7 @@ body {
       173:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"custom",&nbsp;&nbsp;&nbsp;&nbsp;"custom&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=CUSTOM},&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
 
       <td>
-      180:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"custom",&nbsp;&nbsp;&nbsp;&nbsp;"custom&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=CUSTOM},&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
+      182:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"custom",&nbsp;&nbsp;&nbsp;&nbsp;"custom&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=CUSTOM},&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
     </tr>
 
     <tr>
@@ -230,7 +244,7 @@ body {
       174:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"fade",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"fade&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=FADE},&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
 
       <td>
-      181:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"fade",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"fade&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=FADE},&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
+      183:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"fade",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"fade&nbsp;transition",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=FADE},&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
     </tr>
 
     <tr>
@@ -238,68 +252,94 @@ body {
       175:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"wipeleft",&nbsp;&nbsp;"wipe&nbsp;left&nbsp;transition",&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=WIPELEFT},&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
 
       <td>
-      182:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"wipeleft",&nbsp;&nbsp;"wipe&nbsp;left&nbsp;transition",&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=WIPELEFT},&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
+      184:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;"wipeleft",&nbsp;&nbsp;"wipe&nbsp;left&nbsp;transition",&nbsp;&nbsp;0,&nbsp;AV_OPT_TYPE_CONST,&nbsp;{.i64=WIPELEFT},&nbsp;&nbsp;0,&nbsp;0,&nbsp;FLAGS,&nbsp;.unit&nbsp;=&nbsp;"transition"&nbsp;},</td>
     </tr>
 
     <tr>
-      <td>
-      2036:&nbsp;static&nbsp;double&nbsp;b2(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y)&nbsp;{&nbsp;return&nbsp;getpix(priv,&nbsp;x,&nbsp;y,&nbsp;2,&nbsp;1);&nbsp;}</td>
+      <td>2002:&nbsp;REVEALV_TRANSITION(down,&nbsp;&nbsp;8,&nbsp;uint8_t,&nbsp;&nbsp;1,&nbsp;)</td>
 
-      <td>
-      2043:&nbsp;static&nbsp;double&nbsp;b2(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y)&nbsp;{&nbsp;return&nbsp;getpix(priv,&nbsp;x,&nbsp;y,&nbsp;2,&nbsp;1);&nbsp;}</td>
+      <td>2011:&nbsp;REVEALV_TRANSITION(down,&nbsp;&nbsp;8,&nbsp;uint8_t,&nbsp;&nbsp;1,&nbsp;)</td>
     </tr>
 
     <tr>
-      <td>
-      2037:&nbsp;static&nbsp;double&nbsp;b3(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y)&nbsp;{&nbsp;return&nbsp;getpix(priv,&nbsp;x,&nbsp;y,&nbsp;3,&nbsp;1);&nbsp;}</td>
+      <td>2003:&nbsp;REVEALV_TRANSITION(down,&nbsp;16,&nbsp;uint16_t,&nbsp;2,&nbsp;)</td>
 
-      <td>
-      2044:&nbsp;static&nbsp;double&nbsp;b3(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y)&nbsp;{&nbsp;return&nbsp;getpix(priv,&nbsp;x,&nbsp;y,&nbsp;3,&nbsp;1);&nbsp;}</td>
+      <td>2012:&nbsp;REVEALV_TRANSITION(down,&nbsp;16,&nbsp;uint16_t,&nbsp;2,&nbsp;)</td>
     </tr>
 
     <tr>
-      <td>2038:&nbsp;</td>
+      <td>2004:&nbsp;</td>
 
-      <td>2045:&nbsp;</td>
+      <td>2013:&nbsp;</td>
     </tr>
 
     <tr>
       <td bgcolor="#CCCCCC">&nbsp;</td>
 
       <td bgcolor="#FF9999">
-      2046:&nbsp;#include&nbsp;"xfade-easing.h"&nbsp;//&nbsp;easing&nbsp;&amp;&nbsp;extended&nbsp;transitions</td>
+      2014:&nbsp;#include&nbsp;"xfade-easing.h"&nbsp;//&nbsp;easing&nbsp;&amp;&nbsp;extended&nbsp;transitions</td>
     </tr>
 
     <tr>
       <td bgcolor="#CCCCCC">&nbsp;</td>
 
-      <td bgcolor="#FF9999">2047:&nbsp;</td>
-    </tr>
-
-    <tr>
-      <td>2039:&nbsp;static&nbsp;int&nbsp;config_output(AVFilterLink&nbsp;*outlink)</td>
-
-      <td>2048:&nbsp;static&nbsp;int&nbsp;config_output(AVFilterLink&nbsp;*outlink)</td>
-    </tr>
-
-    <tr>
-      <td>2040:&nbsp;{</td>
-
-      <td>2049:&nbsp;{</td>
+      <td bgcolor="#FF9999">2015:&nbsp;</td>
     </tr>
 
     <tr>
       <td>
-      2041:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVFilterContext&nbsp;*ctx&nbsp;=&nbsp;outlink-&gt;src;</td>
+      2005:&nbsp;static&nbsp;inline&nbsp;double&nbsp;getpix(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y,&nbsp;int&nbsp;plane,&nbsp;int&nbsp;nb)</td>
 
       <td>
-      2050:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVFilterContext&nbsp;*ctx&nbsp;=&nbsp;outlink-&gt;src;</td>
+      2016:&nbsp;static&nbsp;inline&nbsp;double&nbsp;getpix(void&nbsp;*priv,&nbsp;double&nbsp;x,&nbsp;double&nbsp;y,&nbsp;int&nbsp;plane,&nbsp;int&nbsp;nb)</td>
+    </tr>
+
+    <tr>
+      <td>2006:&nbsp;{</td>
+
+      <td>2017:&nbsp;{</td>
+    </tr>
+
+    <tr>
+      <td>2007:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;priv;</td>
+
+      <td>2018:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;priv;</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#99FF99">
+      2008:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVFrame&nbsp;*in&nbsp;=&nbsp;s-&gt;xf[nb];</td>
+
+      <td bgcolor="#99FF99">
+      2019:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVFrame&nbsp;*in&nbsp;=&nbsp;s-&gt;xf[nb&nbsp;^&nbsp;s-&gt;reverse&nbsp;&amp;&nbsp;REVERSE_TRANSITION];</td>
+    </tr>
+
+    <tr>
+      <td>
+      2009:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;uint8_t&nbsp;*src&nbsp;=&nbsp;in-&gt;data[FFMIN(plane,&nbsp;s-&gt;nb_planes&nbsp;-&nbsp;1)];</td>
+
+      <td>
+      2020:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;uint8_t&nbsp;*src&nbsp;=&nbsp;in-&gt;data[FFMIN(plane,&nbsp;s-&gt;nb_planes&nbsp;-&nbsp;1)];</td>
+    </tr>
+
+    <tr>
+      <td>
+      2010:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;linesize&nbsp;=&nbsp;in-&gt;linesize[FFMIN(plane,&nbsp;s-&gt;nb_planes&nbsp;-&nbsp;1)];</td>
+
+      <td>
+      2021:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;linesize&nbsp;=&nbsp;in-&gt;linesize[FFMIN(plane,&nbsp;s-&gt;nb_planes&nbsp;-&nbsp;1)];</td>
+    </tr>
+
+    <tr>
+      <td>2011:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;int&nbsp;w&nbsp;=&nbsp;in-&gt;width;</td>
+
+      <td>2022:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;int&nbsp;w&nbsp;=&nbsp;in-&gt;width;</td>
     </tr>
 
     <tr>
       <td>2100:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(s-&gt;duration)</td>
 
-      <td>2109:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(s-&gt;duration)</td>
+      <td>2111:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(s-&gt;duration)</td>
     </tr>
 
     <tr>
@@ -307,39 +347,39 @@ body {
       2101:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;duration_pts&nbsp;=&nbsp;av_rescale_q(s-&gt;duration,&nbsp;AV_TIME_BASE_Q,&nbsp;outlink-&gt;time_base);</td>
 
       <td>
-      2110:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;duration_pts&nbsp;=&nbsp;av_rescale_q(s-&gt;duration,&nbsp;AV_TIME_BASE_Q,&nbsp;outlink-&gt;time_base);</td>
+      2112:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;duration_pts&nbsp;=&nbsp;av_rescale_q(s-&gt;duration,&nbsp;AV_TIME_BASE_Q,&nbsp;outlink-&gt;time_base);</td>
     </tr>
 
     <tr>
       <td>2102:&nbsp;</td>
 
-      <td>2111:&nbsp;</td>
+      <td>2113:&nbsp;</td>
     </tr>
 
     <tr>
       <td bgcolor="#CCCCCC">&nbsp;</td>
 
       <td bgcolor="#FF9999">
-      2112:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;ret&nbsp;=&nbsp;config_xfade_easing(ctx);</td>
+      2114:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;ret&nbsp;=&nbsp;config_xfade_easing(ctx);</td>
     </tr>
 
     <tr>
       <td bgcolor="#CCCCCC">&nbsp;</td>
 
       <td bgcolor="#FF9999">
-      2113:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;=&nbsp;0)&nbsp;return&nbsp;ret;&nbsp;//&nbsp;error&nbsp;or&nbsp;extended&nbsp;transition</td>
+      2115:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;=&nbsp;0)&nbsp;return&nbsp;ret;&nbsp;//&nbsp;error&nbsp;or&nbsp;extended&nbsp;transition</td>
     </tr>
 
     <tr>
       <td bgcolor="#CCCCCC">&nbsp;</td>
 
-      <td bgcolor="#FF9999">2114:&nbsp;</td>
+      <td bgcolor="#FF9999">2116:&nbsp;</td>
     </tr>
 
     <tr>
       <td>2103:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch&nbsp;(s-&gt;transition)&nbsp;{</td>
 
-      <td>2115:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch&nbsp;(s-&gt;transition)&nbsp;{</td>
+      <td>2117:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;switch&nbsp;(s-&gt;transition)&nbsp;{</td>
     </tr>
 
     <tr>
@@ -347,7 +387,7 @@ body {
       2104:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;CUSTOM:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;custom8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;custom16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
 
       <td>
-      2116:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;CUSTOM:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;custom8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;custom16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
+      2118:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;CUSTOM:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;custom8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;custom16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
     </tr>
 
     <tr>
@@ -355,7 +395,13 @@ body {
       2105:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;FADE:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;fade8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;fade16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
 
       <td>
-      2117:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;FADE:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;fade8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;fade16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
+      2119:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;FADE:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf&nbsp;=&nbsp;s-&gt;depth&nbsp;&lt;=&nbsp;8&nbsp;?&nbsp;fade8_transition&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;fade16_transition;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;</td>
+    </tr>
+
+    <tr>
+      <td>2193:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ThreadData&nbsp;*td&nbsp;=&nbsp;arg;</td>
+
+      <td>2207:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ThreadData&nbsp;*td&nbsp;=&nbsp;arg;</td>
     </tr>
 
     <tr>
@@ -363,7 +409,7 @@ body {
       2194:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_start&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;&nbsp;jobnr&nbsp;&nbsp;&nbsp;)&nbsp;/&nbsp;nb_jobs;</td>
 
       <td>
-      2206:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_start&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;&nbsp;jobnr&nbsp;&nbsp;&nbsp;)&nbsp;/&nbsp;nb_jobs;</td>
+      2208:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_start&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;&nbsp;jobnr&nbsp;&nbsp;&nbsp;)&nbsp;/&nbsp;nb_jobs;</td>
     </tr>
 
     <tr>
@@ -371,13 +417,27 @@ body {
       2195:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_end&nbsp;&nbsp;&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;(jobnr+1))&nbsp;/&nbsp;nb_jobs;</td>
 
       <td>
-      2207:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_end&nbsp;&nbsp;&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;(jobnr+1))&nbsp;/&nbsp;nb_jobs;</td>
+      2209:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_end&nbsp;&nbsp;&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;(jobnr+1))&nbsp;/&nbsp;nb_jobs;</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      2210:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;i&nbsp;=&nbsp;s-&gt;reverse&nbsp;&amp;&nbsp;REVERSE_TRANSITION;&nbsp;//&nbsp;input&nbsp;0&nbsp;or&nbsp;1</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
+
+      <td bgcolor="#FF9999">
+      2211:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;float&nbsp;p&nbsp;=&nbsp;td-&gt;progress;</td>
     </tr>
 
     <tr>
       <td>2196:&nbsp;</td>
 
-      <td>2208:&nbsp;</td>
+      <td>2212:&nbsp;</td>
     </tr>
 
     <tr>
@@ -385,25 +445,39 @@ body {
       2197:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf(ctx,&nbsp;td-&gt;xf[0],&nbsp;td-&gt;xf[1],&nbsp;td-&gt;out,&nbsp;td-&gt;progress,&nbsp;slice_start,&nbsp;slice_end,&nbsp;jobnr);</td>
 
       <td bgcolor="#99FF99">
-      2209:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf(ctx,&nbsp;td-&gt;xf[0],&nbsp;td-&gt;xf[1],&nbsp;td-&gt;out,&nbsp;ease(s,&nbsp;td-&gt;progress),&nbsp;slice_start,&nbsp;slice_end,&nbsp;jobnr);</td>
+      2213:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p&nbsp;=&nbsp;(s-&gt;reverse&nbsp;&amp;&nbsp;REVERSE_EASING)&nbsp;?&nbsp;1&nbsp;-&nbsp;ease(s,&nbsp;1&nbsp;-&nbsp;p)&nbsp;:&nbsp;ease(s,&nbsp;p);&nbsp;//&nbsp;eased&nbsp;progress</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#99CC99">&nbsp;</td>
+
+      <td bgcolor="#99FF99">
+      2214:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(i)&nbsp;p&nbsp;=&nbsp;1&nbsp;-&nbsp;p;</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#99CC99">&nbsp;</td>
+
+      <td bgcolor="#99FF99">
+      2215:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf(ctx,&nbsp;td-&gt;xf[i],&nbsp;td-&gt;xf[i&nbsp;^&nbsp;1],&nbsp;td-&gt;out,&nbsp;p,&nbsp;slice_start,&nbsp;slice_end,&nbsp;jobnr);</td>
     </tr>
 
     <tr>
       <td>2198:&nbsp;</td>
 
-      <td>2210:&nbsp;</td>
+      <td>2216:&nbsp;</td>
     </tr>
 
     <tr>
       <td>2199:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</td>
 
-      <td>2211:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</td>
+      <td>2217:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</td>
     </tr>
 
     <tr>
       <td>2200:&nbsp;}</td>
 
-      <td>2212:&nbsp;}</td>
+      <td>2218:&nbsp;}</td>
     </tr>
   </table><br>
   <br>

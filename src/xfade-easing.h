@@ -2,9 +2,9 @@
 // GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
 //
 // This is a port of standard easing equations and CSS easing functions for the FFmpeg XFade filter
-// It also ports extended transitions, notably GL Transitions, for use with or without easing
+// It also ports extended transitions, notably GLSL transitions, for use with or without easing
 //
-// See https://github.com/scriptituk/xfade-easing/blob/main/README.md for documentation
+// See https://github.com/scriptituk/xfade-easing for documentation
 
 #include <stdbool.h>
 #include <float.h>
@@ -20,6 +20,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 // aggregate types
 ////////////////////////////////////////////////////////////////////////////////
+
+enum { REVERSE_TRANSITION = 1, REVERSE_EASING = 2 } ReverseOpts; // reverse option bit flags
 
 // normalised pixel position
 typedef struct {
@@ -64,18 +66,20 @@ typedef struct {
 } XTransitionArgs;
 
 // transition thread data, modelled on GL Transition Specification v1
-typedef struct {
+typedef struct XTransition {
     const float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
     const float ratio; // viewport width / height (cf. W / H)
     vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
     vec4 a, b; // plane data at p (cf. A, B)
-    const struct XFadeContext *s; // link back to XFadeContext with its XFadeEasingContext
+    double data[20]; // initialised parameters and constants
+    bool init; // true to initialise data
+    const struct XFadeContext *s; // the XFadeContext with its XFadeEasingContext
 } XTransition;
 
-// xfade-easing context, member of XFadeContext
+// xfade-easing context (member of XFadeContext)
 typedef struct XFadeEasingContext {
     float (*easingf)(const struct XFadeEasingContext *k, float progress);
-    vec4 (*xtransitionf)(const XTransition *e, bool init);
+    vec4 (*xtransitionf)(const struct XTransition *e);
     EasingArgs eargs;
     XTransitionArgs targs;
     float duration; // seconds
@@ -84,6 +88,7 @@ typedef struct XFadeEasingContext {
 } XFadeEasingContext;
 
 static int xe_error(void *avcl, const char *fmt, ...);
+static void xe_warning(void *avcl, const char *fmt, ...);
 static void xe_debug(void *avcl, const char *fmt, ...);
 
 #define P5f 0.5f /* ubiquitous point 5 float */
@@ -257,12 +262,13 @@ static float css_steps(const XFadeEasingContext *k, float t)
 // various in libavutil/mem.h libavutil/log.h
 // FFDIFFSIGN in libavutil/macros.h
 
-#define VEC2(x, y) ((vec2) { (x), (y) })
-#define VEC4(a, b, c, d) ((vec4) {{ (a), (b), (c), (d) }})
-
 typedef struct {
     int x, y;
 } ivec2;
+
+#define IVEC2(x, y) ((ivec2) { (x), (y) })
+#define VEC2(x, y) ((vec2) { (x), (y) })
+#define VEC4(a, b, c, d) ((vec4) {{ (a), (b), (c), (d) }})
 
 #define sign(x) FFDIFFSIGN((x), 0)
 
@@ -354,16 +360,18 @@ static inline bool between2(vec2 v, float min, float max)
 
 #define _getFromColor1(v) getColor(e, (v.x), (v.y), 0)
 #define _getFromColor2(x, y) getColor(e, (x), (y), 0)
-#define _getFromColor_VA(_1,_2,NAME,...) NAME
-#define getFromColor(...) _getFromColor_VA(__VA_ARGS__, _getFromColor2, _getFromColor1)(__VA_ARGS__)
+#define _getFromColorVA(_1,_2,NAME,...) NAME
+#define getFromColor(...) _getFromColorVA(__VA_ARGS__, _getFromColor2, _getFromColor1)(__VA_ARGS__)
 #define _getToColor1(v) getColor(e, (v.x), (v.y), 1)
 #define _getToColor2(x, y) getColor(e, (x), (y), 1)
-#define _getToColor_VA(_1,_2,NAME,...) NAME
-#define getToColor(...) _getToColor_VA(__VA_ARGS__, _getToColor2, _getToColor1)(__VA_ARGS__)
-static vec4 getColor(const XTransition *e, float x, float y, int z) // cf. vf_xfade.c getpix()
+#define _getToColorVA(_1,_2,NAME,...) NAME
+#define getToColor(...) _getToColorVA(__VA_ARGS__, _getToColor2, _getToColor1)(__VA_ARGS__)
+
+// get from/to colour at pixel point
+static vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_xfade.c getpix()
 {
     const XFadeContext *s = e->s;
-    const AVFrame *f = s->xf[z];
+    const AVFrame *f = s->xf[nb ^ s->reverse & REVERSE_TRANSITION];
     const float max_value = s->max_value; // as float
     const int n = s->nb_planes, d = (s->depth > 8), w = f->width, h = f->height;
     const int i = av_clip(x * w, 0, w - 1), j = av_clip((1 - y) * h, 0, h - 1);
@@ -376,7 +384,8 @@ static vec4 getColor(const XTransition *e, float x, float y, int z) // cf. vf_xf
     return c;
 }
 
-static vec4 rgba2vec4(const XTransition *e, unsigned int rgba) // colour to plane
+// convert colour to plane data
+static vec4 rgba2vec4(const XTransition *e, unsigned int rgba)
 {
     const uint8_t R = rgba >> 24, G = rgba >> 16, B = rgba >> 8, A = rgba;
     uint8_t dst[] = { G, B, R };
@@ -412,62 +421,76 @@ static vec4 rgba2vec4(const XTransition *e, unsigned int rgba) // colour to plan
     return VEC4(dst[0] / 255.f, dst[1] / 255.f, dst[2] / 255.f, A / 255.f);
 }
 
-static inline vec4 bwt(const XTransition *e, int bwt) // black/white/transparent texture
+// get black/white/transparent texture
+static inline vec4 bwt(const XTransition *e, int bwt)
 {
     const XFadeEasingContext *k = e->s->k;
     return (bwt < 0) ? k->transparent : bwt ? k->white : k->black;
 }
 
-static inline vec4 gray(const XTransition *e, float amount) // US spelling for consistency!
+// get greyscale texture
+static inline vec4 grey(const XTransition *e, float amount, float alpha)
 {
     const float p12 = e->s->is_rgb ? amount : P5f;
-    return VEC4(amount, p12, p12, 1);
+    return VEC4(amount, p12, p12, alpha);
 }
 
-#define PARAM_NONE if (init) return (vec4){{0}};
-#define PARAM_BEGIN if (!init) goto run; int argi = 0;
-#define PARAM_END return (vec4){{0}}; run: ;
-#define PARAM_1(type, param, def) \
-    static type param; \
-    param = arg(e, &argi, #type, #param, def);
-#define PARAM_2(type, param, defx, defy) \
-    static type param; \
-    param.x = arg(e, &argi, #type, #param ".x", defx); \
-    param.y = arg(e, &argi, #type, #param ".y", defy);
-#define PARAM_4(type, param, def) \
-    static type param; \
-    param = rgba2vec4(e, arg(e, &argi, #type, #param, def));
-static __attribute__ ((noinline)) double arg( // get arg or default parameter value (during filter config)
+#define INIT if (e->init)
+#define INIT_BEGIN int argi = 0;
+#define INIT_END INIT return (vec4){{0}};
+#define ARG1(type, param, def) \
+    argi++; INIT arg(e, argi-1, #type, #param, def); const type param = e->data[argi-1];
+#define ARG2(type, param, defx, defy) \
+    argi+=2; INIT arg(e, argi-2, #type, #param ".x", defx), arg(e, argi-1, #type, #param ".y", defy); \
+    const type param = (type) { e->data[argi-2], e->data[argi-1] };
+#define ARG4(type, param, def) \
+    argi+=4; INIT { \
+        type _v = (def > 1) ? rgba2vec4(e, (unsigned int) def) : grey(e, def, 1); \
+        var(e, argi-4, _v.p0), var(e, argi-3, _v.p1), var(e, argi-2, _v.p2), var(e, argi-1, _v.p3); \
+    } \
+    const type param = (type) {{ e->data[argi-4], e->data[argi-3], e->data[argi-2], e->data[argi-1] }};
+#define VAR1(type, param, val) \
+    argi++; INIT var(e, argi-1, val); const type param = e->data[argi-1];
+#define VAR2(type, param, valx, valy) \
+    argi+=2; INIT var(e, argi-2, valx), var(e, argi-1, valy); \
+    const type param = (type) { e->data[argi-2], e->data[argi-1] };
+
+// set const variable value during initialisation
+static inline void var(const XTransition *e, int argi, double value)
+{
+    ((double*)e->data)[argi] = value; // cast away const on mutable when initialising to keep const when not
+}
+
+// set parameter arg or default value during initialisation
+static __attribute__ ((noinline)) void arg(
         const XTransition *e,
-        int *argi,
+        int argi,
         const char *type,
         const char *param,
-        double def)
+        double value) // default
 {
     const XTransitionArgs *a = &e->s->k->targs;
-    const int i = (*argi)++;
-    double ret = def; // default
     for (int j = 0; j < a->argc; j++)
         if (a->argv[j].param && !av_strcasecmp(a->argv[j].param, param))
-            { ret = a->argv[j].value; goto ret; } // named param
-    if (a->argc > i && !a->argv[i].param && !isnan(a->argv[i].value))
-        ret = a->argv[i].value; // positional param
+            { value = a->argv[j].value; goto ret; } // named param
+    if (a->argc > argi && !a->argv[argi].param && !isnan(a->argv[argi].value))
+        value = a->argv[argi].value; // positional param
     ret:
-    xe_debug(NULL, "param: %s %s = %g == %d(int) == 0x%X(unsigned)\n", type, param, ret, (int)ret, (unsigned)ret);
-    return ret; // double to store 32-bit (10-digit) precision colour values
+    xe_debug(NULL, "param: %s %s = %g == %d(int) == 0x%X(unsigned)\n", type, param, value, (int)value, (unsigned)value);
+    var(e, argi, value); // double to store 32-bit (10-digit) precision colour values
 }
 
 // extended transitions
 
 // GL transition names, algorithms, variable names & credits are replicated from the gl-transitions repo
 
-static vec4 gl_angular(const XTransition *e, bool init) // by Fernando Kuteken
+static vec4 gl_angular(const XTransition *e) // by Fernando Kuteken
 {
-    PARAM_BEGIN
-    PARAM_1(float, startingAngle, 90)
-    PARAM_1(bool, clockwise, 0)
-    PARAM_END
-    float offset = radians(startingAngle);
+    INIT_BEGIN
+    ARG1(float, startingAngle, 90)
+    ARG1(bool, clockwise, 0)
+    VAR1(float, offset, radians(startingAngle))
+    INIT_END
     float angle = atn2(sub2f(e->p, P5f)) + offset;
     float normalizedAngle = angle * M_1_2PIf + P5f;
     if (clockwise)
@@ -476,9 +499,9 @@ static vec4 gl_angular(const XTransition *e, bool init) // by Fernando Kuteken
     return step(normalizedAngle, e->progress) ? e->b : e->a;
 }
 
-static vec4 gl_BookFlip(const XTransition *e, bool init) // by hong
+static vec4 gl_BookFlip(const XTransition *e) // by hong
 {
-    PARAM_NONE
+    INIT_END
     bool pr = step(1 - e->progress, e->p.x);
     vec4 colour;
     if (e->p.x < P5f) {
@@ -505,14 +528,14 @@ static vec4 gl_BookFlip(const XTransition *e, bool init) // by hong
     return colour;
 }
 
-static vec4 gl_Bounce(const XTransition *e, bool init) // by Adrian Purser
+static vec4 gl_Bounce(const XTransition *e) // by Adrian Purser
 {
-    PARAM_BEGIN
-    PARAM_1(float, shadowAlpha, 0.6)
-    PARAM_1(float, shadowHeight, 0.075)
-    PARAM_1(float, bounces, 3)
-    PARAM_1(int, direction, 0) // S,W,N,E
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, shadowAlpha, 0.6)
+    ARG1(float, shadowHeight, 0.075)
+    ARG1(float, bounces, 3)
+    ARG1(int, direction, 0) // S,W,N,E
+    INIT_END
     float phase = e->progress * M_PIf * bounces;
     float p = fabsf(cosf(phase)) * (1 - sinf(e->progress * M_PI_2f));
     if (direction & 2)
@@ -536,11 +559,11 @@ static vec4 gl_Bounce(const XTransition *e, bool init) // by Adrian Purser
     return mix4(e->b, e->s->k->black, 1 - m);
 }
 
-static vec4 gl_BowTie(const XTransition *e, bool init) // by huynx
+static vec4 gl_BowTie(const XTransition *e) // by huynx
 {
-    PARAM_BEGIN
-    PARAM_1(bool, vertical, 0)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(bool, vertical, 0)
+    INIT_END
     vec2 p = e->p, a = { P5f, P5f }, b = a, c = a;
     if (vertical)
         a.y = e->progress, b.x -= e->progress, c.x += e->progress, b.y = c.y = 0;
@@ -577,9 +600,9 @@ static vec4 gl_BowTie(const XTransition *e, bool init) // by huynx
     return e->a;
 }
 
-static vec4 gl_cannabisleaf(const XTransition *e, bool init) // by Flexi23
+static vec4 gl_cannabisleaf(const XTransition *e) // by Flexi23
 {
-    PARAM_NONE
+    INIT_END
     if (e->progress == 0)
         return e->a;
     vec2 leaf_uv = div2f(sub2f(e->p, P5f), 10 * powf(e->progress, 3.5f));
@@ -591,21 +614,21 @@ static vec4 gl_cannabisleaf(const XTransition *e, bool init) // by Flexi23
     return step(r * curve, length(leaf_uv)) ? e->a : e->b;
 }
 
-static vec4 gl_CornerVanish(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_CornerVanish(const XTransition *e) // by Mark Craig
 {
-    PARAM_NONE
+    INIT_END
     float b1 = (1 - e->progress) / 2, b2 = 1 - b1;
     return (betweenf(e->p.x, b1, b2) || betweenf(e->p.y, b1, b2)) ? e->b : e->a;
 }
 
-static vec4 gl_CrazyParametricFun(const XTransition *e, bool init) // by mandubian
+static vec4 gl_CrazyParametricFun(const XTransition *e) // by mandubian
 {
-    PARAM_BEGIN
-    PARAM_1(float, a, 4)
-    PARAM_1(float, b, 1)
-    PARAM_1(float, amplitude, 120)
-    PARAM_1(float, smoothness, 0.1)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, a, 4)
+    ARG1(float, b, 1)
+    ARG1(float, amplitude, 120)
+    ARG1(float, smoothness, 0.1)
+    INIT_END
     float x = (a - b) * cosf(e->progress) + b * cosf(e->progress * ((a / b) - 1));
     float y = (a - b) * sinf(e->progress) - b * sinf(e->progress * ((a / b) - 1));
     vec2 dir = sub2f(e->p, P5f);
@@ -618,24 +641,24 @@ static vec4 gl_CrazyParametricFun(const XTransition *e, bool init) // by mandubi
     return mix4(f, e->b, smoothstep(0.2f, 1, e->progress));
 }
 
-static vec4 gl_crosshatch(const XTransition *e, bool init) // by pthrasher
+static vec4 gl_crosshatch(const XTransition *e) // by pthrasher
 {
-    PARAM_BEGIN
-    PARAM_2(vec2, center, 0.5, 0.5)
-    PARAM_1(float, threshold, 3)
-    PARAM_1(float, fadeEdge, 0.1)
-    PARAM_END
+    INIT_BEGIN
+    ARG2(vec2, center, 0.5, 0.5)
+    ARG1(float, threshold, 3)
+    ARG1(float, fadeEdge, 0.1)
+    INIT_END
     float dist = distance(center, e->p) / threshold;
     float r = e->progress - fminf(frandf(e->p.y, 0), frandf(0, e->p.x));
     r = mixf(step(dist, r), 1, smoothstep(1 - fadeEdge, 1, e->progress));
     return mix4(e->a, e->b, mixf(0, r, smoothstep(0, fadeEdge, e->progress)));
 }
 
-static vec4 gl_CrossOut(const XTransition *e, bool init) // by pthrasher
+static vec4 gl_CrossOut(const XTransition *e) // by pthrasher
 {
-    PARAM_BEGIN
-    PARAM_1(float, smoothness, 0.05)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, smoothness, 0.05)
+    INIT_END
     float c = e->progress / 2;
     vec2 p = sub2f(e->p, P5f);
     float ds = p.x + p.y, dd = p.y - p.x;
@@ -648,9 +671,9 @@ static vec4 gl_CrossOut(const XTransition *e, bool init) // by pthrasher
     return mix4(e->b, e->a, (d - c) / smoothness);
 }
 
-static vec4 gl_crosswarp(const XTransition *e, bool init) // by Eke Péter
+static vec4 gl_crosswarp(const XTransition *e) // by Eke Péter
 {
-    PARAM_NONE
+    INIT_END
     float x = smoothstep(0, 1, e->progress * 2 + e->p.x - 1);
     vec2 c = sub2f(e->p, P5f);
     vec4 a = getFromColor(add2f(mul2f(c, 1 - x), P5f));
@@ -658,15 +681,15 @@ static vec4 gl_crosswarp(const XTransition *e, bool init) // by Eke Péter
     return mix4(a, b, x);
 }
 
-static vec4 gl_cube(const XTransition *e, bool init) // by gre
+static vec4 gl_cube(const XTransition *e) // by gre
 {
-    PARAM_BEGIN
-    PARAM_1(float, persp, 0.7)
-    PARAM_1(float, unzoom, 0.3)
-    PARAM_1(float, reflection, 0.4)
-    PARAM_1(float, floating, 3)
-    PARAM_1(int, bgBkWhTr, 0)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, persp, 0.7)
+    ARG1(float, unzoom, 0.3)
+    ARG1(float, reflection, 0.4)
+    ARG1(float, floating, 3)
+    ARG1(int, bgBkWhTr, 0)
+    INIT_END
     float uz = unzoom * 2 * (P5f - fabsf(P5f - e->progress));
     vec2 p = sub2f(mul2f(e->p, 1 + uz), uz / 2);
     float persp2 = e->progress * (1 - persp);
@@ -693,11 +716,11 @@ static vec4 gl_cube(const XTransition *e, bool init) // by gre
     return c;
 }
 
-static vec4 gl_Diamond(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_Diamond(const XTransition *e) // by Mark Craig
 {
-    PARAM_BEGIN
-    PARAM_1(float, smoothness, 0.05)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, smoothness, 0.05)
+    INIT_END
     float d = asum(sub2f(e->p, P5f));
     if (d < e->progress)
         return e->b;
@@ -705,13 +728,13 @@ static vec4 gl_Diamond(const XTransition *e, bool init) // by Mark Craig
         ? e->a : mix4(e->b, e->a, (d - e->progress) / smoothness);
 }
 
-static vec4 gl_DirectionalScaled(const XTransition *e, bool init) // by Thibaut Foussard
+static vec4 gl_DirectionalScaled(const XTransition *e) // by Thibaut Foussard
 {
-    PARAM_BEGIN
-    PARAM_2(vec2, direction, 0, 1)
-    PARAM_1(float, scale, 0.7)
-    PARAM_1(int, bgBkWhTr, 0)
-    PARAM_END
+    INIT_BEGIN
+    ARG2(vec2, direction, 0, 1)
+    ARG1(float, scale, 0.7)
+    ARG1(int, bgBkWhTr, 0)
+    INIT_END
     float easedProgress = powf(sinf(e->progress * M_PI_2f), 3);
     vec2 p = add2(e->p, mul2f(sign2(direction), easedProgress));
     float s = 1 - (1 - 1 / scale) * sinf(e->progress * M_PIf);
@@ -721,12 +744,12 @@ static vec4 gl_DirectionalScaled(const XTransition *e, bool init) // by Thibaut 
     return bwt(e, bgBkWhTr);
 }
 
-static vec4 gl_directionalwarp(const XTransition *e, bool init) // by pschroen
+static vec4 gl_directionalwarp(const XTransition *e) // by pschroen
 {
-    PARAM_BEGIN
-    PARAM_1(float, smoothness, 0.1)
-    PARAM_2(vec2, direction, -1, 1)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, smoothness, 0.1)
+    ARG2(vec2, direction, -1, 1)
+    INIT_END
     vec2 v = normalize(direction);
     v = div2f(v, asum(v));
     float d = (v.x + v.y) / 2;
@@ -738,14 +761,14 @@ static vec4 gl_directionalwarp(const XTransition *e, bool init) // by pschroen
     return mix4(a, b, m);
 }
 
-static vec4 gl_doorway(const XTransition *e, bool init) // by gre
+static vec4 gl_doorway(const XTransition *e) // by gre
 {
-    PARAM_BEGIN
-    PARAM_1(float, reflection, 0.4)
-    PARAM_1(float, perspective, 0.4)
-    PARAM_1(float, depth, 3)
-    PARAM_1(int, bgBkWhTr, 0)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, reflection, 0.4)
+    ARG1(float, perspective, 0.4)
+    ARG1(float, depth, 3)
+    ARG1(int, bgBkWhTr, 0)
+    INIT_END
     float middleSlit = 2 * fabsf(e->p.x - P5f) - e->progress;
     if (middleSlit > 0) {
         float d = 1 / (1 + perspective * e->progress * (1 - middleSlit));
@@ -767,11 +790,11 @@ static vec4 gl_doorway(const XTransition *e, bool init) // by gre
     return c;
 }
 
-static vec4 gl_DoubleDiamond(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_DoubleDiamond(const XTransition *e) // by Mark Craig
 {
-    PARAM_BEGIN
-    PARAM_1(float, smoothness, 0.05)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, smoothness, 0.05)
+    INIT_END
     float b1 = (1 - e->progress) / 2, b2 = 1 - b1;
     float d = asum(sub2f(e->p, P5f));
     if (betweenf(d, b1, b2)) {
@@ -782,9 +805,9 @@ static vec4 gl_DoubleDiamond(const XTransition *e, bool init) // by Mark Craig
     return e->a;
 }
 
-static vec4 gl_Dreamy(const XTransition *e, bool init) // by mikolalysenko
+static vec4 gl_Dreamy(const XTransition *e) // by mikolalysenko
 {
-    PARAM_NONE
+    INIT_END
     float shifty = 0.03f * e->progress * cosf(10 * (e->progress + e->p.x));
     vec4 a = getFromColor(e->p.x, e->p.y + shifty);
     shifty = 0.03f * (1 - e->progress) * cosf(10 * ((1 - e->progress) + e->p.x));
@@ -792,31 +815,30 @@ static vec4 gl_Dreamy(const XTransition *e, bool init) // by mikolalysenko
     return mix4(a, b, e->progress);
 }
 
-static vec4 gl_Exponential_Swish(const XTransition *e, bool init) // by Boundless
+static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
 {
-    PARAM_BEGIN
-    PARAM_1(float, zoom, 0.8)
-    PARAM_1(float, angle, 0)
-    PARAM_2(vec2, offset, 0, 0)
-    PARAM_1(int, exponent, 4)
-    PARAM_2(ivec2, wrap, 2, 2)
-    PARAM_1(float, blur, 0) // changed from 0.5 which makes it extremely slow
-    PARAM_1(int, bgBkWhTr, 0)
-    XFadeEasingContext *k = e->s->k;
-    static float deg, frames, ratio2; static vec4 bgcolor; // constants
-    deg = radians(angle);
-    frames = k->duration * k->framerate;
-    ratio2 = (e->ratio - 1) / 2;
-    bgcolor = bwt(e, bgBkWhTr);
-    PARAM_END // end config setup
+    INIT_BEGIN
+    ARG1(float, zoom, 0.8)
+    ARG1(float, angle, 0)
+    ARG2(vec2, offset, 0, 0)
+    ARG1(int, exponent, 4)
+    ARG2(ivec2, wrap, 2, 2)
+    ARG1(float, blur, 0) // changed from 0.5 which makes it extremely slow
+    ARG1(int, bgBkWhTr, 0)
+    VAR1(float, frames, e->s->k->duration * e->s->k->framerate)
+    VAR1(float, deg, radians(angle))
+    VAR1(float, ratio2, (e->ratio - 1) / 2)
+    INIT_END
+    const vec4 bgcolor = bwt(e, bgBkWhTr);
     const int iters = 50; // TODO: experiment with this
-    vec2 uv = sub2f(e->p, P5f), uv0, uv1;
+    const vec2 uv = sub2f(e->p, P5f);
     vec4 comp = {{ 0 }};
     for (int i = 0; i < iters; i++) {
         float p = av_clipf(e->progress + (float)i * blur / frames / iters, 0, 1);
         float pa0 = powf(2 * p, exponent), pa1 = powf(-2 * p + 2, exponent),
               px0 = 1 - pa0 * fabsf(zoom), px1 = 1 - pa1 * fabsf(zoom),
               px2 = 1 - pa0 * fmaxf(-zoom, 0), px3 = 1 - pa1 * fmaxf(zoom, 0);
+        vec2 uv0, uv1;
         if (zoom > 0)
             uv0 = mul2f(uv, px0), uv1 = div2f(uv, px1);
         else if (zoom < 0)
@@ -855,11 +877,11 @@ static vec4 gl_Exponential_Swish(const XTransition *e, bool init) // by Boundles
     return comp;
 }
 
-static vec4 gl_FanIn(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_FanIn(const XTransition *e) // by Mark Craig
 {
-    PARAM_BEGIN
-    PARAM_1(float, smoothness, 0.05)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, smoothness, 0.05)
+    INIT_END
     float theta = M_PIf * e->progress;
     float d = atan2f(fabsf(e->p.x - P5f), (e->p.y < P5f) ? 0.25f - e->p.y : e->p.y - 0.75f) - theta;
     if (d < 0)
@@ -867,11 +889,11 @@ static vec4 gl_FanIn(const XTransition *e, bool init) // by Mark Craig
     return (d < smoothness) ? mix4(e->b, e->a, d / smoothness) : e->a;
 }
 
-static vec4 gl_FanOut(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_FanOut(const XTransition *e) // by Mark Craig
 {
-    PARAM_BEGIN
-    PARAM_1(float, smoothness, 0.05)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, smoothness, 0.05)
+    INIT_END
     float theta = M_2PIf * e->progress;
     float d = M_PIf + atan2f(P5f - e->p.y, (e->p.x < P5f) ? 0.25f - e->p.x : e->p.x - 0.75f) - theta;
     if (d < 0)
@@ -879,11 +901,11 @@ static vec4 gl_FanOut(const XTransition *e, bool init) // by Mark Craig
     return (d < smoothness) ? mix4(e->b, e->a, d / smoothness) : e->a;
 }
 
-static vec4 gl_FanUp(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_FanUp(const XTransition *e) // by Mark Craig
 {
-    PARAM_BEGIN
-    PARAM_1(float, smoothness, 0.05)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, smoothness, 0.05)
+    INIT_END
     float theta = M_PI_2f * e->progress;
     float d = atan2f(fabsf(e->p.x - P5f), 1 - e->p.y) - theta;
     if (d < 0)
@@ -891,27 +913,30 @@ static vec4 gl_FanUp(const XTransition *e, bool init) // by Mark Craig
     return (d < smoothness) ? mix4(e->b, e->a, d / smoothness) : e->a;
 }
 
-static vec4 gl_Flower(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_Flower(const XTransition *e) // by Mark Craig
 {
-    PARAM_BEGIN
-    PARAM_1(float, smoothness, 0.05)
-    PARAM_1(float, rotation, 360)
-    static float ang, fang; // constants
-    ang = radians(162.f);
-    vec2 v = { cosf(ang), sinf(ang) - 1 };
-    float h = dot(v, v);
-    ang = radians(234.f);
-    v = VEC2(cosf(ang), sinf(ang) - 1);
-    h = h - dot(v, v) / 4;
-    ang = radians(36.f);
-    fang = (1 - sqrtf(h)) / cosf(ang);
-    PARAM_END // end config setup
+    INIT_BEGIN
+    ARG1(float, smoothness, 0.05)
+    ARG1(float, rotation, 360)
+    float h, r;
+    vec2 v;
+    INIT {
+        r = radians(162);
+        v = VEC2(cosf(r), sinf(r) - 1);
+        h = dot(v, v);
+        r = radians(234);
+        v = VEC2(cosf(r), sinf(r) - 1);
+        h -= dot(v, v) / 4;
+    }
+    VAR1(float, ang, radians(36))
+    VAR1(float, fang, (1 - sqrtf(h)) / cosf(ang))
+    INIT_END
     v = VEC2((e->p.x - P5f) * e->ratio, P5f - e->p.y);
     float theta = radians(e->progress * rotation);
     float theta1 = atan2f(v.x, v.y) + theta;
     float theta2 = glmod(fabsf(theta1), ang);
     float ro = e->ratio / 0.731f * e->progress;
-    float ri = ro * fang, r;
+    float ri = ro * fang;
     if (glmod(truncf(theta1 / ang), 2) == 0)
         r = theta2 / ang * (ro - ri) + ri;
     else
@@ -924,19 +949,18 @@ static vec4 gl_Flower(const XTransition *e, bool init) // by Mark Craig
     return e->b;
 }
 
-static vec4 gl_GridFlip(const XTransition *e, bool init) // by TimDonselaar
+static vec4 gl_GridFlip(const XTransition *e) // by TimDonselaar
 {
-    PARAM_BEGIN
-    PARAM_2(ivec2, size, 4, 4)
-    PARAM_1(float, pause, 0.1)
-    PARAM_1(float, dividerWidth, 0.05)
-    PARAM_1(float, randomness, 0.1)
-    PARAM_1(int, bgBkWhTr, 0)
-    static vec2 rectangleSize; static vec4 bgcolor; // constants
-    rectangleSize = inv2(vec2i(size));
-    bgcolor = bwt(e, bgBkWhTr);
-    PARAM_END // end config setup
-    vec2 rectanglePos = floor2(mul2(vec2i(size), e->p));
+    INIT_BEGIN
+    ARG2(ivec2, size, 4, 4)
+    ARG1(float, pause, 0.1)
+    ARG1(float, dividerWidth, 0.05)
+    ARG1(float, randomness, 0.1)
+    ARG1(int, bgBkWhTr, 0)
+    INIT_END
+    const vec4 bgcolor = bwt(e, bgBkWhTr);
+    const vec2 rectangleSize = inv2(vec2i(size));
+    const vec2 rectanglePos = floor2(mul2(vec2i(size), e->p));
     float top = rectangleSize.y * (rectanglePos.y + 1),
           bottom = rectangleSize.y * rectanglePos.y,
           minY = fminf(fabsf(e->p.y - top), fabsf(e->p.y - bottom)),
@@ -959,9 +983,9 @@ static vec4 gl_GridFlip(const XTransition *e, bool init) // by TimDonselaar
     return mix4(bgcolor, mix4(getToColor(p), getFromColor(p), step(cp, P5f)), s);
 }
 
-static vec4 gl_heart(const XTransition *e, bool init) // by gre
+static vec4 gl_heart(const XTransition *e) // by gre
 {
-    PARAM_NONE
+    INIT_END
     if (e->progress == 0)
         return e->a;
     vec2 o = div2f(sub2(e->p, VEC2(P5f, 0.4f)), 1.6f * e->progress);
@@ -969,12 +993,12 @@ static vec4 gl_heart(const XTransition *e, bool init) // by gre
     return step(a * a * a, o.x * o.x * o.y * o.y * o.y) ? e->b : e->a;
 }
 
-static vec4 gl_hexagonalize(const XTransition *e, bool init) // by Fernando Kuteken
+static vec4 gl_hexagonalize(const XTransition *e) // by Fernando Kuteken
 {
-    PARAM_BEGIN
-    PARAM_1(int, steps, 50)
-    PARAM_1(float, horizontalHexagons, 20)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(int, steps, 50)
+    ARG1(float, horizontalHexagons, 20)
+    INIT_END
     float dist = 2 * fminf(e->progress, 1 - e->progress);
     if (steps > 0)
         dist = ceilf(dist * steps) / steps;
@@ -1003,25 +1027,30 @@ static vec4 gl_hexagonalize(const XTransition *e, bool init) // by Fernando Kute
 }
 
 static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bool reverseEffect);
-static vec4 gl_InvertedPageCurl(const XTransition *e, bool init) // by Hewlett-Packard
+static vec4 gl_InvertedPageCurl(const XTransition *e) // by Hewlett-Packard
 {
-    PARAM_BEGIN
-    PARAM_1(int, angle, 100)
-    PARAM_1(float, radius, M_1_2PIf)
-    PARAM_1(bool, reverseEffect, 0)
-    if (angle != 30 && angle != 100) // TODO: add more angles
-        xe_error(NULL, "invalid gl_InvertedPageCurl angle %d, use 100 (default) or 30\n", angle), angle = 100;
-    PARAM_END
-    return inverted_page_curl(e, angle, radius, reverseEffect); // licensed code
+    INIT_BEGIN
+    ARG1(int, angle, 100)
+    ARG1(float, radius, M_1_2PIf)
+    ARG1(bool, reverseEffect, 0)
+    float a;
+    INIT {
+        a = angle;
+        if (a != 30 && a != 100)
+            xe_error(NULL, "invalid gl_InvertedPageCurl angle %d, use 100 (default) or 30\n", a), a = 100;
+    }
+    VAR1(float, ang, a);
+    INIT_END
+    return inverted_page_curl(e, ang, radius, reverseEffect); // licensed code
 }
 
-static vec4 gl_kaleidoscope(const XTransition *e, bool init) // by nwoeanhinnogaehr
+static vec4 gl_kaleidoscope(const XTransition *e) // by nwoeanhinnogaehr
 {
-    PARAM_BEGIN
-    PARAM_1(float, speed, 1)
-    PARAM_1(float, angle, 1)
-    PARAM_1(float, power, 1.5)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, speed, 1)
+    ARG1(float, angle, 1)
+    ARG1(float, power, 1.5)
+    INIT_END
     float t = powf(e->progress, power) * speed;
     vec2 p = sub2f(e->p, P5f);
     for (int i = 0; i < 7; i++) {
@@ -1033,12 +1062,12 @@ static vec4 gl_kaleidoscope(const XTransition *e, bool init) // by nwoeanhinnoga
     return mix4(m, n, 1 - 2 * fabsf(e->progress - P5f));
 }
 
-static vec4 gl_Mosaic(const XTransition *e, bool init) // by Xaychru
+static vec4 gl_Mosaic(const XTransition *e) // by Xaychru
 {
-    PARAM_BEGIN
-    PARAM_1(int, endx, 2);
-    PARAM_1(int, endy, -1);
-    PARAM_END
+    INIT_BEGIN
+    ARG1(int, endx, 2);
+    ARG1(int, endy, -1);
+    INIT_END
     float rpr = e->progress * 2 - 1;
     float az = fabsf(3 - rpr * rpr * 2);
     float ci = P5f - cosf(e->progress * M_PIf) / 2; // CosInterpolation
@@ -1057,12 +1086,12 @@ static vec4 gl_Mosaic(const XTransition *e, bool init) // by Xaychru
     return (onEnd || r > P5f) ? getToColor(mrp) : getFromColor(mrp);
 }
 
-static vec4 gl_perlin(const XTransition *e, bool init) // by Rich Harris
+static vec4 gl_perlin(const XTransition *e) // by Rich Harris
 {
-    PARAM_BEGIN
-    PARAM_1(float, scale, 4)
-    PARAM_1(float, smoothness, 0.01)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, scale, 4)
+    ARG1(float, smoothness, 0.01)
+    INIT_END
     vec2 s = mul2f(e->p, scale), i = floor2(s), f = sub2(s, i); // fract
     vec2 u = { smoothstep(0, 1, f.x), smoothstep(0, 1, f.y) };
     float a = frandf(i.x, i.y), b = frandf(i.x + 1, i.y), c = frandf(i.x, i.y + 1), d = frandf(i.x + 1, i.y + 1);
@@ -1072,49 +1101,47 @@ static vec4 gl_perlin(const XTransition *e, bool init) // by Rich Harris
     return mix4(e->a, e->b, 1 - q);
 }
 
-static vec4 gl_pinwheel(const XTransition *e, bool init) // by Mr Speaker
+static vec4 gl_pinwheel(const XTransition *e) // by Mr Speaker
 {
-    PARAM_BEGIN
-    PARAM_1(float, speed, 1)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, speed, 1)
+    INIT_END
     float circPos = atn2(sub2f(e->p, P5f)) + e->progress * speed;
     float modPos = glmod(circPos, M_PI_4f);
     return (e->progress <= modPos) ? e->a : e->b;
 }
 
-static vec4 gl_polar_function(const XTransition *e, bool init) // by Fernando Kuteken
+static vec4 gl_polar_function(const XTransition *e) // by Fernando Kuteken
 {
-    PARAM_BEGIN
-    PARAM_1(int, segments, 5)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(int, segments, 5)
+    INIT_END
     float angle = atn2(sub2f(e->p, P5f)) - M_PI_2f;
     float radius = cosf(segments * angle) / 4 + 1;
     float difference = length(sub2f(e->p, P5f));
     return (difference > radius * e->progress) ? e->a : e->b;
 }
 
-static vec4 gl_PolkaDotsCurtain(const XTransition *e, bool init) // by bobylito
+static vec4 gl_PolkaDotsCurtain(const XTransition *e) // by bobylito
 {
-    PARAM_BEGIN
-    PARAM_1(float, dots, 20)
-    PARAM_2(vec2, center, 0, 0)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, dots, 20)
+    ARG2(vec2, center, 0, 0)
+    INIT_END
     vec2 p = fract2(mul2f(e->p, dots));
     vec2 c = { P5f, P5f };
     return (distance(p, c) < e->progress / distance(e->p, center)) ? e->b : e->a;
 }
 
-static vec4 gl_powerKaleido(const XTransition *e, bool init) // by Boundless
+static vec4 gl_powerKaleido(const XTransition *e) // by Boundless
 {
-    PARAM_BEGIN
-    PARAM_1(float, scale, 2)
-    PARAM_1(float, z, 1.5)
-    PARAM_1(float, speed, 5)
-    static float rad, dist; // constants
-    const float deg = 120; // change this value to get different mirror effects
-    rad = radians(deg);
-    dist = scale / 10;
-    PARAM_END // end config setup
+    INIT_BEGIN
+    ARG1(float, scale, 2)
+    ARG1(float, z, 1.5)
+    ARG1(float, speed, 5)
+    VAR1(float, rad, radians(120)) // change this value to get different mirror effects
+    VAR1(float, dist, scale / 10)
+    INIT_END
     vec2 uv = mul2f(sub2f(e->p, P5f), e->ratio * z);
     float a = e->progress * speed;
     uv = rot(uv, a);
@@ -1133,36 +1160,36 @@ static vec4 gl_powerKaleido(const XTransition *e, bool init) // by Boundless
     uv.x /= e->ratio;
     uv = div2f(add2f(uv, P5f), 2);
     uv = mul2f(abs2(sub2(uv, floor2(add2f(uv, P5f)))), 2);
-    float m = cosf(e->progress * M_PIf * 2) / 2 + P5f;
+    float m = cosf(e->progress * M_2PIf) / 2 + P5f;
     vec2 uvMix = mix2(uv, e->p, m);
     m = cosf((e->progress - 1) * M_PIf) / 2 + P5f;
     return mix4(getFromColor(uvMix), getToColor(uvMix), m);
 }
 
-static vec4 gl_randomNoisex(const XTransition *e, bool init) // by towrabbit
+static vec4 gl_randomNoisex(const XTransition *e) // by towrabbit
 {
-    PARAM_NONE
+    INIT_END
     float uvz = floorf(frand2(e->p) + e->progress);
     return mix4(e->a, e->b, uvz);
 }
 
-static vec4 gl_randomsquares(const XTransition *e, bool init) // by gre
+static vec4 gl_randomsquares(const XTransition *e) // by gre
 {
-    PARAM_BEGIN
-    PARAM_2(ivec2, size, 10, 10)
-    PARAM_1(float, smoothness, 0.5)
-    PARAM_END
+    INIT_BEGIN
+    ARG2(ivec2, size, 10, 10)
+    ARG1(float, smoothness, 0.5)
+    INIT_END
     float r = frand2(floor2(mul2(vec2i(size), e->p)));
     float m = smoothstep(0, -smoothness, r - e->progress * (1 + smoothness));
     return mix4(e->a, e->b, m);
 }
 
-static vec4 gl_ripple(const XTransition *e, bool init) // by gre
+static vec4 gl_ripple(const XTransition *e) // by gre
 {
-    PARAM_BEGIN
-    PARAM_1(float, amplitude, 100)
-    PARAM_1(float, speed, 50)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, amplitude, 100)
+    ARG1(float, speed, 50)
+    INIT_END
     vec2 dir = sub2f(e->p, P5f);
     float dist = length(dir);
     float s = (sinf(e->progress * (dist * amplitude - speed)) + P5f) / 30;
@@ -1170,12 +1197,12 @@ static vec4 gl_ripple(const XTransition *e, bool init) // by gre
     return mix4(getFromColor(offset), e->b, smoothstep(0.2f, 1, e->progress));
 }
 
-static vec4 gl_Rolls(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_Rolls(const XTransition *e) // by Mark Craig
 {
-    PARAM_BEGIN
-    PARAM_1(int, type, 0)
-    PARAM_1(bool, RotDown, 0)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(int, type, 0)
+    ARG1(bool, RotDown, 0)
+    INIT_END
     float theta = M_PI_2f * e->progress;
     if (type >= 2 == !RotDown)
         theta = -theta;
@@ -1196,15 +1223,15 @@ static vec4 gl_Rolls(const XTransition *e, bool init) // by Mark Craig
     return e->b;
 }
 
-static vec4 gl_RotateScaleVanish(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_RotateScaleVanish(const XTransition *e) // by Mark Craig
 {
-    PARAM_BEGIN
-    PARAM_1(bool, fadeInSecond, 1)
-    PARAM_1(bool, reverseEffect, 0)
-    PARAM_1(bool, reverseRotation, 0)
-    PARAM_1(int, bgBkWhTr, 0)
-    PARAM_1(bool, trkMat, 0)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(bool, fadeInSecond, 1)
+    ARG1(bool, reverseEffect, 0)
+    ARG1(bool, reverseRotation, 0)
+    ARG1(int, bgBkWhTr, 0)
+    ARG1(bool, trkMat, 0)
+    INIT_END
     float t = reverseEffect ? 1 - e->progress : e->progress;
     float theta = (reverseRotation ? -t : t) * M_2PIf;
     vec2 c2 = rot(VEC2((e->p.x - P5f) * e->ratio, e->p.y - P5f), theta);
@@ -1222,21 +1249,21 @@ static vec4 gl_RotateScaleVanish(const XTransition *e, bool init) // by Mark Cra
     return mix4(col3, ColorTo, t);
 }
 
-static vec4 gl_rotateTransition(const XTransition *e, bool init) // by haiyoucuv
+static vec4 gl_rotateTransition(const XTransition *e) // by haiyoucuv
 {
-    PARAM_NONE
+    INIT_END
     vec2 p = add2f(rot(sub2f(e->p, P5f), e->progress * M_2PIf), P5f);
     return mix4(getFromColor(p), getToColor(p), e->progress);
 }
 
-static vec4 gl_rotate_scale_fade(const XTransition *e, bool init) // by Fernando Kuteken
+static vec4 gl_rotate_scale_fade(const XTransition *e) // by Fernando Kuteken
 {
-    PARAM_BEGIN
-    PARAM_2(vec2, center, 0.5, 0.5)
-    PARAM_1(float, rotations, 1)
-    PARAM_1(float, scale, 8)
-    PARAM_1(float, backGray, 0.15)
-    PARAM_END
+    INIT_BEGIN
+    ARG2(vec2, center, 0.5, 0.5)
+    ARG1(float, rotations, 1)
+    ARG1(float, scale, 8)
+    ARG4(vec4, backColor, 0.15)
+    INIT_END
     vec2 difference = sub2(e->p, center);
     float dist = length(difference);
     vec2 dir = div2f(difference, dist);
@@ -1246,32 +1273,36 @@ static vec4 gl_rotate_scale_fade(const XTransition *e, bool init) // by Fernando
     vec2 rotatedUv = add2(center, mul2f(rotatedDir, dist / currentScale));
     if (between2(rotatedUv, 0, 1))
         return mix4(getFromColor(rotatedUv), getToColor(rotatedUv), e->progress);
-    return gray(e, backGray);
+    return backColor;
 }
 
-static vec4 gl_SimpleBookCurl(const XTransition *e, bool init) // by Raymond Luckhurst
+static vec4 gl_SimpleBookCurl(const XTransition *e) // by Raymond Luckhurst
 {
-    PARAM_BEGIN
-    PARAM_1(int, angle, 150)
-    PARAM_1(float, radius, 0.1)
-    PARAM_1(float, shadow, 0.2)
+    INIT_BEGIN
+    ARG1(int, angle, 150)
+    ARG1(float, radius, 0.1)
+    ARG1(float, shadow, 0.2)
     // setup
-    static float k, m1, m2; static vec2 q; // constants
 //static int dbg=0;
-    int ang = (angle % 360 + 360) % 360; // 0 <= ang < 360
-    q = VEC2(1, -1); // quadrant corner
-    if (ang >= 90) q.y = 1; // (1, 1);
-    if (ang >= 180) q.x = -1; // (-1, 1);
-    if (ang >= 270) q.y = -1; // (-1, -1);
-    float phi = radians(ang) - M_PI_2f; // target curl angle
-    vec2 dir = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi))); // direction unit vector
-    vec2 i = abs2(dir);
-    k = (i.x == 0) ? M_PI_2 : atn2(i); // absolute curl angle
-    i = mul2f(dir, dot(mul2f(q, P5f), dir)); // initial position, curl axis on corner
-    m1 = length(i); // length for rotating
-    m2 = M_PIf * radius; // length of half-cylinder arc
-//xe_debug(NULL, "gl_SimpleBookCurl ang=%d phi=%g=%g dir=%g,%g q=%g,%g k=%g=%g i=%g,%g m1=%g m2=%g\n", ang, phi, degrees(phi), dir.x, dir.y, q.x, q.y, k, degrees(k), i.x, i.y, m1, m2);
-    PARAM_END // end config setup
+    float phi;
+    vec2 i, dir;
+    INIT {
+        int ang = (angle % 360 + 360) % 360; // 0 <= ang < 360
+        phi = radians(ang) - M_PI_2f; // target curl angle
+        dir = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi))); // direction unit vector
+        i = VEC2(1, -1);
+        if (ang >= 90) i.y = 1; // (1, 1);
+        if (ang >= 180) i.x = -1; // (-1, 1);
+        if (ang >= 270) i.y = -1; // (-1, -1);
+    }
+    VAR2(vec2, q, i.x, i.y) // quadrant corner
+    INIT i = abs2(dir);
+    VAR1(float, k, (i.x == 0) ? M_PI_2f : atn2(i)) // absolute curl angle
+    INIT i = mul2f(dir, dot(mul2f(q, P5f), dir)); // initial position, curl axis on corner
+    VAR1(float, m1, length(i)) // length for rotating
+    VAR1(float, m2, M_PIf * radius) // length of half-cylinder arc
+//INIT xe_debug(NULL, "gl_SimpleBookCurl phi=%g=%g dir=%g,%g q=%g,%g k=%g=%g i=%g,%g m1=%g m2=%g\n", phi, degrees(phi), dir.x, dir.y, q.x, q.y, k, degrees(k), i.x, i.y, m1, m2);
+    INIT_END
     // get new angle & progress point
     float rad = radius; // working radius
     vec2 p; // working curl axis point
@@ -1332,29 +1363,37 @@ if(!dbg)dbg=1,xe_debug(NULL, "gl_SimpleBookCurl_dbg phi=%g=%g dir=%g,%g p=%g,%g 
 
 // see https://www.shadertoy.com/view/ls3cDB
 // and https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/
-static vec4 gl_SimplePageCurl(const XTransition *e, bool init) // by Andrew Hung
+static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
 {
-    PARAM_BEGIN
-    PARAM_1(int, angle, 80)
-    PARAM_1(float, radius, 0.15)
-    PARAM_1(bool, roll, 0)
-    PARAM_1(bool, reverseEffect, 0)
-    PARAM_1(bool, greyback, 0)
-    PARAM_1(float, opacity, 0.8)
-    PARAM_1(float, shadow, 0.2)
+    INIT_BEGIN
+    ARG1(int, angle, 80)
+    ARG1(float, radius, 0.15)
+    ARG1(bool, roll, 0)
+    ARG1(bool, reverseEffect, 0)
+    ARG1(bool, greyback, 0)
+    ARG1(float, opacity, 0.8)
+    ARG1(float, shadow, 0.2)
     // setup
-    static vec2 dir, i, m; // constants
-    int ang = (angle % 360 + 360) % 360; // 0 <= ang < 360
-    vec2 q = VEC2(1, -1); // quadrant corner
-    if (ang >= 90) q.y = 1; // (1, 1);
-    if (ang >= 180) q.x = -1; // (-1, 1);
-    if (ang >= 270) q.y = -1; // (-1, -1);
-    float phi = radians(ang) - M_PI_2f; // target curl angle
-    dir = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi))); // direction unit vector
-    i = mul2f(dir, dot(mul2f(q, P5f), dir)); // initial position, curl axis on corner
-    m = sub2(mul2f(dir, -radius *2), i); // final position, curl & shadow just out of view
-    m = sub2(m, i); // path extent, perpendicular to curl axis
-    PARAM_END // end config setup
+    float phi;
+    vec2 q, f;
+    INIT {
+        int ang = (angle % 360 + 360) % 360; // 0 <= ang < 360
+        phi = radians(ang) - M_PI_2f; // target curl angle
+        f = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi)));
+        q = VEC2(1, -1); // quadrant corner
+        if (ang >= 90) q.y = 1; // (1, 1);
+        if (ang >= 180) q.x = -1; // (-1, 1);
+        if (ang >= 270) q.y = -1; // (-1, -1);
+    }
+    VAR2(vec2, dir, f.x, f.y) // direction unit vector
+    INIT f = mul2f(dir, dot(mul2f(q, P5f), dir));
+    VAR2(vec2, i, f.x, f.y) // initial position, curl axis on corner
+    INIT {
+        f = sub2(mul2f(dir, -2 * radius), i); // final position, curl & shadow just out of view
+        f = sub2(f, i);
+    }
+    VAR2(vec2, m, f.x, f.y) // path extent, perpendicular to curl axis
+    INIT_END
     // get point relative to curl axis
     vec2 p = add2(i, mul2f(m, (reverseEffect ? 1 - e->progress : e->progress))); // current position
     q = sub2f(e->p, P5f); // distance of current point from centre
@@ -1389,7 +1428,7 @@ static vec4 gl_SimplePageCurl(const XTransition *e, bool init) // by Andrew Hung
     }
     if (o) { // need opacity
         if (greyback)
-            c.p0 = (c.p0 + c.p1 + c.p2) / 3, c.p1 = c.p2 = e->s->is_rgb ? c.p0 : P5f;
+            c = grey(e, (c.p0 + c.p1 + c.p2) / 3, c.p3);
         c.p0 += opacity * (1 - c.p0);
         if (e->s->is_rgb)
             c.p1 += opacity * (1 - c.p1), c.p2 += opacity * (1 - c.p2);
@@ -1404,13 +1443,13 @@ static vec4 gl_SimplePageCurl(const XTransition *e, bool init) // by Andrew Hung
     return c;
 }
 
-static vec4 gl_Slides(const XTransition *e, bool init) // by Mark Craig
+static vec4 gl_Slides(const XTransition *e) // by Mark Craig
 {
-    PARAM_BEGIN
-    PARAM_1(int, type, 0)
-    PARAM_1(bool, slideIn, 0)
-    PARAM_END
-    float rad = slideIn ? e->progress : 1 - e->progress, rrad = 1 - rad, rrad2 = rrad / 2;
+    INIT_BEGIN
+    ARG1(int, type, 0)
+    ARG1(bool, slideIn, 0)
+    INIT_END
+    float rad = slideIn ? e->progress : 1 - e->progress, rrad = 1 - rad, rrad2 = rrad * P5f;
     float xc1, yc1;
          if (type == 0) xc1 = rrad2, yc1 = 0;     // up
     else if (type == 1) xc1 = rrad,  yc1 = rrad2; // right
@@ -1429,29 +1468,29 @@ static vec4 gl_Slides(const XTransition *e, bool init) // by Mark Craig
     return slideIn ? e->a : e->b;
 }
 
-static vec4 gl_squareswire(const XTransition *e, bool init) // by gre
+static vec4 gl_squareswire(const XTransition *e) // by gre
 {
-    PARAM_BEGIN
-    PARAM_2(ivec2, squares, 10, 10)
-    PARAM_2(vec2, direction, 1.0, 0.5)
-    PARAM_1(float, smoothness, 1.6)
-    static float d; static vec2 v; // constants
-    v = normalize(direction);
-    v = div2f(v, asum(v));
-    d = (v.x + v.y) / 2;
-    PARAM_END // end config setup
+    INIT_BEGIN
+    ARG2(ivec2, squares, 10, 10)
+    ARG2(vec2, direction, 1.0, 0.5)
+    ARG1(float, smoothness, 1.6)
+    vec2 u;
+    INIT u = normalize(direction), u = div2f(u, asum(u));
+    VAR2(vec2, v, u.x, u.y)
+    VAR1(float, d, (v.x + v.y) / 2)
+    INIT_END
     float m = dot(e->p, v) - (d - P5f + e->progress * (1 + smoothness));
     float pr = smoothstep(-smoothness, 0, m);
     vec2 squarep = fract2(mul2(e->p, vec2i(squares)));
     return between2(squarep, pr / 2, 1 - pr / 2) ? e->b : e->a;
 }
 
-static vec4 gl_static_wipe(const XTransition *e, bool init) // by Ben Lucas
+static vec4 gl_static_wipe(const XTransition *e) // by Ben Lucas
 {
-    PARAM_BEGIN
-    PARAM_1(bool, upToDown, 1)
-    PARAM_1(float, maxSpan, 0.5)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(bool, upToDown, 1)
+    ARG1(float, maxSpan, 0.5)
+    INIT_END
     float span = maxSpan * sqrtf(sinf(M_PIf * e->progress));
     float transitionEdge = upToDown ? 1 - e->p.y : e->p.y;
     float ss1 = smoothstep(e->progress - span, e->progress, transitionEdge);
@@ -1467,22 +1506,21 @@ static vec4 gl_static_wipe(const XTransition *e, bool init) // by Ben Lucas
     return mix4(transitionMix, noise, noiseEnvelope);
 }
 
-static vec4 gl_Stripe_Wipe(const XTransition *e, bool init) // by Boundless
+static vec4 gl_Stripe_Wipe(const XTransition *e) // by Boundless
 {
-    PARAM_BEGIN
-    PARAM_1(int, nlayers, 3)
-    PARAM_1(float, layerSpread, 0.5)
-    PARAM_4(vec4, color1, 0x3319CCFF)
-    PARAM_4(vec4, color2, 0x66CCFFFF)
-    PARAM_1(float, shadowIntensity, 0.7)
-    PARAM_1(float, shadowSpread, 0)
-    PARAM_1(float, angle, 0)
-    static float rad; // constants
-    rad = radians(angle);
-    PARAM_END // end config setup
+    INIT_BEGIN
+    ARG1(int, nlayers, 3)
+    ARG1(float, layerSpread, 0.5)
+    ARG4(vec4, color1, 0x3319CCFF)
+    ARG4(vec4, color2, 0x66CCFFFF)
+    ARG1(float, shadowIntensity, 0.7)
+    ARG1(float, shadowSpread, 0)
+    ARG1(float, angle, 0)
+    VAR1(float, rad, radians(angle))
+    VAR1(float, offset, fabsf(sinf(rad)) + fabsf(cosf(rad) * e->ratio))
+    INIT_END
     vec2 p = e->p;
     p.x = p.x * e->ratio - (e->ratio - 1) / 2;
-    float offset = fabsf(sinf(rad)) + fabsf(cosf(rad) * e->ratio);
     p = add2f(rot(div2f(sub2f(p, P5f), offset), -rad), P5f);
     float px = powf(1 - p.x, 1.f / 3.f);
     float lspread = (px + ((1 + layerSpread) * e->progress - 1)) * nlayers / layerSpread;
@@ -1517,14 +1555,14 @@ static vec4 gl_Stripe_Wipe(const XTransition *e, bool init) // by Boundless
     return colorComp;
 }
 
-static vec4 gl_swap(const XTransition *e, bool init) // by gre
+static vec4 gl_swap(const XTransition *e) // by gre
 {
-    PARAM_BEGIN
-    PARAM_1(float, reflection, 0.4)
-    PARAM_1(float, perspective, 0.2)
-    PARAM_1(float, depth, 3)
-    PARAM_1(int, bgBkWhTr, 0)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, reflection, 0.4)
+    ARG1(float, perspective, 0.2)
+    ARG1(float, depth, 3)
+    ARG1(int, bgBkWhTr, 0)
+    INIT_END
     float size = mixf(1, depth, e->progress);
     float persp = perspective * e->progress;
     vec2 pfr = {
@@ -1558,9 +1596,9 @@ static vec4 gl_swap(const XTransition *e, bool init) // by gre
     return c;
 }
 
-static vec4 gl_Swirl(const XTransition *e, bool init) // by Sergey Kosarevsky
+static vec4 gl_Swirl(const XTransition *e) // by Sergey Kosarevsky
 {
-    PARAM_NONE
+    INIT_END
     float Radius = 1, T = e->progress;
     vec2 UV = sub2f(e->p, P5f);
     float Dist = length(UV);
@@ -1574,12 +1612,12 @@ static vec4 gl_Swirl(const XTransition *e, bool init) // by Sergey Kosarevsky
     return mix4(getFromColor(UV), getToColor(UV), T);
 }
 
-static vec4 gl_WaterDrop(const XTransition *e, bool init) // by Paweł Płóciennik
+static vec4 gl_WaterDrop(const XTransition *e) // by Paweł Płóciennik
 {
-    PARAM_BEGIN
-    PARAM_1(float, amplitude, 30)
-    PARAM_1(float, speed, 30)
-    PARAM_END
+    INIT_BEGIN
+    ARG1(float, amplitude, 30)
+    ARG1(float, speed, 30)
+    INIT_END
     vec2 dir = sub2f(e->p, P5f);
     float dist = length(dir);
     if (dist > e->progress)
@@ -1589,9 +1627,9 @@ static vec4 gl_WaterDrop(const XTransition *e, bool init) // by Paweł Płócien
     return mix4(getFromColor(offset), e->b, e->progress);
 }
 
-static vec4 gl_windowblinds(const XTransition *e, bool init) // by Fabien Benetou
+static vec4 gl_windowblinds(const XTransition *e) // by Fabien Benetou
 {
-    PARAM_NONE
+    INIT_END
     float t = glmod(floorf(e->p.y * 100 * e->progress), 2) ? e->progress * 1.5f : e->progress;
     return mix4(e->a, e->b, av_clipf(mixf(t, e->progress, smoothstep(0.8f, 1, e->progress)), 0, 1));
 }
@@ -1638,9 +1676,12 @@ static void xtransition##name##_transition(AVFilterContext *ctx,                
         .progress = 1 - progress, /* 0 to 1 for xtransitions */                              \
         .ratio = w / h, /* aspect */                                                         \
         .s = ctx->priv, /* XFadeContext */                                                   \
+        .init = true,                                                                        \
     };                                                                                       \
     const float max_value = e.s->max_value; /* as float */                                   \
     const int n = e.s->nb_planes;                                                            \
+                                                                                             \
+    e.s->k->xtransitionf(&e), e.init = false; /* init params & const vars */                 \
                                                                                              \
     for (int y = slice_start; y < slice_end; y++) {                                          \
         e.p.y = 1 - y / h; /* y==0 is bottom */                                              \
@@ -1655,7 +1696,7 @@ static void xtransition##name##_transition(AVFilterContext *ctx,                
                 e.a.p[p] = e.a.p[p - 1];                                                     \
                 e.b.p[p] = e.b.p[p - 1];                                                     \
             }                                                                                \
-            vec4 v = e.s->k->xtransitionf(&e, false); /* run */                              \
+            vec4 v = e.s->k->xtransitionf(&e); /* run */                                     \
             for (p = 0; p < n; p++) {                                                        \
                 type d = av_clipf(v.p[p] * max_value, 0, max_value); /* (sometimes -ve) */   \
                 LINE(type, out, p, y)[x] = d;                                                \
@@ -1671,7 +1712,7 @@ XTRANSITION_TRANSITION(16, uint16_t, 2)
 // argument parsing
 ////////////////////////////////////////////////////////////////////////////////
 
-// reduces verbosity
+// emit error message, reduces verbosity
 static int xe_error(void *avcl, const char *fmt, ...)
 {
     va_list args;
@@ -1681,7 +1722,16 @@ static int xe_error(void *avcl, const char *fmt, ...)
     return AVERROR(EINVAL);
 }
 
-// emits parsing trail
+// emit warning message
+static void xe_warning(void *avcl, const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    av_vlog(avcl, AV_LOG_WARNING, fmt, args);
+    va_end(args);
+}
+
+// emit debug message
 static void xe_debug(void *avcl, const char *fmt, ...)
 {
     va_list args;
@@ -1770,7 +1820,7 @@ static int parse_standard_easing(AVFilterContext *ctx, char *args)
     else if (!av_strcasecmp(p, "-out")) a->mode = EASE_OUT;
     else return xe_error(ctx, "unknown easing function %s\n", s->easing_str);
     if (args)
-        av_log(ctx, AV_LOG_WARNING, "ignoring extraneous easing arguments %s\n", args);
+        xe_warning(ctx, "ignoring extraneous easing arguments %s\n", args);
     xe_debug(ctx, "easing = %s[%d]\n", s->easing_str, a->mode);
     return 0;
 }
@@ -1922,10 +1972,10 @@ static int parse_easing(AVFilterContext *ctx)
     // match exact
          if (!av_strcasecmp(e, "linear")) k->easingf = css_linear, f = parse_linear_easing;
     else if (!av_strcasecmp(e, "cubic-bezier")) k->easingf = css_cubic_bezier, f = parse_cubic_bezier_easing;
-    else if (!av_strcasecmp(e, "ease")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.25, 0.1, 0.25, 1 }};
-    else if (!av_strcasecmp(e, "ease-in")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.42, 0, 1, 1 }};
-    else if (!av_strcasecmp(e, "ease-out")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0, 0, 0.58, 1 }};
-    else if (!av_strcasecmp(e, "ease-in-out")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.42, 0, 0.58, 1 }};
+    else if (!av_strcasecmp(e, "ease")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.25f, 0.1f, 0.25f, 1.f }};
+    else if (!av_strcasecmp(e, "ease-in")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.42f, 0.f, 1.f, 1.f }};
+    else if (!av_strcasecmp(e, "ease-out")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.f, 0.f, 0.58f, 1.f }};
+    else if (!av_strcasecmp(e, "ease-in-out")) k->easingf = css_cubic_bezier, a->b = (union Bezier) {{ 0.42f, 0.f, 0.58f, 1.f }};
     else if (!av_strcasecmp(e, "steps")) k->easingf = css_steps, f = parse_steps_easing;
     else if (!av_strcasecmp(e, "step-start")) k->easingf = css_steps, a->s = (struct Steps) { 1, JUMP_START };
     else if (!av_strcasecmp(e, "step-end")) k->easingf = css_steps, a->s = (struct Steps) { 1, JUMP_END };
@@ -2086,7 +2136,7 @@ static int config_xfade_easing(AVFilterContext *ctx)
 
     ret = parse_xtransition(ctx);
     if (ret != 0)
-        return ret;
+        return ret; // 1 if xfade transition
 
     k->duration = (float)s->duration / AV_TIME_BASE; // seconds
     AVFilterLink *l = ctx->outputs[0];
@@ -2100,9 +2150,6 @@ static int config_xfade_easing(AVFilterContext *ctx)
         k->white = VEC4(1, P5f, P5f, 1);
     };
     k->transparent = VEC4(P5f, P5f, P5f, 0); // transparent grey
-
-    XTransition e = { .s = s, .ratio = (float)l->w / l->h };
-    k->xtransitionf(&e, true); // init params & statics
 
     return 0;
 }
@@ -2122,6 +2169,110 @@ static void xe_data_free(XFadeEasingContext *k)
 ////////////////////////////////////////////////////////////////////////////////
 // licensed code
 ////////////////////////////////////////////////////////////////////////////////
+
+/*
+Copyright (c) 2010 Hewlett-Packard Development Company, L.P. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+   * Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+     copyright notice, this list of conditions and the following disclaimer
+     in the documentation and/or other materials provided with the distribution.
+   * Neither the name of Hewlett-Packard nor the names of its
+     contributors may be used to endorse or promote products derived from
+     this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+// see https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html
+// omits anti-alias code
+static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bool reverseEffect)
+{
+    #define MIN_AMOUNT -0.16f
+    #define MAX_AMOUNT 1.5f
+    const float amount = (reverseEffect ? (1 - e->progress) : e->progress) * (MAX_AMOUNT - MIN_AMOUNT) + MIN_AMOUNT;
+    const float cylinderAngle = M_2PIf * amount;
+    const float cylinderRadius = radius;
+    const float ang = radians(angle);
+    vec2 o1 = { -0.801f, 0.89f }, o2 = { 0.985f, 0.985f }; // for 100 degrees
+    if (angle == 30) // values from WebVfx link
+        o1 = VEC2(0.12f, 0.258f), o2 = VEC2(0.15f, -0.5f); // from WebVfx link
+    vec2 point = add2(rot(e->p, ang), o1), p;
+    float yc = point.y - amount, hitAngle;
+    vec4 colour = reverseEffect ? e->b : e->a;
+    if (yc > cylinderRadius) // flat surface
+        return colour;
+    if (yc < -cylinderRadius) { // behind surface
+        // behindSurface()
+        yc = -cylinderRadius - cylinderRadius - yc;
+        hitAngle = acosf(yc / cylinderRadius) + cylinderAngle - M_PIf;
+        p = VEC2(point.x, hitAngle * M_1_2PIf);
+        point = add2(rot(p, -ang), o2);
+        colour = reverseEffect ? e->a : e->b;
+        if (yc < 0 && between2(point, 0, 1) && (hitAngle < M_PIf || amount > P5f)) { // shadow over to page
+            float shadow = (1 - length(sub2f(point, P5f)) * M_SQRT2f) * powf(-yc / cylinderRadius, 3) / 2;
+            colour.p0 -= shadow; // (can go -ve)
+            if (e->s->is_rgb)
+                colour.p1 -= shadow, colour.p2 -= shadow;
+        }
+        return colour;
+        // end behindSurface()
+    }
+    // seeThrough()
+    hitAngle = M_PIf - acosf(yc / cylinderRadius) + cylinderAngle;
+    if (yc < 0) { // get from colour going through its turn
+        p = VEC2(point.x, hitAngle * M_1_2PIf);
+        vec2 q = add2(rot(p, -ang), o2);
+        bool r = between2(q, 0, 1);
+        if (reverseEffect)
+            colour = r ? getToColor(q) : e->a;
+        else
+            colour = r ? getFromColor(q) : e->b;
+    }
+    // end seeThrough()
+    hitAngle = cylinderAngle + cylinderAngle - hitAngle;
+    float hitAngleMod = glmod(hitAngle, M_2PIf);
+    if ((hitAngleMod > M_PIf && amount < P5f) || (hitAngleMod > M_PI_2f && amount < 0))
+        return colour;
+    p = VEC2(point.x, hitAngle * M_1_2PIf);
+    point = add2(rot(p, -ang), o2);
+    // seeThroughWithShadow()
+    // distanceToEdge()
+    float dx = (point.x < 0) ? -point.x : (point.x > 1) ? point.x - 1 : (point.x > P5f) ? 1 - point.x : point.x;
+    float dy = (point.y < 0) ? -point.y : (point.y > 1) ? point.y - 1 : (point.y > P5f) ? 1 - point.y : point.y;
+    float dist = (betweenf(point.x, 0, 1) || betweenf(point.y, 0, 1)) ? fminf(dx, dy) : hypotf(dx, dy);
+    // end distanceToEdge()
+    float shadow = (1 - dist * 30) / 3;
+    if (shadow > 0) { // shadow over from page
+        shadow *= amount;
+        colour.p0 -= shadow;
+        if (e->s->is_rgb)
+            colour.p1 -= shadow, colour.p2 -= shadow;
+    }
+    // end seeThroughWithShadow()
+    if (!between2(point, 0, 1))
+        return colour;
+    // backside
+    colour = reverseEffect ? getToColor(point) : getFromColor(point);
+    float g = colour.p0;
+    if (e->s->is_rgb)
+        g = (g + colour.p1 + colour.p2) / 3; // simple average
+    g /= 5;
+    g += 0.8f * (powf(1 - fabsf(yc / cylinderRadius), 0.2f) / 2 + P5f);
+    return grey(e, g, colour.p3);
+}
 
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
@@ -2210,111 +2361,3 @@ static float solve_cubic_bezier(float x1, float y1, float x2, float y2, float x,
 }
 // TODO: maybe add WebKit SpringSolver too ?
 // https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/graphics/SpringSolver.h
-
-/*
-Copyright (c) 2010 Hewlett-Packard Development Company, L.P. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-   * Redistributions of source code must retain the above copyright
-     notice, this list of conditions and the following disclaimer.
-   * Redistributions in binary form must reproduce the above
-     copyright notice, this list of conditions and the following disclaimer
-     in the documentation and/or other materials provided with the distribution.
-   * Neither the name of Hewlett-Packard nor the names of its
-     contributors may be used to endorse or promote products derived from
-     this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
-// see https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html
-// TODO: add antiAlias() code
-static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bool reverseEffect)
-{
-    #define MIN_AMOUNT -0.16f
-    #define MAX_AMOUNT 1.5f
-    const float amount = (reverseEffect ? (1 - e->progress) : e->progress) * (MAX_AMOUNT - MIN_AMOUNT) + MIN_AMOUNT;
-    const float cylinderAngle = M_2PIf * amount;
-    const float cylinderRadius = radius;
-    const float ang = radians(angle);
-    vec2 o1 = { -0.801f, 0.89f }, o2 = { 0.985f, 0.985f }; // for 100 degrees
-    if (angle == 30) // values from WebVfx link
-        o1 = VEC2(0.12f, 0.258f), o2 = VEC2(0.15f, -0.5f); // from WebVfx link
-    vec2 point = add2(rot(e->p, ang), o1), p;
-    float yc = point.y - amount, hitAngle;
-    vec4 colour = reverseEffect ? e->b : e->a;
-    if (yc > cylinderRadius) // flat surface
-        return colour;
-    if (yc < -cylinderRadius) { // behind surface
-        // behindSurface()
-        yc = -cylinderRadius - cylinderRadius - yc;
-        hitAngle = acosf(yc / cylinderRadius) + cylinderAngle - M_PIf;
-        p = VEC2(point.x, hitAngle * M_1_2PIf);
-        point = add2(rot(p, -ang), o2);
-        colour = reverseEffect ? e->a : e->b;
-        if (yc < 0 && between2(point, 0, 1) && (hitAngle < M_PIf || amount > P5f)) { // shadow over to page
-            float shadow = (1 - length(sub2f(point, P5f)) * M_SQRT2f) * powf(-yc / cylinderRadius, 3) / 2;
-            colour.p0 -= shadow; // (can go -ve)
-            if (e->s->is_rgb)
-                colour.p1 -= shadow, colour.p2 -= shadow;
-        }
-        return colour;
-        // end behindSurface()
-    }
-    // seeThrough()
-    hitAngle = M_PIf - acosf(yc / cylinderRadius) + cylinderAngle;
-    if (yc < 0) { // get from colour going through its turn
-        p = VEC2(point.x, hitAngle * M_1_2PIf);
-        vec2 q = add2(rot(p, -ang), o2);
-        bool r = between2(q, 0, 1);
-        if (reverseEffect)
-            colour = r ? getToColor(q) : e->a;
-        else
-            colour = r ? getFromColor(q) : e->b;
-    }
-    // end seeThrough()
-    hitAngle = cylinderAngle + cylinderAngle - hitAngle;
-    float hitAngleMod = glmod(hitAngle, M_2PIf);
-    if ((hitAngleMod > M_PIf && amount < P5f) || (hitAngleMod > M_PI_2f && amount < 0))
-        return colour;
-    p = VEC2(point.x, hitAngle * M_1_2PIf);
-    point = add2(rot(p, -ang), o2);
-    // seeThroughWithShadow()
-    // distanceToEdge()
-    float dx = (point.x < 0) ? -point.x : (point.x > 1) ? point.x - 1 : (point.x > P5f) ? 1 - point.x : point.x;
-    float dy = (point.y < 0) ? -point.y : (point.y > 1) ? point.y - 1 : (point.y > P5f) ? 1 - point.y : point.y;
-    float dist = (betweenf(point.x, 0, 1) || betweenf(point.y, 0, 1)) ? fminf(dx, dy) : hypotf(dx, dy);
-    // end distanceToEdge()
-    float shadow = (1 - dist * 30) / 3;
-    if (shadow > 0) { // shadow over from page
-        shadow *= amount;
-        colour.p0 -= shadow;
-        if (e->s->is_rgb)
-            colour.p1 -= shadow, colour.p2 -= shadow;
-    }
-    // end seeThroughWithShadow()
-    if (!between2(point, 0, 1))
-        return colour;
-    // backside
-    colour = reverseEffect ? getToColor(point) : getFromColor(point);
-    float grey = colour.p0;
-    if (e->s->is_rgb)
-        grey = (grey + colour.p1 + colour.p2) / 3; // simple average
-    grey /= 5;
-    grey += 0.8f * (powf(1 - fabsf(yc / cylinderRadius), 0.2f) / 2 + P5f);
-    colour.p0 = grey;
-    if (!e->s->is_rgb)
-        grey = P5f;
-    colour.p1 = colour.p2 = grey;
-    return colour;
-}

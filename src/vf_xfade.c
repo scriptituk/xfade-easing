@@ -129,6 +129,7 @@ typedef struct XFadeContext {
 
     char *easing_str; // easing name with optional args
     char *transition_str; // transition name with optional args
+    int reverse; // reverse option bit flags (enum ReverseOpts)
     struct XFadeEasingContext *k; // xfade-easing data
 
     AVExpr *e;
@@ -176,6 +177,7 @@ static av_cold void uninit(AVFilterContext *ctx)
 
 static const AVOption xfade_options[] = {
     { "easing", "set cross fade easing", OFFSET(easing_str), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, FLAGS },
+    { "reverse", "reverse easing/transition", OFFSET(reverse), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 3, FLAGS },
     { "transition", "set cross fade transition", OFFSET(transition_str), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, FLAGS, .unit = "transition" },
     {   "custom",    "custom transition",     0, AV_OPT_TYPE_CONST, {.i64=CUSTOM},    0, 0, FLAGS, .unit = "transition" },
     {   "fade",      "fade transition",       0, AV_OPT_TYPE_CONST, {.i64=FADE},      0, 0, FLAGS, .unit = "transition" },
@@ -2009,10 +2011,12 @@ REVEALV_TRANSITION(up,   16, uint16_t, 2, -)
 REVEALV_TRANSITION(down,  8, uint8_t,  1, )
 REVEALV_TRANSITION(down, 16, uint16_t, 2, )
 
+#include "xfade-easing.h" // easing & extended transitions
+
 static inline double getpix(void *priv, double x, double y, int plane, int nb)
 {
     XFadeContext *s = priv;
-    AVFrame *in = s->xf[nb];
+    AVFrame *in = s->xf[nb ^ s->reverse & REVERSE_TRANSITION];
     const uint8_t *src = in->data[FFMIN(plane, s->nb_planes - 1)];
     int linesize = in->linesize[FFMIN(plane, s->nb_planes - 1)];
     const int w = in->width;
@@ -2042,8 +2046,6 @@ static double b0(void *priv, double x, double y) { return getpix(priv, x, y, 0, 
 static double b1(void *priv, double x, double y) { return getpix(priv, x, y, 1, 1); }
 static double b2(void *priv, double x, double y) { return getpix(priv, x, y, 2, 1); }
 static double b3(void *priv, double x, double y) { return getpix(priv, x, y, 3, 1); }
-
-#include "xfade-easing.h" // easing & extended transitions
 
 static int config_output(AVFilterLink *outlink)
 {
@@ -2205,8 +2207,12 @@ static int xfade_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
     ThreadData *td = arg;
     int slice_start = (outlink->h *  jobnr   ) / nb_jobs;
     int slice_end   = (outlink->h * (jobnr+1)) / nb_jobs;
+    int i = s->reverse & REVERSE_TRANSITION; // input 0 or 1
+    float p = td->progress;
 
-    s->transitionf(ctx, td->xf[0], td->xf[1], td->out, ease(s, td->progress), slice_start, slice_end, jobnr);
+    p = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - p) : ease(s, p); // eased progress
+    if (i) p = 1 - p;
+    s->transitionf(ctx, td->xf[i], td->xf[i ^ 1], td->out, p, slice_start, slice_end, jobnr);
 
     return 0;
 }

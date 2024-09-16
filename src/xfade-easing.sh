@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=2.1.6
+export VERSION=3.0.0
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -155,11 +155,12 @@ _version() {
 _opts() {
     ffmpeg -hide_banner --help filter=xfade | grep -q easing && o_native=true # detect native build
     local OPTIND OPTARG opt
-    while getopts ':f:t:e:x:as:p:m:q:c:v:z:d:i:l:jr:nu:k:LHVXIPT:KD' opt; do
+    while getopts ':f:t:e:b:x:as:p:m:q:c:v:z:d:i:l:jr:nu:k:LHVXIPT:KD' opt; do
         case $opt in
         f) o_format=$OPTARG ;;
         t) o_transition=$OPTARG ;;
         e) o_easing=$OPTARG ;;
+        b) o_reverse=$OPTARG ;;
         x) o_expr=$OPTARG ;;
         a) o_xappend=true ;;
         s) o_xformat=$OPTARG ;;
@@ -227,7 +228,7 @@ _format() { # pix_fmt
 
 # type of AV file
 _type() { # file
-    local mime=`file --mime "$1"`
+    local mime=$(file --mime "$1")
     if [[ $mime =~ video/ ]]; then
         echo video
     elif [[ $mime =~ image/ ]]; then
@@ -313,7 +314,7 @@ _args() { # easing/transition
 }
 
 # get filter string
-_xfade() { # offset duration easing eargs transition targs expr
+_xfade() { # offset duration easing eargs transition targs expr reverse
     local xfade="offset=$1:duration=$2" e
     if [[ -n $o_native ]]; then # use native build
         if [[ $3 != linear || -n $4 ]]; then # CSS easing but not identity linear
@@ -328,6 +329,7 @@ _xfade() { # offset duration easing eargs transition targs expr
         else # vanilla
             xfade+=":transition=$5"
         fi
+        xfade+=":reverse=$8"
     else # use custom expr
         if [[ -n $7 ]]; then # have expr
             xfade+=":transition=custom:expr='$7'"
@@ -1334,7 +1336,8 @@ _gl_transition() { # transition args
     gl_InvertedPageCurl) # by Hewlett-Packard
         # antiAlias deactivated to simplify implementation - see src/xfade-easing.h
         local ANGLE=${a[0]:-100} # angle
-#       ${a[1]:-0} # reverseEffect
+        _make "st(1, ${a[1]:-0.159});" # radius
+#       ${a[0]:-0} # reverseEffect
         local O1A=-0.801 O1B=0.89 O2A=0.985 O2B=0.985
         if [[ $ANGLE -eq 30 ]]; then
             O1A=0.12 O1B=0.258 O2A=0.15 O2B=-0.5
@@ -1346,7 +1349,6 @@ _gl_transition() { # transition args
         local C=$(_calc "cos($ANGLE)") S=$(_calc "sin($ANGLE)")
         local MIN_AMOUNT=-0.16 MAX_AMOUNT=1.5
         _make "st(0, (1 - P) * ($MAX_AMOUNT - $MIN_AMOUNT) + $MIN_AMOUNT);" # amount,cylinderCenter
-        _make 'st(1, 1 / 2 / PI);' # cylinderRadius
         _make 'st(2, ld(0) / ld(1));' # cylinderAngle
         _make 'st(3, X / W);' # p.x
         _make 'st(4, 1 - Y / H);' # p.y
@@ -1408,7 +1410,7 @@ _gl_transition() { # transition args
         _make '    st(6, (1 - ld(6)) * H);'
         _make '    if(lt(PLANE, 3),'
         if [[ $p_isrgb -ne 0 ]]; then
-        _make '     st(3, (a0(ld(5),ld(6)) + a1(ld(5),ld(6)) + a2(ld(5),ld(6))) / maxv / 15);' # gray
+        _make '     st(3, (a0(ld(5),ld(6)) + a1(ld(5),ld(6)) + a2(ld(5),ld(6))) / maxv / 15);' # grey
         _make '     st(3, ld(3) + 0.8 * (pow(1 - abs(ld(7) / ld(1)), 0.2) / 2 + 0.5));'
         _make '     st(3, ld(3) * maxv),'
         else
@@ -1717,16 +1719,23 @@ _gl_transition() { # transition args
         _make ' st(4, b(ld(1), ld(2)));'
         _make ' st(5, 1 - P);'
         _make ' mix(ld(3), ld(4), ld(5)),'
-        _make " st(1, ${a[4]:-0.15});" # backGray
+        _make " st(1, ${a[4]:-0.15});" # backColor
         _make ' grey(ld(1))'
         _make ')'
+        ;;
+    gl_SimpleBookCurl) # by Raymond Luckhurst
+        _make NATIVE
+#       ${a[0]:-150} # angle
+#       ${a[0]:-0.1} # radius
+#       ${a[0]:-0.2} # shadow
         ;;
     gl_SimplePageCurl) # by Andrew Hung
         _make NATIVE
 #       ${a[0]:-80} # angle
-#       ${a[0]:-0.1} # radius
+#       ${a[0]:-0.15} # radius
 #       ${a[0]:-0} # roll
 #       ${a[0]:-0} # reverseEffect
+#       ${a[0]:-0} # greyback
 #       ${a[0]:-0.8} # opacity
 #       ${a[0]:-0.2} # shadow
         ;;
@@ -2065,6 +2074,7 @@ _video() { # path
     [[ -n $warn ]] && _warning "$warn, adjusted length = $length"
     _debug "video: length=$length duration=$duration time=$time"
     local expr=$(_expand '%n%X')
+    local reverse=${o_reverse-0}
     local fps=${o_vfps-$VIDEOFPS}
     [[ $path =~ .gif && $fps -gt 50 ]] && fps=50 # max for browser support
     local dims=$(_dims ${inputs[0]})
@@ -2123,7 +2133,7 @@ EOT
         for j in $(seq $m); do
             i=$((j-1))
             offset=$(_calc "$j * $time + $i * $duration")
-            xfade=$(_xfade $offset $duration $easing "$eargs" $transition "$targs" "$expr")
+            xfade=$(_xfade $offset $duration $easing "$eargs" $transition "$targs" "$expr" $reverse)
             echo "[v][v$j]xfade=$xfade[v];" >> $script
         done
     else # stacked
@@ -2145,9 +2155,9 @@ EOT
         for j in $(seq $m); do
             i=$((j-1))
             offset=$(_calc "$j * $time + $i * $duration")
-            xfade=$(_xfade $offset $duration linear '' $transition '' "$expr0")
+            xfade=$(_xfade $offset $duration linear '' $transition '' "$expr0" $reverse)
             echo "[va][v${j}a]xfade=$xfade[va];" >> $script
-            xfade=$(_xfade $offset $duration $easing "$eargs" $transition "$targs" "$expr")
+            xfade=$(_xfade $offset $duration $easing "$eargs" $transition "$targs" "$expr" $reverse)
             echo "[vb][v${j}b]xfade=$xfade[vb];" >> $script
         done
         echo "[va][vb]xstack=inputs=2:fill=$fill:layout=0_0|$cell2[v];" >> $script
@@ -2172,7 +2182,7 @@ EOT
     local major=$(ffmpeg -version | head -1 | cut -d' ' -f3 | cut -d. -f1)
     local fcs="-/filter_complex $script"; [[ $major -lt 7 ]] && fcs="-filter_complex_script $script"
     local ffopts="-y -hide_banner -loglevel ${o_loglevel-warning} -stats_period 1"
-    [[ -z $o_native ]] && ffopts+=' -filter_complex_threads 1'
+    [[ -z $o_native || $o_loglevel == debug ]] && ffopts+=' -filter_complex_threads 1'
     ffmpeg $ffopts $fcs -map [v]:v -an -t $length $enc "$path"
     [[ $path =~ .gif ]] && which -s gifsicle && mv "$path" $TMP-video.gif && gifsicle -O3 -o "$path" $TMP-video.gif
 }
@@ -2453,10 +2463,12 @@ Usage: $CMD [options] [image/video inputs]
 Options:
     -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
     -t transition name and arguments, if any (default: $TRANSITION); use -L for list
-       args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)'
+       args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)' (both variants)
        or key=value pairs, e.g.: 'gl_perlin(smoothness=0.1, scale=5)' (custom ffmpeg only)
     -e easing function and arguments, if any (default: $EASING)
        CSS args in parenthesis as CSV, e.g.: 'cubic-bezier(0.17,0.67,0.83,0.67)'
+    -b reverse transition and/or easing effect (custom ffmpeg only) (default: 0)
+       1 reverses the inputs and transition effect; 2 reverses the easing; 3 reverses both
     -x expr output filename (default: no expr), accepts expansions, - for stdout
     -a append to expr output file
     -s expr output format string with text expansion (default: $EXPRFORMAT)
@@ -2467,12 +2479,12 @@ Options:
        %c expands to the CSS easing arguments
        %a expands to the GL transition arguments; %A to the default arguments (if any)
        %x expands to the generated expr, condensed, intended for inline filterchains
-       %X uncondensed version of %x, intended for -filter_complex_script files
+       %X uncondensed version of %x, intended for -/filter_complex script files
        %p expands to the progress easing expression, condensed, for inline filterchains
        %g expands to the generic easing expression (for other filters), condensed
        %z expands to the eased transition expression only, condensed
           for the uneased transition expression only, omit -e option and use %x or %X
-       %P, %G, %Z, uncondensed versions of %p, %g, %z, for -filter_complex_script files
+       %P, %G, %Z, uncondensed versions of %p, %g, %z, for -/filter_complex script files
        %n inserts a newline
     -p easing plot filename (default: no plot), accepts expansions
        formats: gif, jpg, png, svg, pdf, eps, html <canvas>, from file extension
