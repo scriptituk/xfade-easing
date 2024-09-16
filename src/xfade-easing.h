@@ -1401,18 +1401,18 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
     p = sub2(q, mul2f(dir, dist)); // point perpendicular to curl axis
     // map point to curl
     vec4 c = reverseEffect ? e->a : e->b;
-    bool r = false, o = false, s = false; // roll & opacity & shadow flags
+    bool b = false, o = false, s = false; // back & opacity & shadow flags
     if (dist < 0) { // point is over flat A
         c = reverseEffect ? e->b : e->a;
         if (!roll) {
             p = add2f(add2(p, mul2f(dir, M_PIf * radius - dist)), P5f);
-            r = true;
-        } else if (-dist < radius) {
+            b = true;
+        } else if (-dist < radius) { // possibly on roll over
             phi = asin(-dist / radius);
             p = add2f(add2(p, mul2f(dir, (M_PIf + phi) * radius)), P5f);
-            r = true;
+            b = true;
         }
-        if (r && between2(p, 0, 1)) // on back of A
+        if (b && between2(p, 0, 1)) // on back of A
             c = reverseEffect ? getToColor(p) : getFromColor(p), o = true;
     } else if (radius > 0) { // curled A
         // map to cylinder point
