@@ -636,8 +636,6 @@ The Hewlett-Packard accreditation by Sergey Kosarevsky is obscure but preserved 
 
 ##### Transition `gl_SimplePageCurl`
 
-(custom ffmpeg only at present)
-
 This is adapted from the elegant
 [simple page curl effect ](https://www.shadertoy.com/view/ls3cDB) by Andrew Hung
 who also provides an excellent [shader breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
