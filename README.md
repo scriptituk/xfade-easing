@@ -132,21 +132,20 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex scr
 ### Building ffmpeg
 
 1. check the [FFmpeg Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide) for any prerequisites, e.g. macOS requires Xcode
-1. get the ffmpeg source tree:
-   - for snapshot: `git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg`
-   - for latest stable, [Download Source Code](https://ffmpeg.org/download.html)
-     then extract the .xz archive:  
-     `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
+1. get the ffmpeg source tree:  
+use latest stable release at [Download Source Code](https://ffmpeg.org/download.html) then extract the .xz archive:  
+`tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
 1. `cd ffmpeg` and patch libavfilter/vf_xfade.c:
-   - download [vf_xfade.patch](src/vf_xfade.patch) and run `git apply vf_xfade.patch`  
-   - or download [vf_xfade.c](src/vf_xfade.c) and if necessary patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 9 small changes  
+   - download [vf_xfade.patch](src/vf_xfade.patch) and run `git apply vf_xfade.patch`
+   - or download [patched vf_xfade.c](src/vf_xfade.c) (for ffmpeg v7.0.2)
+   - or patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 9 small changes  
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
    to replicate an existing configuration run `ffmpeg -hide_banner -buildconf`
 1. run `make`, it takes a while  
 the C99 code mixes declarations and statements so may produce profuse compiler warnings  
 the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/questions/51314888/ld-warning-text-based-stub-file-are-out-of-sync-falling-back-to-library-file)
-1. if required run `make install` or use ffmpeg in the root source directory
+1. if required run `make install` or use ffmpeg from the root source directory
 1. test using `ffmpeg -hide_banner --help filter=xfade`: there should be `easing` and `reverse` options under `xfade AVOptions`
 
 For simplicity, xfade-easing is implemented as static functions in the header file [xfade-easing.h](src/xfade-easing.h) and included into vf_xfade.c at an optimal place.
@@ -456,7 +455,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_rotateTransition` (by: haiyoucuv)
 - `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backColor`; default: `(0.5,0.5,1,8,0.15)`] (by: Fernando Kuteken)
 - `gl_SimpleBookCurl` [args: `angle`,`radius`,`shadow`; default: `(150,0.1,0.2)`] (by: Raymond Luckhurst)
-- `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`greyback`,`opacity`,`shadow`; default: `(80,0.15,0,0,0,0.8,0.2)`] (by: Andrew Hung)
+- `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`greyBack`,`opacity`,`shadow`; default: `(80,0.15,0,0,0,0.8,0.2)`] (by: Andrew Hung)
 - `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] (by: Mark Craig)
 - `gl_squareswire` [args: `squares.h`,`squares.v`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] (by: gre)
 - `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] (by: Ben Lucas)
@@ -645,7 +644,9 @@ who also provides an excellent [shader breakdown](https://andrewhungblog.wordpre
 to demystify the deformation effect.  
 It is more versatile than `gl_InvertedPageCurl` and takes the following parameters:
 - `angle` may be any 360° angle
-  (horizontal east is 0°, curl direction is `angle - 90°` anticlockwise)
+  (horizontal east is 0°, curl direction is `angle - 90°` anticlockwise);
+  in effect, 1–89° curls from bottom-right; 91–179° top-right; 181–269° (or -91–-179°) top-left; 271–359° (or -1–-89°) bottom-left;
+  0° curls upwards; 90° left; ±180° down; 270° (or -90°) right
 - `radius` sets the cylinder radius
 - `roll` to roll the turning page into a cylinder (`gl_InvertedPageCurl` only rolls)
 - `reverseEffect` to uncurl or unroll
@@ -673,6 +674,12 @@ which confirms Mr Hung’s observation that complex mathematics is unjustified: 
 (Abstract and Renaissance art by Kandinsky and Titian)
 
 ![gl_SimplePageCurl](assets/art.gif)
+
+A by-product effect is a wipe transition in any direction, achieved by setting `radius=0`,`roll=1`.
+
+*Example*: `'gl_SimplePageCurl(160,0,1)'` 160° wipe
+
+![gl_SimplePageCurl-wipe](assets/wipe.gif)
 
 ##### Transition `gl_SimpleBookCurl`
 
@@ -834,7 +841,7 @@ The script has a `-b` option to pass reverse values through to xfade for the cus
 Most standard xfade transitions have reversed equivalents, e.g. `wipeleft` and `wiperight` but few GLSL transitions have.
 Unlike standard easings, CSS easings also have no mirror-image reversal mode.
 
-*Example*: using the same CSS Cubic Bézier coefficients [as above](#cubic-bézier-easing)  
+*Example*: using the same CSS Linear coefficients [as above](#linear-easing)  
 easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'` transition: `gl_FanUp` reverse: `0`–`3`
 
 ![reverse effect](assets/reverse.gif)
@@ -853,7 +860,7 @@ There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 3.0.0 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.0.1 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
