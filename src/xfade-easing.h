@@ -1287,13 +1287,9 @@ static vec4 gl_SimpleBookCurl(const XTransition *e) // by Raymond Luckhurst
     float phi;
     vec2 i, dir;
     INIT {
-        int ang = (angle % 360 + 360) % 360; // 0 <= ang < 360
-        phi = radians(ang) - M_PI_2f; // target curl angle
+        phi = radians(angle) - M_PI_2f; // target curl angle
         dir = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi))); // direction unit vector
-        i = VEC2(1, -1);
-        if (ang >= 90) i.y = 1; // (1, 1);
-        if (ang >= 180) i.x = -1; // (-1, 1);
-        if (ang >= 270) i.y = -1; // (-1, -1);
+        i = VEC2((dir.x >= 0) ? 1 : -1, (dir.y >= 0) ? 1 : -1);
     }
     VAR2(vec2, q, i.x, i.y) // quadrant corner
     INIT i = abs2(dir);
@@ -1370,23 +1366,19 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
     ARG1(float, radius, 0.15)
     ARG1(bool, roll, 0)
     ARG1(bool, reverseEffect, 0)
-    ARG1(bool, greyback, 0)
+    ARG1(bool, greyBack, 0)
     ARG1(float, opacity, 0.8)
     ARG1(float, shadow, 0.2)
     // setup
     float phi;
     vec2 q, f;
     INIT {
-        int ang = (angle % 360 + 360) % 360; // 0 <= ang < 360
-        phi = radians(ang) - M_PI_2f; // target curl angle
+        phi = radians(angle) - M_PI_2f; // target curl angle
         f = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi)));
-        q = VEC2(1, -1); // quadrant corner
-        if (ang >= 90) q.y = 1; // (1, 1);
-        if (ang >= 180) q.x = -1; // (-1, 1);
-        if (ang >= 270) q.y = -1; // (-1, -1);
+        q = VEC2((f.x >= 0) ? P5f : -P5f, (f.y >= 0) ? P5f : -P5f); // quadrant corner
     }
     VAR2(vec2, dir, f.x, f.y) // direction unit vector
-    INIT f = mul2f(dir, dot(mul2f(q, P5f), dir));
+    INIT f = mul2f(dir, dot(q, dir));
     VAR2(vec2, i, f.x, f.y) // initial position, curl axis on corner
     INIT {
         f = sub2(mul2f(dir, -2 * radius), i); // final position, curl & shadow just out of view
@@ -1401,41 +1393,45 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
     p = sub2(q, mul2f(dir, dist)); // point perpendicular to curl axis
     // map point to curl
     vec4 c = reverseEffect ? e->a : e->b;
-    bool b = false, o = false, s = false; // back & opacity & shadow flags
+    bool g = false, o = false, s = false; // getcolor & opacity & shadow flags
     if (dist < 0) { // point is over flat A
-        c = reverseEffect ? e->b : e->a;
-        if (!roll) {
+        if (!roll) { // curl
             p = add2f(add2(p, mul2f(dir, M_PIf * radius - dist)), P5f);
-            b = true;
+            g = true;
         } else if (-dist < radius) { // possibly on roll over
             phi = asin(-dist / radius);
             p = add2f(add2(p, mul2f(dir, (M_PIf + phi) * radius)), P5f);
-            b = true;
+            g = s = true;
         }
-        if (b && between2(p, 0, 1)) // on back of A
-            c = reverseEffect ? getToColor(p) : getFromColor(p), o = true;
+        if (g && between2(p, 0, 1)) // on back of A
+            o = true;
+        else
+            c = reverseEffect ? e->b : e->a, g = false;
     } else if (radius > 0) { // curled A
         // map to cylinder point
         phi = asinf(dist / radius);
         vec2 p2 = add2f(add2(p, mul2f(dir, (M_PIf - phi) * radius)), P5f);
         vec2 p1 = add2f(add2(p, mul2f(dir, phi * radius)), P5f);
         if (between2(p2, 0, 1)) // on curling back of A
-            c = reverseEffect ? getToColor(p2) : getFromColor(p2), o = s = true;
+            p = p2, g = o = s = true;
         else if (between2(p1, 0, 1)) // on curling front of A
-            c = reverseEffect ? getToColor(p1) : getFromColor(p1);
+            p = p1, g = true;
         else // on B
             s = true;
     }
+    if (g) // on A
+        c = reverseEffect ? getToColor(p) : getFromColor(p);
     if (o) { // need opacity
-        if (greyback)
-            c = grey(e, (c.p0 + c.p1 + c.p2) / 3, c.p3);
+        if (greyBack)
+            c = grey(e, e->s->is_rgb ? (c.p0 + c.p1 + c.p2) / 3 : c.p0, c.p3);
         c.p0 += opacity * (1 - c.p0);
         if (e->s->is_rgb)
             c.p1 += opacity * (1 - c.p1), c.p2 += opacity * (1 - c.p2);
     }
-    if (s) { // need shadow
-        // TODO: fix shadowing same as gl_SimpleBookCurl
-        float d = powf(av_clipf(fabsf(dist - radius) / radius, 0, 1), shadow);
+    if (s && radius > 0) { // need shadow
+        // TODO: ok over A, makes a tideline over B for large radius
+        float d = dist + (g ? radius : -radius);
+        d = powf(av_clipf(fabsf(d) / radius, 0, 1), shadow);
         c.p0 *= d;
         if (e->s->is_rgb)
             c.p1 *= d, c.p2 *= d;

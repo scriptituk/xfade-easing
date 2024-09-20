@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.0.0
+export VERSION=3.0.1
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -1334,7 +1334,7 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_InvertedPageCurl) # by Hewlett-Packard
-        # antiAlias deactivated to simplify implementation - see src/xfade-easing.h
+        # antiAlias omitted to simplify implementation - see src/xfade-easing.h
         local ANGLE=${a[0]:-100} # angle
         _make "st(1, ${a[1]:-0.159});" # radius
 #       ${a[0]:-0} # reverseEffect
@@ -1730,14 +1730,99 @@ _gl_transition() { # transition args
 #       ${a[0]:-0.2} # shadow
         ;;
     gl_SimplePageCurl) # by Andrew Hung
-        _make NATIVE
-#       ${a[0]:-80} # angle
-#       ${a[0]:-0.15} # radius
-#       ${a[0]:-0} # roll
-#       ${a[0]:-0} # reverseEffect
-#       ${a[0]:-0} # greyback
-#       ${a[0]:-0.8} # opacity
-#       ${a[0]:-0.2} # shadow
+        _make "st(2, ${a[0]:-80});" # angle
+        _make "st(1, ${a[1]:-0.15});" # radius
+        _make 'st(2, (ld(2) / 180 - 0.5) * PI);' # phi
+        _make 'st(3, cos(ld(2)) * W / H);'
+        _make 'st(4, sin(ld(2)));'
+        _make 'st(2, hypot(ld(3), ld(4)));'
+        _make 'st(3, ld(3) / ld(2));' # dir.x
+        _make 'st(4, ld(4) / ld(2));' # dir.y
+        _make 'st(2, dot(gte(ld(3), 0) - 0.5, gte(ld(4), 0) - 0.5, ld(3), ld(4)));'
+        _make 'st(5, ld(3) * ld(2));' # i.x
+        _make 'st(6, ld(4) * ld(2));' # i.y
+        _make 'st(7, (ld(3) * ld(1) + ld(5)) * -2);' # m.x
+        _make 'st(8, (ld(4) * ld(1) + ld(6)) * -2);' # m.y
+        _make "st(2, if(${a[2]:-0}, 1, 0));" # roll
+        _make "if(${a[3]:-0}, st(2, bitor(ld(2), 2)));" # reverseEffect
+        _make 'st(0, if(bitand(ld(2), 2), P, 1 - P));'
+        _make 'st(5, ld(5) + ld(7) * ld(0));' # p.x
+        _make 'st(6, ld(6) + ld(8) * ld(0));' # p.y
+        _make "st(0, if(${a[4]:-0}, bitor(ld(2), 4), ld(2)));" # greyBack
+        _make 'st(7, X / W - 0.5);' # q.x
+        _make 'st(8, 0.5 - Y / H);' # q.y
+        _make 'st(2, dot((ld(7) - ld(5)), (ld(8) - ld(6)), ld(3), ld(4)));' # dist
+        _make 'st(5, ld(7) - ld(3) * ld(2));'
+        _make 'st(6, ld(8) - ld(4) * ld(2));'
+        _make 'st(7, 0);' # flags
+        _make 'st(8, if(bitand(ld(0), 2), A, B));' # c
+        _make 'if(lt(ld(2), 0),' # dist < 0
+        _make ' ifnot(bitand(ld(0), 1),' # curl
+        _make '  st(7, PI * ld(1) - ld(2));'
+        _make '  st(5, ld(5) + ld(3) * ld(7) + 0.5);'
+        _make '  st(6, ld(6) + ld(4) * ld(7) + 0.5);'
+        _make '  st(7, 1),' # g
+        _make '  if(lt(-ld(2), ld(1)),' # -dist < radius
+        _make '   st(7, (PI + asin(-ld(2) / ld(1))) * ld(1));'
+        _make '   st(5, ld(5) + ld(3) * ld(7) + 0.5);'
+        _make '   st(6, ld(6) + ld(4) * ld(7) + 0.5);'
+        _make '   st(7, 5)' # g,s
+        _make '  )'
+        _make ' );'
+        _make ' if(ld(7) * between(ld(5), 0, 1) * between(ld(6), 0, 1),'
+        _make '  st(7, bitor(ld(7), 2)),' # o
+        _make '  st(7, 0);'
+        _make '  st(8, if(bitand(ld(0), 2), B, A))' # c
+        _make ' ),'
+        _make ' if(gt(ld(1), 0),' # radius > 0
+        _make '  st(7, (PI - asin(ld(2) / ld(1))) * ld(1));'
+        _make '  st(5, ld(5) + ld(3) * ld(7) + 0.5);'
+        _make '  st(6, ld(6) + ld(4) * ld(7) + 0.5);'
+        _make '  if(between(ld(5), 0, 1) * between(ld(6), 0, 1),'
+        _make '   st(7, 7),' # g,o,s
+        _make '   st(7, 2 * ld(7) - PI * ld(1));'
+        _make '   st(5, ld(5) - ld(3) * ld(7));'
+        _make '   st(6, ld(6) - ld(4) * ld(7));'
+        _make '   st(7, if(between(ld(5), 0, 1) * between(ld(6), 0, 1), 1, 4))' # g/s
+        _make '  )'
+        _make ' )'
+        _make ');'
+        _make 'if(bitand(ld(7), 1),' # on A
+        _make '  st(5, ld(5) * W);'
+        _make '  st(6, (1 - ld(6)) * H);'
+        _make '  st(8, if(bitand(ld(0), 2),'
+        _make '   b(ld(5), ld(6)),'
+        _make '   a(ld(5), ld(6))'
+        _make '  ))'
+        _make ');'
+        _make 'if(lt(PLANE, 3),'
+        _make ' if(bitand(ld(7), 2),' # need opacity
+        _make '  if(bitand(ld(0), 4),' # greyBack
+        if [[ $p_isrgb -ne 0 ]]; then
+        _make '   st(8, (a0(ld(5),ld(6)) + a1(ld(5),ld(6)) + a2(ld(5),ld(6))) / 3)'
+        else
+        _make '   if(PLANE, st(8, midv))'
+        fi
+        _make '  );'
+        _make "  st(3, ${a[5]:-0.8});" # opacity
+        if [[ $p_isrgb -ne 0 ]]; then
+        _make '  st(8, ld(8) + (maxv - ld(8)) * ld(3))'
+        else
+        _make '  ifnot(PLANE, st(8, ld(8) + (maxv - ld(8)) * ld(3)))'
+        fi
+        _make ' );'
+        _make ' if(bitand(ld(7), 4) * gt(ld(1), 0),' # need shadow
+        _make "  st(3, ${a[6]:-0.2});" # shadow
+        _make '  st(4, ld(2) + if(bitand(ld(7), 1), ld(1), -ld(1)));'
+        _make '  st(4, pow(clip(abs(ld(4)) / ld(1), 0, 1), ld(3)));' # d
+        if [[ $p_isrgb -ne 0 ]]; then
+        _make '  st(8, ld(8) * ld(4))'
+        else
+        _make '  ifnot(PLANE, st(8, ld(8) * ld(4)))'
+        fi
+        _make ' )'
+        _make ');'
+        _make 'ld(8)'
         ;;
     gl_Slides) # by Mark Craig
         _make "st(1, ${a[0]:-0});" # type
