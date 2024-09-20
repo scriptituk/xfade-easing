@@ -14,13 +14,9 @@ uniform float shadow; // = 0.2
 
 vec4 transition (vec2 uv) {
     // setup
-    float ang = mod(mod(float(angle), 360.) + 360., 360.); // 0 <= ang < 360
-    vec2 q = vec2(1., -1.); // quadrant corner
-    if (ang >= 90.) q.y = 1.; // (1., 1.);
-    if (ang >= 180.) q.x = -1.; // (-1., 1.);
-    if (ang >= 270.) q.y = -1.; // (-1., -1.);
-    float phi = radians(ang) - M_PI_2; // target curl angle
+    float phi = radians(float(angle)) - M_PI_2; // target curl angle
     vec2 dir = normalize(vec2(cos(phi) * ratio, sin(phi))); // direction unit vector
+    vec2 q = vec2((dir.x >= 0.) ? 1. : -1., (dir.y >= 0.) ? 1. : -1.); // quadrant corner
     vec2 i = abs(dir);
     float k = (i.x == 0.) ? M_PI_2 : atan(i.y, i.x); // absolute curl angle
     i = dir * dot(q * .5, dir); // initial position, curl axis on corner
