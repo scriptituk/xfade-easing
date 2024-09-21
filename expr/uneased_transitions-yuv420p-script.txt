@@ -1173,7 +1173,7 @@ st(4, sin(ld(2)));
 st(2, hypot(ld(3), ld(4)));
 st(3, ld(3) / ld(2));
 st(4, ld(4) / ld(2));
-st(2, gte(ld(3), 0) - 0.5 * ld(3) + gte(ld(4), 0) - 0.5 * ld(4));
+st(2, (gte(ld(3), 0) - 0.5) * ld(3) + (gte(ld(4), 0) - 0.5) * ld(4));
 st(5, ld(3) * ld(2));
 st(6, ld(4) * ld(2));
 st(7, (ld(3) * ld(1) + ld(5)) * -2);
