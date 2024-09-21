@@ -131,6 +131,8 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex scr
 
 ### Building ffmpeg
 
+This is easy:
+
 1. check the [FFmpeg Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide) for any prerequisites, e.g. macOS requires Xcode
 1. get the ffmpeg source tree:  
 use latest stable release at [Download Source Code](https://ffmpeg.org/download.html) then extract the .xz archive:  
@@ -141,7 +143,7 @@ use latest stable release at [Download Source Code](https://ffmpeg.org/download.
    - or patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 9 small changes  
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
-   to replicate an existing configuration run `ffmpeg -hide_banner -buildconf`
+   to replicate an existing configuration run `ffmpeg -hide_banner -buildconf` and copy-paste the options
 1. run `make`, it takes a while  
 the C99 code mixes declarations and statements so may produce profuse compiler warnings  
 the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/questions/51314888/ld-warning-text-based-stub-file-are-out-of-sync-falling-back-to-library-file)
