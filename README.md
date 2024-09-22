@@ -410,7 +410,6 @@ The open collection of [GL Transitions](https://gl-transitions.com/) initiative 
 
 Other GLSL transition sources were found on [shadertoy](https://www.shadertoy.com/) and the [Vegas Forum](https://www.vegascreativesoftware.info/us/forum/gl-transitions-gallery-sharing-place-share-the-code-here--133472/).
 All GLSL transitions adapted to the GL Transition Specification are at [glsl/](glsl/).
-I should push request them to the [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) GitHub repository really.
 
 Many of the transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) and elsewhere
 have been transpiled to native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing.
@@ -443,6 +442,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_hexagonalize` [args: `steps`,`horizontalHexagons`; default: `(50,20)`] (by: Fernando Kuteken)
 - `gl_InvertedPageCurl` [args: `angle`,`radius`,`reverseEffect`; default: `(100,0.159,0)`] (by: Hewlett-Packard)
 - `gl_kaleidoscope` [args: `speed`,`angle`,`power`; default: `(1,1,1.5)`] (by: nwoeanhinnogaehr)
+- `gl_Lissajous_Tiles` [args: `grid.x`,`grid.y`,`speed`,`freq.x`,`freq.y`,`offset`,`zoom`,`fade`,`backColor`; default: `(10,10,0.5,2,3,2,0.8,3,0)`] (by: Boundless)
 - `gl_Mosaic` [args: `endx`,`endy`; default: `(2,-1)`] (by: Xaychru)
 - `gl_perlin` [args: `scale`,`smoothness`; default: `(4,0.01)`] (by: Rich Harris)
 - `gl_pinwheel` [args: `speed`; default: `(2)`] (by: Mr Speaker)
@@ -460,19 +460,22 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`greyBack`,`opacity`,`shadow`; default: `(80,0.15,0,0,0,0.8,0.2)`] (by: Andrew Hung)
 - `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] (by: Mark Craig)
 - `gl_squareswire` [args: `squares.h`,`squares.v`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] (by: gre)
+- `gl_StarWipe` [args: `border_thickness`,`star_rotation`,`border_color`; default: `(0.01,0.75,1)`] (by: Ben Lucas)
 - `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] (by: Ben Lucas)
 - `gl_Stripe_Wipe` [args: `nlayers`,`layerSpread`,`color1`,`color2`,`shadowIntensity`,`shadowSpread`,`angle`; default: `(3,0.5,0x3319CCFF,0x66CCFFFF,0.7,0,0)`] (by: Boundless)
 - `gl_swap` [args: `reflection`,`perspective`,`depth`,`bgBkWhTr`; default: `(0.4,0.2,3,0)`] (by: gre)
 - `gl_Swirl` (by: Sergey Kosarevsky)
 - `gl_WaterDrop` [args: `amplitude`,`speed`; default: `(30,30)`] (by: Paweł Płóciennik)
 - `gl_windowblinds` (by: Fabien Benetou)
-
 #### Gallery
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
-Here are the ported GLSL transitions with default parameters and no easing –
-see also the [GL Transitions Gallery](https://gl-transitions.com/gallery) (which lacks many recent contributor transitions):
+Here are the ported GLSL transitions with default parameters and no easing.
+See also the [GL Transitions Gallery](https://gl-transitions.com/gallery)
+which lacks many recent contributor transitions plus even more stacking up as
+[Pull requests](https://github.com/gl-transitions/gl-transitions/pulls) –
+which is why I have not added my bundle.
 
 ![GL gallery](assets/gl-gallery.gif)
 
@@ -650,7 +653,7 @@ It is more versatile than `gl_InvertedPageCurl` and takes the following paramete
 - `radius` sets the cylinder radius
 - `roll` to roll the turning page into a cylinder (`gl_InvertedPageCurl` only rolls)
 - `reverseEffect` to uncurl or unroll
-- `greyback` to render overleaf greyscale instead of colour
+- `greyBack` to render overleaf greyscale instead of colour
 - `opacity` the underside opacity
 - `shadow` the shadow intensity
 
@@ -735,16 +738,21 @@ See also the example under [Transition `gl_SimpleBookCurl`](#transition-gl_simpl
 
 ### Colour parameters
 
-For the custom expression variant,
-colour values are specified as a decimal proportion of maximum and rendered as greyscale.  
+For the custom expression variant, which does not support colour,
+values are specified as a decimal proportion of maximum and rendered as greyscale.  
 e.g. `gl_rotate_scale_fade(backColor=0.75)`
 
 For the custom ffmpeg variant,
-decimal values from 0 to 1 are interpreted as greyscale, as above,
-but colour values may also be specified in the ffmpeg syntax at
-[Color](https://ffmpeg.org/ffmpeg-utils.html#Color),  
+decimal values from 0 to 1 are rendered as greyscale, as above,
+but all other values are treated as RGBA colour, specified using the ffmpeg syntax at
+[Color](https://ffmpeg.org/ffmpeg-utils.html#Color).  
 e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`  
-This is not entirely satisfactory because a value of 1, no matter how specified, is rendered white but 2 is nearly black.
+Consequently. a value of exactly 1 is rendered white but 2 (RGB `#000002`) is nearly black.  
+Colour examples:  
+- `random` (a random colour)
+- `DarkGoldenRod` (a standard X11 colour name, see [FFmpeg colour names](https://github.com/scriptituk/ffmpeg-colours))
+- `0x56789A` or `#56789A` (packed RGB hex digits)
+- `0.75` (75% grey)
 
 ### Custom expression performance
 
@@ -860,7 +868,7 @@ There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 3.0.1 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.0.3 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
@@ -1037,6 +1045,10 @@ creates a video of the coverdown transition with bounce-out easing using expansi
 - `xfade-easing.sh -t 'gl_polar_function(25)' -v paradise.mkv -n -u 1.2 islands.png rainbow.png`
 creates a lossless (FFV1) video (e.g. for further processing) of an uneased polar_function GL transition with 25 segments annotated in enlarged text  
 ![gl_polar_function=25](assets/paradise.gif)
+
+- `xfade-easing.sh -t 'gl_Lissajous_Tiles(16,20,0.3,9,3,1,0.8,3,Lavender)' -v lissajous.mp4 titian.png kandinsky.png`
+creates a stunning [Lissajous](https://en.wikipedia.org/wiki/Lissajous_curve) effect against a Lavender background demonstrating extensive use of transition parameters  
+![gl_Lissajous_Tiles](assets/lissajous.gif)
 
 - `xfade-easing.sh -t 'gl_angular(270,1)' -e exponential -v multiple.mp4 -n -k h -l 20 street.png road.png flowers.png bird.png barley.png`
 creates a video of the angular GL transition with parameter `startingAngle=270` (south) and `clockwise=1` (an added parameter) for 5 inputs with fast exponential easing  
