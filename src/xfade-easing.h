@@ -384,8 +384,8 @@ static vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_x
     return c;
 }
 
-// convert colour to plane data
-static vec4 rgba2vec4(const XTransition *e, unsigned int rgba)
+// convert packed RGBA to texture
+static vec4 rgba(const XTransition *e, uint32_t rgba)
 {
     const uint8_t R = rgba >> 24, G = rgba >> 16, B = rgba >> 8, A = rgba;
     uint8_t dst[] = { G, B, R };
@@ -421,36 +421,46 @@ static vec4 rgba2vec4(const XTransition *e, unsigned int rgba)
     return VEC4(dst[0] / 255.f, dst[1] / 255.f, dst[2] / 255.f, A / 255.f);
 }
 
-// get black/white/transparent texture
-static inline vec4 bwt(const XTransition *e, int bwt)
+// convert greyscale fraction to texture
+static vec4 grey(const XTransition *e, float grey)
+{
+    const float p12 = e->s->is_rgb ? grey : P5f;
+    return VEC4(grey, p12, p12, 1);
+}
+
+// convert black/white/transparent to texture
+static vec4 bwt(const XTransition *e, int bwt)
 {
     const XFadeEasingContext *k = e->s->k;
     return (bwt < 0) ? k->transparent : bwt ? k->white : k->black;
 }
 
-// get greyscale texture
-static inline vec4 grey(const XTransition *e, float amount, float alpha)
+
+// convert any colour to texture
+// 0 <= colour <= 1 considered greyscale else colour considered RGBA
+static vec4 colour(const XTransition *e, double colour)
 {
-    const float p12 = e->s->is_rgb ? amount : P5f;
-    return VEC4(amount, p12, p12, alpha);
+//  if (isnan(colour) return e->s->k->transparent; // future feature
+    uint32_t c = colour; // lossless conversion for 4 bytes
+    return (c <= 1 && ceil(colour) <= 1) ? grey(e, colour) : rgba(e, c);
 }
 
+// simple slice caching of transition constants
 #define INIT if (e->init)
 #define INIT_BEGIN int argi = 0;
 #define INIT_END INIT return (vec4){{0}};
 #define ARG1(type, param, def) \
-    argi++; INIT arg(e, argi-1, #type, #param, def); const type param = e->data[argi-1];
+    argi++; INIT arg(e, argi-1, #type, #param, def); \
+    const type param = e->data[argi-1];
 #define ARG2(type, param, defx, defy) \
     argi+=2; INIT arg(e, argi-2, #type, #param ".x", defx), arg(e, argi-1, #type, #param ".y", defy); \
     const type param = (type) { e->data[argi-2], e->data[argi-1] };
 #define ARG4(type, param, def) \
-    argi+=4; INIT { \
-        type _v = (def > 1) ? rgba2vec4(e, (unsigned int) def) : grey(e, def, 1); \
-        var(e, argi-4, _v.p0), var(e, argi-3, _v.p1), var(e, argi-2, _v.p2), var(e, argi-1, _v.p3); \
-    } \
-    const type param = (type) {{ e->data[argi-4], e->data[argi-3], e->data[argi-2], e->data[argi-1] }};
+    argi++; INIT arg(e, argi-1, #type, #param, def); \
+    const type param = colour(e, e->data[argi-1]);
 #define VAR1(type, param, val) \
-    argi++; INIT var(e, argi-1, val); const type param = e->data[argi-1];
+    argi++; INIT var(e, argi-1, val); \
+    const type param = e->data[argi-1];
 #define VAR2(type, param, valx, valy) \
     argi+=2; INIT var(e, argi-2, valx), var(e, argi-1, valy); \
     const type param = (type) { e->data[argi-2], e->data[argi-1] };
@@ -1062,6 +1072,38 @@ static vec4 gl_kaleidoscope(const XTransition *e) // by nwoeanhinnogaehr
     return mix4(m, n, 1 - 2 * fabsf(e->progress - P5f));
 }
 
+static vec4 gl_Lissajous_Tiles(const XTransition *e) // by Boundless
+{
+    INIT_BEGIN
+    ARG2(ivec2, grid, 10, 10)
+    ARG1(float, speed, 0.5);
+    ARG2(vec2, freq, 2, 3)
+    ARG1(float, offset, 2);
+    ARG1(float, zoom, 0.8);
+    ARG1(float, fade, 3);
+    ARG4(vec4, backColor, 0)
+    INIT_END
+    vec4 col = backColor;
+    float p = 1. - powf(fabsf(1 - 2 * e->progress), 3); // transition curve
+    vec2 r = { 1.f / grid.x, 1.f / grid.y };
+    for (int h = 0; h < grid.x * grid.y; h++) {
+        vec2 g = { h % grid.x, h / grid.x }; // integer division
+        vec2 t = mul2(g, r); // tile
+        float a = t.x * r.y + t.y;
+        vec2 cs = {
+            cos(a * M_2PIf * freq.x + e->progress * 6 * speed) * zoom / 2,
+            sin(a * M_2PIf * freq.y + e->progress * 6 * (1 + offset) * speed) * zoom / 2
+        };
+        vec2 v = sub2f(add2(add2(add2(e->p, t), mul2f(r, P5f)), cs), P5f);
+        v = add2(mul2f(v, p), mul2f(e->p, (1 - p)));
+        if (betweenf(v.x, t.x, t.x + r.x) && betweenf(v.y, t.y, t.y + r.y)) { // mask for each tile
+            float m = av_clipf(e->progress * e->progress * (1 + fade) * 2 + (a - 1) * fade, 0, 1);
+            col = mix4(getFromColor(v), getToColor(v), m);
+        }
+    }
+    return col;
+}
+
 static vec4 gl_Mosaic(const XTransition *e) // by Xaychru
 {
     INIT_BEGIN
@@ -1423,7 +1465,10 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
         c = reverseEffect ? getToColor(p) : getFromColor(p);
     if (o) { // need opacity
         if (greyBack)
-            c = grey(e, e->s->is_rgb ? (c.p0 + c.p1 + c.p2) / 3 : c.p0, c.p3);
+            if (e->s->is_rgb)
+                c.p0 = c.p1 = c.p2 = (c.p0 + c.p1 + c.p2) / 3;
+            else
+                c.p1 = c.p2 = P5f;
         c.p0 += opacity * (1 - c.p0);
         if (e->s->is_rgb)
             c.p1 += opacity * (1 - c.p1), c.p2 += opacity * (1 - c.p2);
@@ -1447,15 +1492,17 @@ static vec4 gl_Slides(const XTransition *e) // by Mark Craig
     INIT_END
     float rad = slideIn ? e->progress : 1 - e->progress, rrad = 1 - rad, rrad2 = rrad * P5f;
     float xc1, yc1;
-         if (type == 0) xc1 = rrad2, yc1 = 0;     // up
-    else if (type == 1) xc1 = rrad,  yc1 = rrad2; // right
-    else if (type == 2) xc1 = rrad2, yc1 = rrad;  // down
-    else if (type == 3) xc1 = 0,     yc1 = rrad2; // left
-    else if (type == 4) xc1 = rrad,  yc1 = 0;     // t-r
-    else if (type == 5) xc1 =        yc1 = rrad;  // b-r
-    else if (type == 6) xc1 = 0,     yc1 = rrad;  // b-l
-    else if (type == 7) xc1 =        yc1 = 0;     // t-l
-    else                xc1 =        yc1 = rrad2; // default centre
+    switch (type) {
+        case 0:  xc1 = rrad2, yc1 = 0;     break; // up
+        case 1:  xc1 = rrad,  yc1 = rrad2; break; // right
+        case 2:  xc1 = rrad2, yc1 = rrad;  break; // down
+        case 3:  xc1 = 0,     yc1 = rrad2; break; // left
+        case 4:  xc1 = rrad,  yc1 = 0;     break; // t-r
+        case 5:  xc1 =        yc1 = rrad;  break; // b-r
+        case 6:  xc1 = 0,     yc1 = rrad;  break; // b-l
+        case 7:  xc1 =        yc1 = 0;     break; // t-l
+        default: xc1 =        yc1 = rrad2; break; // default centre
+    }
     vec2 uv = { e->p.x, 1 - e->p.y };
     if (betweenf(uv.x, xc1, xc1 + rad) && betweenf(uv.y, yc1, yc1 + rad)) {
         vec2 uv2 = { (uv.x - xc1) / rad, 1 - (uv.y - yc1) / rad };
@@ -1479,6 +1526,28 @@ static vec4 gl_squareswire(const XTransition *e) // by gre
     float pr = smoothstep(-smoothness, 0, m);
     vec2 squarep = fract2(mul2(e->p, vec2i(squares)));
     return between2(squarep, pr / 2, 1 - pr / 2) ? e->b : e->a;
+}
+
+static vec4 gl_StarWipe(const XTransition *e) // by Ben Lucas
+{
+    INIT_BEGIN
+    ARG1(float, border_thickness, 0.01);
+    ARG1(float, star_rotation, 0.75);
+    ARG4(vec4, border_color, 1)
+    VAR1(float, star_angle, M_2PIf / 5);
+    INIT_END
+    const float slope = 0.3f;
+    vec2 r = rot(sub2f(e->p, P5f), -star_rotation * star_angle);
+    float theta = atan2f(r.y, r.x) + M_PIf;
+    r = rot(r, star_angle * (floorf(theta / star_angle) + P5f));
+    r.x *= slope;
+    float radius = (2 * border_thickness + 1) * e->progress + r.x - border_thickness;
+    if (radius > r.y && -radius < r.y)
+        return e->b;
+    radius += border_thickness;
+    if (radius > r.y && -radius < r.y)
+        return border_color;
+    return e->a;
 }
 
 static vec4 gl_static_wipe(const XTransition *e) // by Ben Lucas
@@ -2055,6 +2124,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_hexagonalize")) k->xtransitionf = gl_hexagonalize;
     else if (!av_strcasecmp(t, "gl_InvertedPageCurl")) k->xtransitionf = gl_InvertedPageCurl;
     else if (!av_strcasecmp(t, "gl_kaleidoscope")) k->xtransitionf = gl_kaleidoscope;
+    else if (!av_strcasecmp(t, "gl_Lissajous_Tiles")) k->xtransitionf = gl_Lissajous_Tiles;
     else if (!av_strcasecmp(t, "gl_Mosaic")) k->xtransitionf = gl_Mosaic;
     else if (!av_strcasecmp(t, "gl_perlin")) k->xtransitionf = gl_perlin;
     else if (!av_strcasecmp(t, "gl_pinwheel")) k->xtransitionf = gl_pinwheel;
@@ -2072,6 +2142,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_SimplePageCurl")) k->xtransitionf = gl_SimplePageCurl;
     else if (!av_strcasecmp(t, "gl_Slides")) k->xtransitionf = gl_Slides;
     else if (!av_strcasecmp(t, "gl_squareswire")) k->xtransitionf = gl_squareswire;
+    else if (!av_strcasecmp(t, "gl_StarWipe")) k->xtransitionf = gl_StarWipe;
     else if (!av_strcasecmp(t, "gl_static_wipe")) k->xtransitionf = gl_static_wipe;
     else if (!av_strcasecmp(t, "gl_Stripe_Wipe")) k->xtransitionf = gl_Stripe_Wipe;
     else if (!av_strcasecmp(t, "gl_swap")) k->xtransitionf = gl_swap;
@@ -2267,7 +2338,9 @@ static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bo
         g = (g + colour.p1 + colour.p2) / 3; // simple average
     g /= 5;
     g += 0.8f * (powf(1 - fabsf(yc / cylinderRadius), 0.2f) / 2 + P5f);
-    return grey(e, g, colour.p3);
+    colour.p0 = g;
+    colour.p1 = colour.p2 = e->s->is_rgb ? g : P5f;
+    return colour;
 }
 
 /*

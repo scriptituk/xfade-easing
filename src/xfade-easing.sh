@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.0.1
+export VERSION=3.0.3
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -1457,6 +1457,18 @@ _gl_transition() { # transition args
         _make 'st(3, 1 - 2 * abs(ld(0) - 0.5));'
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
+    gl_Lissajous_Tiles) # by Boundless
+        _make NATIVE
+#       ${a[0]:-10} # grid.x
+#       ${a[0]:-10} # grid.y
+#       ${a[0]:-0.5} # speed
+#       ${a[0]:-2} # freq.x
+#       ${a[0]:-3} # freq.y
+#       ${a[0]:-2} # offset
+#       ${a[0]:-0.8} # zoom
+#       ${a[0]:-3} # fade
+#       ${a[0]:-0} # backColor
+        ;;
     gl_Mosaic) # by Xaychru
         _make "st(1, ${a[0]:-2});" # endx
         _make "st(2, ${a[1]:--1});" # endy
@@ -1738,7 +1750,7 @@ _gl_transition() { # transition args
         _make 'st(2, hypot(ld(3), ld(4)));'
         _make 'st(3, ld(3) / ld(2));' # dir.x
         _make 'st(4, ld(4) / ld(2));' # dir.y
-        _make 'st(2, dot(gte(ld(3), 0) - 0.5, gte(ld(4), 0) - 0.5, ld(3), ld(4)));'
+        _make 'st(2, dot((gte(ld(3), 0) - 0.5), (gte(ld(4), 0) - 0.5), ld(3), ld(4)));'
         _make 'st(5, ld(3) * ld(2));' # i.x
         _make 'st(6, ld(4) * ld(2));' # i.y
         _make 'st(7, (ld(3) * ld(1) + ld(5)) * -2);' # m.x
@@ -1872,6 +1884,12 @@ _gl_transition() { # transition args
         _make 'st(5, ld(6) / 2);' # squaremin
         _make 'st(6, 1 - ld(5));' # squaremax
         _make 'if(between(ld(1), ld(5), ld(6)) * between(ld(2), ld(5), ld(6)), B, A)'
+        ;;
+    gl_StarWipe) # by Ben Lucas
+        _make NATIVE
+#       ${a[0]:-0.01} # border_thickness
+#       ${a[0]:-0.75} # star_rotation
+#       ${a[0]:-1} # border_color
         ;;
     gl_static_wipe) # by Ben Lucas
         _make "st(1, ${a[0]:-1});" # upToDown
