@@ -744,7 +744,7 @@ e.g. `gl_rotate_scale_fade(backColor=0.75)`
 
 For the custom ffmpeg variant,
 decimal values from 0 to 1 are rendered as greyscale, as above,
-but all other values are treated as RGBA colour, specified using the ffmpeg syntax at
+but all other values are treated as RGBA colour, specified using the ffmpeg syntax described at
 [Color](https://ffmpeg.org/ffmpeg-utils.html#Color).  
 e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`  
 Consequently. a value of exactly 1 is rendered white but 2 (RGB `#000002`) is nearly black.  
@@ -868,7 +868,7 @@ There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 3.0.3 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.0.2 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
