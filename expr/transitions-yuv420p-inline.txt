@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.0.1
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.0.3
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Inline transition expressions (yuv420p) for filter_complex filterchains
@@ -252,6 +252,9 @@ st(1,0.159);st(0,(1-ld(0))*(1.5--0.16)+-0.16);st(2,ld(0)/ld(1));st(3,X/W);st(4,1
 GL_KALEIDOSCOPE
 st(1,1);st(2,1);st(3,1.5);st(0,1-ld(0));st(4,X/W-0.5);st(5,0.5-Y/H);st(1,pow(ld(0),ld(3))*ld(1));st(3,0);while(lte(st(3,ld(3)+1),7),st(6,sin(ld(1)));st(7,cos(ld(1)));st(8,ld(6)*ld(4)+ld(7)*ld(5));st(5,ld(6)*ld(5)-ld(7)*ld(4));st(4,abs(mod(ld(8),2)-1));st(5,abs(mod(ld(5),2)-1));st(1,ld(1)+ld(2)));st(4,ld(4)*W);st(5,(1-ld(5))*H);st(7,ifnot(PLANE,a0(ld(4),ld(5)),if(eq(PLANE,1),a1(ld(4),ld(5)),if(eq(PLANE,2),a2(ld(4),ld(5)),a3(ld(4),ld(5))))));st(8,ifnot(PLANE,b0(ld(4),ld(5)),if(eq(PLANE,1),b1(ld(4),ld(5)),if(eq(PLANE,2),b2(ld(4),ld(5)),b3(ld(4),ld(5))))));st(1,A*(1-ld(0))+B*ld(0));st(2,ld(7)*(1-ld(0))+ld(8)*ld(0));st(3,1-2*abs(ld(0)-0.5));ld(1)*(1-ld(3))+ld(2)*ld(3)
 
+GL_LISSAJOUS_TILES
+NATIVE
+
 GL_MOSAIC
 st(1,2);st(2,-1);st(5,1-2*ld(0));st(5,abs(3-ld(5)*ld(5)*2));st(6,pow(cos(ld(0)*PI)/2+0.5,2));st(3,0.5*(1-ld(6))+(ld(1)+0.5)*ld(6));st(4,0.5*(1-ld(6))+(ld(2)+0.5)*ld(6));st(3,(X/W-0.5)*ld(5)+ld(3));st(4,(0.5-Y/H)*ld(5)+ld(4));st(5,floor(ld(3)));st(6,floor(ld(4)));st(3,ld(3)-ld(5));st(4,ld(4)-ld(6));st(1,eq(ld(5),ld(1))*eq(ld(6),ld(2)));st(2,st(2,sin(ld(5)*12.9898+ld(6)*78.233)*43758.545)-floor(ld(2)));ifnot(ld(1),st(7,trunc(ld(2)*4)*PI/2);st(5,cos(ld(7)));st(6,sin(ld(7)));st(3,ld(5)*st(7,ld(3)-0.5)+ld(6)*st(4,ld(4)-0.5)+0.5);st(4,ld(5)*ld(4)-ld(6)*ld(7)+0.5));st(3,ld(3)*W);st(4,(1-ld(4))*H);if(ld(1)+gt(ld(2),0.5),ifnot(PLANE,b0(ld(3),ld(4)),if(eq(PLANE,1),b1(ld(3),ld(4)),if(eq(PLANE,2),b2(ld(3),ld(4)),b3(ld(3),ld(4))))),ifnot(PLANE,a0(ld(3),ld(4)),if(eq(PLANE,1),a1(ld(3),ld(4)),if(eq(PLANE,2),a2(ld(3),ld(4)),a3(ld(3),ld(4))))))
 
@@ -302,6 +305,9 @@ st(1,0);st(2,0);st(5,st(4,1-st(3,if(ld(2),1-ld(0),ld(0))))/2);ifnot(ld(1),st(6,l
 
 GL_SQUARESWIRE
 st(1,10);st(2,10);st(3,1.0);st(4,-0.5);st(5,1.6);st(6,hypot(ld(3),ld(4)));st(3,ld(3)/ld(6));st(4,ld(4)/ld(6));st(6,abs(ld(3)+abs(ld(4))));st(3,ld(3)/ld(6));st(4,ld(4)/ld(6));st(6,ld(3)/2+ld(4)/2);st(6,ld(3)*X/W+ld(4)*(1-Y/H)-(ld(6)-0.5+(1-ld(0))*(1+ld(5))));st(6,st(6,clip((ld(6)+ld(5))/(0+ld(5)),0,1))*ld(6)*(3-2*ld(6)));st(1,X/W*ld(1));st(2,(1-Y/H)*ld(2));st(1,ld(1)-floor(ld(1)));st(2,ld(2)-floor(ld(2)));st(5,ld(6)/2);st(6,1-ld(5));if(between(ld(1),ld(5),ld(6))*between(ld(2),ld(5),ld(6)),B,A)
+
+GL_STARWIPE
+NATIVE
 
 GL_STATIC_WIPE
 st(1,1);st(2,0.5);st(3,1-ld(0));st(2,ld(2)*sqrt(sin(PI*ld(3))));st(4,X/W);st(5,1-Y/H);st(1,if(ld(1),1-ld(5),ld(5)));st(6,ld(3)-ld(2));st(6,st(6,clip((ld(1)-ld(6))/(ld(3)-ld(6)),0,1))*ld(6)*(3-2*ld(6)));st(7,ld(3)+ld(2));st(7,1-st(7,clip((ld(1)-ld(3))/(ld(7)-ld(3)),0,1))*ld(7)*(3-2*ld(7)));st(6,ld(6)*ld(7));st(7,if(gte(ld(1),ld(3)),A,B));if(not(PLANE),st(4,ld(4)*(1+ld(3)));st(5,ld(5)*(1+ld(3)));st(1,st(1,sin(ld(4)*12.9898+ld(5)*78.233)*43758.545)-floor(ld(1)));st(1,ld(1)*255),st(1,if(lt(PLANE,3),128,255)));ld(7)*(1-ld(6))+ld(1)*ld(6)
