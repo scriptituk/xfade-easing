@@ -21,7 +21,8 @@
 // aggregate types
 ////////////////////////////////////////////////////////////////////////////////
 
-enum { REVERSE_TRANSITION = 1, REVERSE_EASING = 2 } ReverseOpts; // reverse option bit flags
+// reverse option bit flags
+enum { REVERSE_TRANSITION = 1, REVERSE_EASING = 2 } ReverseOpts;
 
 // normalised pixel position
 typedef struct {
@@ -217,7 +218,7 @@ static float css_linear(const XFadeEasingContext *k, float t)
 }
 
 // see https://drafts.csswg.org/css-easing-2/
-//     https://cubic-bezier.com/#.17,.67,.83,.67
+//     https://cubic-bezier.com/
 //     solve_cubic_bezier() at end of this file
 // WebKit: https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/animation/TimingFunction.cpp
 static float solve_cubic_bezier(float x1, float y1, float x2, float y2, float x, float epsilon);
