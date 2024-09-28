@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.0.2
+export VERSION=3.0.3
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -24,7 +24,6 @@ R=$'\r'
 T=$'\t'
 
 # defaults
-export FORMAT=rgb24
 export TRANSITION=fade
 export EASING=linear
 export EXPRFORMAT="'%x'"
@@ -35,6 +34,7 @@ export VIDEOTRANSITIONDURATION=3
 export VIDEOTIME=1
 export VIDEOLENGTH=5
 export VIDEOFPS=25
+export FORMAT=rgb24
 export VIDEOSTACK=,0,white,0 # orientation,gap,colour,padding
 export VIDEOFSMULT=1.0
 
@@ -80,7 +80,7 @@ _main() {
 
     [[ -n $o_expr ]] && _expr "$o_expr" "$xformat" # output custom expression
     [[ -n $o_plot ]] && _plot "$o_plot" "${o_pmultiple-$easing}" # output easing plot
-    [[ -n $o_video ]] && _video "$o_video" "${vinputs[@]}" # output demo video
+    [[ -n $o_video ]] && _video "$o_video" "${vinputs[@]}" # out-select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0put demo video
 }
 
 # emit error message to stderr
@@ -116,7 +116,7 @@ _dep() { # dep
 _deps() {
     local deps
     [[ ${BASH_VERSINFO[0]} -ge 4 ]] || deps='bash-v4'
-    for s in ffmpeg gawk gsed seq; do
+    for s in ffmpeg ffprobe gawk gsed seq; do
         _dep $s || deps+=" $s"
     done
     [[ -n $deps ]] && _error "missing dependencies:$deps" && return $ERROR
@@ -155,9 +155,8 @@ _version() {
 _opts() {
     ffmpeg -hide_banner --help filter=xfade | grep -q easing && o_native=true # detect native build
     local OPTIND OPTARG opt
-    while getopts ':f:t:e:b:x:as:p:m:q:c:v:z:d:i:l:jr:nu:k:LHVXIPT:KD' opt; do
+    while getopts ':t:e:b:x:as:p:m:q:c:v:r:f:g:z:d:i:l:jnu:k:LHVXIPT:KD' opt; do
         case $opt in
-        f) o_format=$OPTARG ;;
         t) o_transition=$OPTARG ;;
         e) o_easing=$OPTARG ;;
         b) o_reverse=$OPTARG ;;
@@ -169,12 +168,14 @@ _opts() {
         q) o_ptitle=$OPTARG ;;
         c) o_psize=$OPTARG ;;
         v) o_video=$OPTARG ;;
+        r) o_vfps=$OPTARG ;;
+        f) o_format=$OPTARG ;;
+        g) o_transparent=$OPTARG ;;
         z) o_vsize=$OPTARG ;;
         d) o_vtduration=$OPTARG ;;
         i) o_vtime=$OPTARG ;;
         l) o_vlength=$OPTARG ;;
         j) o_vplay=true ;;
-        r) o_vfps=$OPTARG ;;
         n) o_vname=true ;;
         u) o_vfsmult=$OPTARG ;;
         k) o_vstack=$OPTARG ;;
@@ -1886,10 +1887,32 @@ _gl_transition() { # transition args
         _make 'if(between(ld(1), ld(5), ld(6)) * between(ld(2), ld(5), ld(6)), B, A)'
         ;;
     gl_StarWipe) # by Ben Lucas
-        _make NATIVE
-#       ${a[0]:-0.01} # border_thickness
-#       ${a[0]:-0.75} # star_rotation
-#       ${a[0]:-1} # border_color
+        _make "st(1, ${a[0]:-0.01});" # border_thickness
+        _make "st(2, ${a[1]:-0.75});" # star_rotation
+        _make "st(3, ${a[2]:-1});" # border_color
+        _make 'st(8, PI * 0.4);' # star_angle
+        _make 'st(2, ld(2) * ld(8));'
+        _make 'st(7, sin(ld(2)));'
+        _make 'st(2, cos(ld(2)));'
+        _make 'st(4, X / W - 0.5);'
+        _make 'st(5, 0.5 - Y / H);'
+        _make 'st(6, ld(4) * ld(2) - ld(5) * ld(7));' # r.x
+        _make 'st(7, ld(5) * ld(2) + ld(4) * ld(7));' # r.y
+        _make 'st(2, atan2(ld(7), ld(6)) + PI);' # theta
+        _make 'st(2, ld(8) * (floor(ld(2) / ld(8)) + 0.5));'
+        _make 'st(8, sin(ld(2)));'
+        _make 'st(2, cos(ld(2)));'
+        _make 'st(4, (ld(6) * ld(2) + ld(7) * ld(8)) * 0.3);' # r.x
+        _make 'st(5, ld(7) * ld(2) - ld(6) * ld(8));' # r.y
+        _make 'st(2, (2 * ld(1) + 1) * (1 - P) + ld(4) - ld(1));' # radius
+        _make 'if(gt(ld(2), ld(5)) * lt(-ld(2), ld(5)),'
+        _make ' B,'
+        _make ' st(2, ld(2) + ld(1));'
+        _make ' if(gt(ld(2), ld(5)) * lt(-ld(2), ld(5)),'
+        _make '  grey(ld(3)),'
+        _make '  A'
+        _make ' )'
+        _make ')'
         ;;
     gl_static_wipe) # by Ben Lucas
         _make "st(1, ${a[0]:-1});" # upToDown
@@ -2099,7 +2122,10 @@ _expr() { # path expr
 
 # output easing plot
 _plot() { # path easings
-    _dep gnuplot || return $ERROR
+    if ! _dep gnuplot; then
+	_error 'missing dependency: gnuplot'
+	return $ERROR
+    fi
     local path=$(_expand "$1")
     local m=$(_heredoc EASINGS | gawk -v m="$2" -f-)
     readarray -d : -t easings <<<$m: ; unset easings[-1] # (<<< adds \n)
@@ -2269,10 +2295,11 @@ EOT
         echo "[v]pad=x=$pad:y=$pad:w=iw+$pad*2:h=ih+$pad*2:color=$fill[v];" >> $script
     fi
     pf=yuv420p; [[ $p_alpha -ne 0 ]] && pf=yuva420p
+    pg=reserve_transparent=0; [[ $p_alpha -ne 0 ]] && pg=reserve_transparent=1
     if [[ $path == - ]]; then # no output
         enc='-f null'
     elif [[ $path =~ .gif ]]; then # animated for .md
-        echo '[v]split[s0][s1]; [s0]palettegen[s0]; [s1][s0]paletteuse[v]' >> $script
+        echo "[v]split[s0][s1]; [s0]palettegen=$pg[s0]; [s1][s0]paletteuse[v]" >> $script
     elif [[ $path =~ .mkv ]]; then # lossless - see https://trac.ffmpeg.org/wiki/Encode/FFV1
         enc="-c:v ffv1 -level 3 -coder 1 -context 1 -g 1 -pix_fmt $pf -r $fps"
     elif [[ $path =~ .webm ]]; then # WebM - see https://trac.ffmpeg.org/wiki/Encode/VP9
@@ -2287,7 +2314,18 @@ EOT
     local ffopts="-y -hide_banner -loglevel ${o_loglevel-warning} -stats_period 1"
     [[ -z $o_native || $o_loglevel == debug ]] && ffopts+=' -filter_complex_threads 1'
     ffmpeg $ffopts $fcs -map [v]:v -an -t $length $enc "$path"
-    [[ $path =~ .gif ]] && which -s gifsicle && mv "$path" $TMP-video.gif && gifsicle -O3 -o "$path" $TMP-video.gif
+    if [[ $path =~ .gif ]]; then
+        if _dep gifsicle; then
+            mv "$path" $TMP-video.gif
+            gifsicle -O3 -o "$path" $TMP-video.gif
+            if [[ -n $o_transparent ]]; then
+                mv -f "$path" $TMP-video.gif
+                gifsicle -U --disposal=previous --transparent="$o_transparent" -O3 -o "$path" $TMP-video.gif
+            fi
+        else
+            _warning 'missing dependency: gifsicle'
+        fi
+    fi
 }
 
 _main "$@" # run
@@ -2564,7 +2602,6 @@ also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
 Usage: $CMD [options] [image/video inputs]
 Options:
-    -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
     -t transition name and arguments, if any (default: $TRANSITION); use -L for list
        args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)' (both variants)
        or key=value pairs, e.g.: 'gl_perlin(smoothness=0.1, scale=5)' (custom ffmpeg only)
@@ -2597,10 +2634,13 @@ Options:
     -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for PDF/EPS)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: animated gif, mp4 (x264), webm, mkv (FFV1 lossless), from file extension
+       formats: animated gif, mkv (FFV1 lossless), mp4 (x264), webm, from file extension
        if - then format is the null muxer (no output)
-       if -f format has alpha then webm and mkv generate transparent video output
-       if gifsicle is available then gifs will be optimised
+       if -f format has alpha then mkv and webm generate transparent video output
+       for gifs see -g; if gifsicle is available then gifs will be optimised
+    -r video framerate (default: ${VIDEOFPS}fps)
+    -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
+    -g gif transparent colour, requires gifsicle and a non-alpha format (default: none)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z 400x scales H
     -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s, minimum: 0) (see note after -l)
@@ -2610,7 +2650,6 @@ Options:
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
     -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
-    -r video framerate (default: ${VIDEOFPS}fps)
     -n show effect name on video as text (requires the libfreetype library)
     -u video text font size multiplier (default: $VIDEOFSMULT)
     -k video stack orientation,gap,colour,padding (default: $VIDEOSTACK), e.g. h,2,red,1
@@ -2635,7 +2674,8 @@ Options:
     -K keep temporary files if temporary directory is not $TMPDIR
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
-    2. this script requires Bash 4 (2009), ffmpeg, gawk, gsed, seq, also gnuplot for plots
+    2. this script requires Bash 4 (2009), ffmpeg, ffprobe, gawk, gsed, seq
+       also gnuplot for plots, gifsicle for transparent animated gifs
     3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expression
        vars used by st() & ld() are shared across slices, therefore not thread-safe
        (the custom ffmpeg build works without -filter_complex_threads 1)
