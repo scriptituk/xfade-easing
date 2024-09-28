@@ -10,7 +10,7 @@ The easing expressions can be used for other filters besides xfade.
 <img src="assets/xfade-easing.gif" alt="Summary" align="right">
 
 There are 2 variants:
-1. **custom ffmpeg** build with xfade `easing` and `reverse` options
+1. **custom ffmpeg** build with added xfade `easing` and `reverse` options
 2. **custom expressions** for use with standard ffmpeg build
 
 Xfade is a FFmpeg video transition filter with many built-in transitions and an expression evaluator for custom transitions.
@@ -33,7 +33,7 @@ set the xfade `transition` option to `custom` and the `expr` option to the conca
 *Example* (quartic-out,radial):  
 `xfade=duration=3:offset=10:transition=custom:expr='st(0,P^4);`  
 `st(1,atan2(X-W/2,Y-H/2)-(ld(0)-0.5)*PI*2.5);st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1)));B*ld(1)+A*(1-ld(1))'`  
-Pre-generated [expressions](expr) can be copied verbatim from supplied files.
+Pre-generated [expressionsvidstab](expr) can be copied verbatim from supplied files.
 
 A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, visual media sequences and more.
 It also facilitates generic ffmpeg filter easing – see [Easing other filters](#easing-other-filters).
@@ -63,7 +63,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex "
     " output.mp4
 ```
 Easing mode `in-out` is the default mode; the above is equivalent to `easing=cubic`.  
-The default easing is `linear` (none).
+The default easing is `lvidstabinear` (none).
 
 ### CLI command (for custom expression use)
 
@@ -81,7 +81,7 @@ The second line is the  transition expression $t(e(P))$ (`wipedown`) which loads
 The semicolon token combines expressions.
 
 > [!CAUTION]
-> ffmpeg option `-filter_complex_threads 1` is required because xfade expression variables (the `st()` & `ld()` functions) are shared between slice processing jobs and therefore not thread-safe, consequently processing is much slower
+> ffmpeg option `-filter_complex_threads 1` is required because xfade expression variables (the `st()` & `ld()` functions) are shared betwevidstaben slice processing jobs and therefore not thread-safe, consequently processing is much slower
 
 ### Getting the expressions
 
@@ -133,7 +133,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex scr
 
 This is easy:
 
-1. check the [FFmpeg Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide) for any prerequisites, e.g. macOS requires Xcode
+1. check the [Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide) and [generic instructions](https://trac.ffmpeg.org/wiki/CompilationGuide/Generic) for any prerequisites, e.g. macOS requires Xcode
 1. get the ffmpeg source tree:  
 use latest stable release at [Download Source Code](https://ffmpeg.org/download.html) then extract the .xz archive:  
 `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
@@ -144,6 +144,10 @@ use latest stable release at [Download Source Code](https://ffmpeg.org/download.
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
    to replicate an existing configuration run `ffmpeg -hide_banner -buildconf` and copy-paste the options
+1. install required library packages:  
+Use your package management tool AptGet/MacPorts/Homebrew/etc.
+If you install ffmpeg itself then its dependencies will also get installed ready for the custom build.
+Export `PATH`,`LD_LIBRARY_PATH`,`LDFLAGS` environment variables to find the package components.
 1. run `make`, it takes a while  
 the C99 code mixes declarations and statements so may produce profuse compiler warnings  
 the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/questions/51314888/ld-warning-text-based-stub-file-are-out-of-sync-falling-back-to-library-file)
@@ -467,6 +471,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_Swirl` (by: Sergey Kosarevsky)
 - `gl_WaterDrop` [args: `amplitude`,`speed`; default: `(30,30)`] (by: Paweł Płóciennik)
 - `gl_windowblinds` (by: Fabien Benetou)
+
 #### Gallery
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
@@ -719,8 +724,16 @@ If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-scr
 
 The expression files in [expr/](expr) also cater for RGBA and YUVA formats with 4 planes.
 
-For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-f -v ` options with an alpha format, e.g. `rgba`/`yuva420p`, and .mkv filename extension.
+For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-v -f ` options with an alpha format, e.g. `rgba`/`yuva420p`, and .mkv filename extension.
+
 For lossy video with alpha use an alpha format and the .webm extension.
+
+For animated GIFs with transparency use a non-alpha format and the `-g` option to specify the transparent colour, and the .gif extension.
+These require [gifsicle](https://www.lcdf.org/gifsicle/).
+Empirically, using an alpha format with the ffmpeg `palettegen` filter and `reserve_transparent` option does not produce faultless transparent animated GIFs, whereas post-processing the opaque image is reliable if the transparent colour is unique.
+This needs further investigation.
+
+To specify alpha in transition parameters, see [Colour parameters](#colour-parameters).
 
 *Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
 ```bash
@@ -747,11 +760,14 @@ decimal values from 0 to 1 are rendered as greyscale, as above,
 but all other values are treated as RGBA colour, specified using the ffmpeg syntax described at
 [Color](https://ffmpeg.org/ffmpeg-utils.html#Color).  
 e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`  
-Consequently. a value of exactly 1 is rendered white but 2 (RGB `#000002`) is nearly black.  
+Consequently, a value of exactly 1 is rendered white but 2 (RGB `#000002`) is nearly black.
+If you really want R=0,G=0,B=1 then specify the alpha component, which is fully opaque by default, i.e. `#000001FF`.
 Colour examples:  
 - `random` (a random colour)
 - `DarkGoldenRod` (a standard X11 colour name, see [FFmpeg colour names](https://github.com/scriptituk/ffmpeg-colours))
 - `0x56789A` or `#56789A` (packed RGB hex digits)
+- `12345A` is ambiguous and will result in 12345 decimal, or 0x00003039
+- `0xA987657F` or `#A98765@0.5` or `A98765@0x7F` (packed RGBA hex digits)
 - `0.75` (75% grey)
 
 ### Custom expression performance
@@ -868,13 +884,12 @@ There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 3.0.2 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.0.3 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
 Usage: xfade-easing.sh [options] [image/video inputs]
 Options:
-    -f pixel format (default: rgb24): use ffmpeg -pix_fmts for list
     -t transition name and arguments, if any (default: fade); use -L for list
        args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)' (both variants)
        or key=value pairs, e.g.: 'gl_perlin(smoothness=0.1, scale=5)' (custom ffmpeg only)
@@ -907,10 +922,13 @@ Options:
     -c canvas size for easing plot (default: 640x480, scaled to inches for PDF/EPS)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: animated gif, mp4 (x264), webm, mkv (FFV1 lossless), from file extension
+       formats: animated gif, mkv (FFV1 lossless), mp4 (x264), webm, from file extension
        if - then format is the null muxer (no output)
-       if -f format has alpha then webm and mkv generate transparent video output
-       if gifsicle is available then gifs will be optimised
+       if -f format has alpha then mkv and webm generate transparent video output
+       for gifs see -g; if gifsicle is available then gifs will be optimised
+    -r video framerate (default: 25fps)
+    -f pixel format (default: rgb24): use ffmpeg -pix_fmts for list
+    -g gif transparent colour, requires gifsicle and a non-alpha format (default: none)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z 400x scales H
     -d video transition duration (default: 3s, minimum: 0) (see note after -l)
@@ -920,7 +938,6 @@ Options:
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
     -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
-    -r video framerate (default: 25fps)
     -n show effect name on video as text (requires the libfreetype library)
     -u video text font size multiplier (default: 1.0)
     -k video stack orientation,gap,colour,padding (default: ,0,white,0), e.g. h,2,red,1
@@ -945,7 +962,8 @@ Options:
     -K keep temporary files if temporary directory is not /tmp
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
-    2. this script requires Bash 4 (2009), ffmpeg, gawk, gsed, seq, also gnuplot for plots
+    2. this script requires Bash 4 (2009), ffmpeg, ffprobe, gawk, gsed, seq
+       also gnuplot for plots, gifsicle for transparent animated gifs
     3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expression
        vars used by st() & ld() are shared across slices, therefore not thread-safe
        (the custom ffmpeg build works without -filter_complex_threads 1)
@@ -960,7 +978,7 @@ Notes:
 ```
 ### Generating expr code
 
-Expr code is generated using the `-x` option and customised with the `-s`,`-a` options.
+Expr code is generated using the `-x` option and customised with the `-s`,`-a`,`-f` options.
 
 - `xfade-easing.sh -t slideright -e quadratic -x -`  
 prints expr for slideright transition with quadratic-in-out easing to stdout
@@ -1010,7 +1028,7 @@ The plots above in [Standard easings](#standard-easings-robert-penner) show test
 
 ### Generating demo videos
 
-Videos are generated using the `-v` option and customised with the `-z`,`-d`,`-i`,`-l`,`-j`,`-r`,`-n`,`-u`,`-k` options.
+Videos are generated using the `-v` option and customised with the `-r`,`-f`,`-g`,`-z`,`-d`,`-i`,`-l`,`-j`,`-n`,`-u`,`-k` options.
 
 > [!NOTE]
 > all transition effect demos on this page are animated GIFs regardless of the commands shown
@@ -1035,7 +1053,8 @@ creates an animated GIF image of the hlwind transition with quintic-in easing us
 ![hlwind quintic-in](assets/windy.gif)
 
 - `xfade-easing.sh -t fadeblack -e circular -v maths.mp4 dot.png cross.png`
-creates a MP4 video of the fadeblack transition with circular easing using specified inputs  
+creates a MP4 video of the fadeblack transition with circular easing using specified inputs
+(credit: [Math & Science Tutor](https://www.video-tutor.net/))  
 ![gl_perlin](assets/maths.gif)
 
 - `xfade-easing.sh -t coverdown -e bounce-out -v %t-%e.mp4 wallace.png shaun.png`
