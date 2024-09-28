@@ -1298,7 +1298,32 @@ st(6, 1 - ld(5));
 if(between(ld(1), ld(5), ld(6)) * between(ld(2), ld(5), ld(6)), B, A)
 
 GL_STARWIPE
-NATIVE
+st(1, 0.01);
+st(2, 0.75);
+st(3, 1);
+st(8, PI * 0.4);
+st(2, ld(2) * ld(8));
+st(7, sin(ld(2)));
+st(2, cos(ld(2)));
+st(4, X / W - 0.5);
+st(5, 0.5 - Y / H);
+st(6, ld(4) * ld(2) - ld(5) * ld(7));
+st(7, ld(5) * ld(2) + ld(4) * ld(7));
+st(2, atan2(ld(7), ld(6)) + PI);
+st(2, ld(8) * (floor(ld(2) / ld(8)) + 0.5));
+st(8, sin(ld(2)));
+st(2, cos(ld(2)));
+st(4, (ld(6) * ld(2) + ld(7) * ld(8)) * 0.3);
+st(5, ld(7) * ld(2) - ld(6) * ld(8));
+st(2, (2 * ld(1) + 1) * (1 - P) + ld(4) - ld(1));
+if(gt(ld(2), ld(5)) * lt(-ld(2), ld(5)),
+ B,
+ st(2, ld(2) + ld(1));
+ if(gt(ld(2), ld(5)) * lt(-ld(2), ld(5)),
+  if(eq(PLANE,3), 255, ld(3)*255),
+  A
+ )
+)
 
 GL_STATIC_WIPE
 st(1, 1);
