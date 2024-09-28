@@ -72,9 +72,8 @@ typedef struct XTransition {
     const float ratio; // viewport width / height (cf. W / H)
     vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
     vec4 a, b; // plane data at p (cf. A, B)
-    double data[20]; // initialised parameters and constants
-    bool init; // true to initialise data
-    const struct XFadeContext *s; // the XFadeContext with its XFadeEasingContext
+    const bool is_rgb; // pixel format is RGB class
+    const struct XFadeEasingContext *k; // the XFadeEasingContext
 } XTransition;
 
 // xfade-easing context (member of XFadeContext)
@@ -86,6 +85,9 @@ typedef struct XFadeEasingContext {
     float duration; // seconds
     float framerate;
     vec4 black, white, transparent;
+    double tdata[20]; // cached transition parameters and constants
+    bool init; // true when tdata initialised
+    const struct XFadeContext *s; // the XFadeContext
 } XFadeEasingContext;
 
 static int xe_error(void *avcl, const char *fmt, ...);
@@ -371,7 +373,7 @@ static inline bool between2(vec2 v, float min, float max)
 // get from/to colour at pixel point
 static vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_xfade.c getpix()
 {
-    const XFadeContext *s = e->s;
+    const XFadeContext *s = e->k->s;
     const AVFrame *f = s->xf[nb ^ s->reverse & REVERSE_TRANSITION];
     const float max_value = s->max_value; // as float
     const int n = s->nb_planes, d = (s->depth > 8), w = f->width, h = f->height;
@@ -386,11 +388,11 @@ static vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_x
 }
 
 // convert packed RGBA to texture
-static vec4 rgba(const XTransition *e, uint32_t rgba)
+static vec4 rgba(bool is_rgb, uint32_t rgba)
 {
     const uint8_t R = rgba >> 24, G = rgba >> 16, B = rgba >> 8, A = rgba;
     uint8_t dst[] = { G, B, R };
-    if (!e->s->is_rgb) { // convert to digital YCbCr from analog RGB (8 bits) for ITU-R BT.601
+    if (!is_rgb) { // convert to digital YCbCr from analog RGB (8 bits) for ITU-R BT.601
 #ifndef RGB2YUV_SWSSCALE
         // convert using RGB to YPbPr(analogue) to YCbCr(digital)
         // see https://en.wikipedia.org/wiki/YCbCr
@@ -423,72 +425,70 @@ static vec4 rgba(const XTransition *e, uint32_t rgba)
 }
 
 // convert greyscale fraction to texture
-static vec4 grey(const XTransition *e, float grey)
+static vec4 grey(bool is_rgb, float grey)
 {
-    const float p12 = e->s->is_rgb ? grey : P5f;
+    const float p12 = is_rgb ? grey : P5f;
     return VEC4(grey, p12, p12, 1);
+}
+
+// convert any colour to texture
+// 0 <= colour <= 1 considered greyscale else colour considered RGBA
+static vec4 colour(bool is_rgb, double colour)
+{
+    uint32_t c = colour; // lossless conversion for 4 bytes
+    return (c <= 1 && ceil(colour) <= 1) ? grey(is_rgb, colour) : rgba(is_rgb, c);
 }
 
 // convert black/white/transparent to texture
 static vec4 bwt(const XTransition *e, int bwt)
 {
-    const XFadeEasingContext *k = e->s->k;
+    const XFadeEasingContext *k = e->k;
     return (bwt < 0) ? k->transparent : bwt ? k->white : k->black;
 }
 
-
-// convert any colour to texture
-// 0 <= colour <= 1 considered greyscale else colour considered RGBA
-static vec4 colour(const XTransition *e, double colour)
-{
-//  if (isnan(colour) return e->s->k->transparent; // future feature
-    uint32_t c = colour; // lossless conversion for 4 bytes
-    return (c <= 1 && ceil(colour) <= 1) ? grey(e, colour) : rgba(e, c);
-}
-
 // simple slice caching of transition constants
-#define INIT if (e->init)
+#define INIT if (!e->k->init)
 #define INIT_BEGIN int argi = 0;
 #define INIT_END INIT return (vec4){{0}};
 #define ARG1(type, param, def) \
-    argi++; INIT arg(e, argi-1, #type, #param, def); \
-    const type param = e->data[argi-1];
+    argi++; INIT arg(e->k, argi-1, #type, #param, def); \
+    const type param = e->k->tdata[argi-1];
 #define ARG2(type, param, defx, defy) \
-    argi+=2; INIT arg(e, argi-2, #type, #param ".x", defx), arg(e, argi-1, #type, #param ".y", defy); \
-    const type param = (type) { e->data[argi-2], e->data[argi-1] };
+    argi+=2; INIT arg(e->k, argi-2, #type, #param ".x", defx), arg(e->k, argi-1, #type, #param ".y", defy); \
+    const type param = (type) { e->k->tdata[argi-2], e->k->tdata[argi-1] };
 #define ARG4(type, param, def) \
-    argi++; INIT arg(e, argi-1, #type, #param, def); \
-    const type param = colour(e, e->data[argi-1]);
+    argi++; INIT arg(e->k, argi-1, #type, #param, def); \
+    const type param = colour(e->is_rgb, e->k->tdata[argi-1]);
 #define VAR1(type, param, val) \
-    argi++; INIT var(e, argi-1, val); \
-    const type param = e->data[argi-1];
+    argi++; INIT var(e->k, argi-1, val); \
+    const type param = e->k->tdata[argi-1];
 #define VAR2(type, param, valx, valy) \
-    argi+=2; INIT var(e, argi-2, valx), var(e, argi-1, valy); \
-    const type param = (type) { e->data[argi-2], e->data[argi-1] };
+    argi+=2; INIT var(e->k, argi-2, valx), var(e->k, argi-1, valy); \
+    const type param = (type) { e->k->tdata[argi-2], e->k->tdata[argi-1] };
 
 // set const variable value during initialisation
-static inline void var(const XTransition *e, int argi, double value)
+static inline void var(const XFadeEasingContext *k, int argi, double value)
 {
-    ((double*)e->data)[argi] = value; // cast away const on mutable when initialising to keep const when not
+    ((double*)k->tdata)[argi] = value; // cast away const on mutable when initialising to keep const when not
 }
 
 // set parameter arg or default value during initialisation
 static __attribute__ ((noinline)) void arg(
-        const XTransition *e,
+        const XFadeEasingContext *k,
         int argi,
         const char *type,
         const char *param,
         double value) // default
 {
-    const XTransitionArgs *a = &e->s->k->targs;
+    const XTransitionArgs *a = &k->targs;
     for (int j = 0; j < a->argc; j++)
         if (a->argv[j].param && !av_strcasecmp(a->argv[j].param, param))
             { value = a->argv[j].value; goto ret; } // named param
     if (a->argc > argi && !a->argv[argi].param && !isnan(a->argv[argi].value))
         value = a->argv[argi].value; // positional param
     ret:
+    var(k, argi, value); // double to store 32-bit (10-digit) precision lossless colour values
     xe_debug(NULL, "param: %s %s = %g == %d(int) == 0x%X(unsigned)\n", type, param, value, (int)value, (unsigned)value);
-    var(e, argi, value); // double to store 32-bit (10-digit) precision colour values
 }
 
 // extended transitions
@@ -534,7 +534,7 @@ static vec4 gl_BookFlip(const XTransition *e) // by hong
     }
     float shadeVal = fmaxf(0.7f, fabsf(e->progress - P5f) * 2);
     colour.p0 *= shadeVal;
-    if (e->s->is_rgb)
+    if (e->is_rgb)
         colour.p1 *= shadeVal, colour.p2 *= shadeVal;
     return colour;
 }
@@ -567,7 +567,7 @@ static vec4 gl_Bounce(const XTransition *e) // by Adrian Purser
         1,
         smoothstep(0.95f, 1, e->progress) // fade-out the shadow at the end
     );
-    return mix4(e->b, e->s->k->black, 1 - m);
+    return mix4(e->b, e->k->black, 1 - m);
 }
 
 static vec4 gl_BowTie(const XTransition *e) // by huynx
@@ -836,7 +836,7 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
     ARG2(ivec2, wrap, 2, 2)
     ARG1(float, blur, 0) // changed from 0.5 which makes it extremely slow
     ARG1(int, bgBkWhTr, 0)
-    VAR1(float, frames, e->s->k->duration * e->s->k->framerate)
+    VAR1(float, frames, e->k->duration * e->k->framerate)
     VAR1(float, deg, radians(angle))
     VAR1(float, ratio2, (e->ratio - 1) / 2)
     INIT_END
@@ -879,7 +879,7 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
         if (blur == 0)
             return c;
         comp.p0 += c.p0 / iters;
-        if (e->s->is_rgb)
+        if (e->is_rgb)
             comp.p1 += c.p1 / iters, comp.p2 += c.p2 / iters;
         else
             comp.p1 = comp.p1, comp.p2 = c.p2;
@@ -1050,7 +1050,7 @@ static vec4 gl_InvertedPageCurl(const XTransition *e) // by Hewlett-Packard
         if (a != 30 && a != 100)
             xe_error(NULL, "invalid gl_InvertedPageCurl angle %d, use 100 (default) or 30\n", a), a = 100;
     }
-    VAR1(float, ang, a);
+    VAR1(float, ang, a)
     INIT_END
     return inverted_page_curl(e, ang, radius, reverseEffect); // licensed code
 }
@@ -1077,39 +1077,42 @@ static vec4 gl_Lissajous_Tiles(const XTransition *e) // by Boundless
 {
     INIT_BEGIN
     ARG2(ivec2, grid, 10, 10)
-    ARG1(float, speed, 0.5);
+    ARG1(float, speed, 0.5)
     ARG2(vec2, freq, 2, 3)
-    ARG1(float, offset, 2);
-    ARG1(float, zoom, 0.8);
-    ARG1(float, fade, 3);
+    ARG1(float, offset, 2)
+    ARG1(float, zoom, 0.8)
+    ARG1(float, fade, 3)
     ARG4(vec4, backColor, 0)
+    VAR1(int, n, grid.x * grid.y)
+    VAR2(vec2, r, 1.f / grid.x, 1.f / grid.y)
+    VAR2(vec2, f, freq.x * M_2PIf, freq.y * M_2PIf)
+    VAR1(float, z, zoom / 2)
     INIT_END
-    vec4 col = backColor;
-    float p = 1. - powf(fabsf(1 - 2 * e->progress), 3); // transition curve
-    vec2 r = { 1.f / grid.x, 1.f / grid.y };
-    for (int h = 0; h < grid.x * grid.y; h++) {
+    vec4 c = backColor;
+    float i = e->progress * 6 * speed;
+    float j = i * (1 + offset);
+    float k = 1. - powf(fabsf(1 - 2 * e->progress), 3); // transition curve
+    float l = e->progress * e->progress * (1 + fade) * 2 - fade;
+    for (int h = 0; h < n; h++) {
         vec2 g = { h % grid.x, h / grid.x }; // integer division
         vec2 t = mul2(g, r); // tile
         float a = t.x * r.y + t.y;
-        vec2 cs = {
-            cos(a * M_2PIf * freq.x + e->progress * 6 * speed) * zoom / 2,
-            sin(a * M_2PIf * freq.y + e->progress * 6 * (1 + offset) * speed) * zoom / 2
-        };
-        vec2 v = sub2f(add2(add2(add2(e->p, t), mul2f(r, P5f)), cs), P5f);
-        v = add2(mul2f(v, p), mul2f(e->p, (1 - p)));
-        if (betweenf(v.x, t.x, t.x + r.x) && betweenf(v.y, t.y, t.y + r.y)) { // mask for each tile
-            float m = av_clipf(e->progress * e->progress * (1 + fade) * 2 + (a - 1) * fade, 0, 1);
-            col = mix4(getFromColor(v), getToColor(v), m);
+        vec2 p = { cos(a * f.x + i), sin(a * f.y + j) };
+        p = sub2f(add2(add2(add2(e->p, t), mul2f(r, P5f)), mul2f(p, z)), P5f);
+        p = add2(mul2f(p, k), mul2f(e->p, (1 - k)));
+        if (betweenf(p.x, t.x, t.x + r.x) && betweenf(p.y, t.y, t.y + r.y)) { // mask for each tile
+            float m = av_clipf(l + a * fade, 0, 1);
+            c = mix4(getFromColor(p), getToColor(p), m);
         }
     }
-    return col;
+    return c;
 }
 
 static vec4 gl_Mosaic(const XTransition *e) // by Xaychru
 {
     INIT_BEGIN
-    ARG1(int, endx, 2);
-    ARG1(int, endy, -1);
+    ARG1(int, endx, 2)
+    ARG1(int, endy, -1)
     INIT_END
     float rpr = e->progress * 2 - 1;
     float az = fabsf(3 - rpr * rpr * 2);
@@ -1394,7 +1397,7 @@ if(!dbg)dbg=1,xe_debug(NULL, "gl_SimpleBookCurl_dbg phi=%g=%g dir=%g,%g p=%g,%g 
 //      d = (1. - distance(p, q) * 1.414) * powf(?, shadow);
         float d = powf(av_clipf(fabsf(dist - rad) / rad, 0, 1), shadow);
         c.p0 *= d;
-        if (e->s->is_rgb)
+        if (e->is_rgb)
             c.p1 *= d, c.p2 *= d;
     }
     return c;
@@ -1437,7 +1440,7 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
     // map point to curl
     vec4 c = reverseEffect ? e->a : e->b;
     bool g = false, o = false, s = false; // getcolor & opacity & shadow flags
-    if (dist < 0) { // point is over flat A
+    if (dist < 0) { // point is over flat or rolling A
         if (!roll) { // curl
             p = add2f(add2(p, mul2f(dir, M_PIf * radius - dist)), P5f);
             g = true;
@@ -1450,7 +1453,7 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
             o = true;
         else
             c = reverseEffect ? e->b : e->a, g = false;
-    } else if (radius > 0) { // curled A
+    } else if (radius > 0) { // point is over curling A or flat B
         // map to cylinder point
         phi = asinf(dist / radius);
         vec2 p2 = add2f(add2(p, mul2f(dir, (M_PIf - phi) * radius)), P5f);
@@ -1466,12 +1469,12 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
         c = reverseEffect ? getToColor(p) : getFromColor(p);
     if (o) { // need opacity
         if (greyBack)
-            if (e->s->is_rgb)
+            if (e->is_rgb)
                 c.p0 = c.p1 = c.p2 = (c.p0 + c.p1 + c.p2) / 3;
             else
                 c.p1 = c.p2 = P5f;
         c.p0 += opacity * (1 - c.p0);
-        if (e->s->is_rgb)
+        if (e->is_rgb)
             c.p1 += opacity * (1 - c.p1), c.p2 += opacity * (1 - c.p2);
     }
     if (s && radius > 0) { // need shadow
@@ -1479,7 +1482,7 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
         float d = dist + (g ? radius : -radius);
         d = powf(av_clipf(fabsf(d) / radius, 0, 1), shadow);
         c.p0 *= d;
-        if (e->s->is_rgb)
+        if (e->is_rgb)
             c.p1 *= d, c.p2 *= d;
     }
     return c;
@@ -1532,10 +1535,10 @@ static vec4 gl_squareswire(const XTransition *e) // by gre
 static vec4 gl_StarWipe(const XTransition *e) // by Ben Lucas
 {
     INIT_BEGIN
-    ARG1(float, border_thickness, 0.01);
-    ARG1(float, star_rotation, 0.75);
+    ARG1(float, border_thickness, 0.01)
+    ARG1(float, star_rotation, 0.75)
     ARG4(vec4, border_color, 1)
-    VAR1(float, star_angle, M_2PIf / 5);
+    VAR1(float, star_angle, M_2PIf / 5)
     INIT_END
     const float slope = 0.3f;
     vec2 r = rot(sub2f(e->p, P5f), -star_rotation * star_angle);
@@ -1566,7 +1569,7 @@ static vec4 gl_static_wipe(const XTransition *e) // by Ben Lucas
     float d = frandf(e->p.x * (1 + e->progress), e->p.y * (1 + e->progress));
     vec4 noise = transitionMix;
     noise.p0 = d;
-    if (!e->s->is_rgb)
+    if (!e->is_rgb)
         d = P5f;
     noise.p1 = noise.p2 = d;
     return mix4(transitionMix, noise, noiseEnvelope);
@@ -1603,7 +1606,7 @@ static vec4 gl_Stripe_Wipe(const XTransition *e) // by Boundless
     if (betweenf(colorMix, 0, 1)) {
         vec4 v = mix4(color1, color2, colorMix);
         v.p0 *= shadeComp.p0;
-        if (e->s->is_rgb) { // bend the stripe colour for RGB only
+        if (e->is_rgb) { // bend the stripe colour for RGB only
             v.p1 *= shadeComp.p1;
             v.p2 *= shadeComp.p2;
         }
@@ -1613,7 +1616,7 @@ static vec4 gl_Stripe_Wipe(const XTransition *e) // by Boundless
     if (colorMix < 0) {
         float m = av_clipf(e->progress * 10, 0, 1);
         colorComp.p0 *= mixf(1, shadeComp.p0, m);
-        if (e->s->is_rgb) {
+        if (e->is_rgb) {
             colorComp.p1 *= mixf(1, shadeComp.p1, m);
             colorComp.p2 *= mixf(1, shadeComp.p2, m);
         }
@@ -1737,17 +1740,16 @@ static void xtransition##name##_transition(AVFilterContext *ctx,                
                                            float progress,                                   \
                                            int slice_start, int slice_end, int jobnr)        \
 {                                                                                            \
+    const XFadeContext *s = ctx->priv;                                                       \
     const float w = out->width, h = out->height; /* as floats */                             \
     XTransition e = {                                                                        \
         .progress = 1 - progress, /* 0 to 1 for xtransitions */                              \
         .ratio = w / h, /* aspect */                                                         \
-        .s = ctx->priv, /* XFadeContext */                                                   \
-        .init = true,                                                                        \
+        .is_rgb = s->is_rgb, /* convenience */                                               \
+        .k = s->k, /* XFadeEasingContext */                                                  \
     };                                                                                       \
-    const float max_value = e.s->max_value; /* as float */                                   \
-    const int n = e.s->nb_planes;                                                            \
-                                                                                             \
-    e.s->k->xtransitionf(&e), e.init = false; /* init params & const vars */                 \
+    const float max_value = s->max_value; /* as float */                                     \
+    const int n = s->nb_planes;                                                              \
                                                                                              \
     for (int y = slice_start; y < slice_end; y++) {                                          \
         e.p.y = 1 - y / h; /* y==0 is bottom */                                              \
@@ -1762,7 +1764,7 @@ static void xtransition##name##_transition(AVFilterContext *ctx,                
                 e.a.p[p] = e.a.p[p - 1];                                                     \
                 e.b.p[p] = e.b.p[p - 1];                                                     \
             }                                                                                \
-            vec4 v = e.s->k->xtransitionf(&e); /* run */                                     \
+            vec4 v = s->k->xtransitionf(&e); /* run */                                       \
             for (p = 0; p < n; p++) {                                                        \
                 type d = av_clipf(v.p[p] * max_value, 0, max_value); /* (sometimes -ve) */   \
                 LINE(type, out, p, y)[x] = d;                                                \
@@ -2197,6 +2199,7 @@ static int config_xfade_easing(AVFilterContext *ctx)
     if (!(k = av_mallocz(sizeof(XFadeEasingContext))))
         return AVERROR(ENOMEM);
     s->k = k;
+    k->s = s;
 
     ret = parse_easing(ctx);
     if (ret < 0)
@@ -2218,6 +2221,10 @@ static int config_xfade_easing(AVFilterContext *ctx)
         k->white = VEC4(1, P5f, P5f, 1);
     };
     k->transparent = VEC4(P5f, P5f, P5f, 0); // transparent grey
+
+    XTransition e = { .k = k, .ratio = (float)l->w / l->h, .is_rgb = s->is_rgb };
+    k->xtransitionf(&e); // cache transition parameters and constants
+    k->init = true;
 
     return 0;
 }
@@ -2292,7 +2299,7 @@ static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bo
         if (yc < 0 && between2(point, 0, 1) && (hitAngle < M_PIf || amount > P5f)) { // shadow over to page
             float shadow = (1 - length(sub2f(point, P5f)) * M_SQRT2f) * powf(-yc / cylinderRadius, 3) / 2;
             colour.p0 -= shadow; // (can go -ve)
-            if (e->s->is_rgb)
+            if (e->is_rgb)
                 colour.p1 -= shadow, colour.p2 -= shadow;
         }
         return colour;
@@ -2326,7 +2333,7 @@ static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bo
     if (shadow > 0) { // shadow over from page
         shadow *= amount;
         colour.p0 -= shadow;
-        if (e->s->is_rgb)
+        if (e->is_rgb)
             colour.p1 -= shadow, colour.p2 -= shadow;
     }
     // end seeThroughWithShadow()
@@ -2335,12 +2342,12 @@ static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bo
     // backside
     colour = reverseEffect ? getToColor(point) : getFromColor(point);
     float g = colour.p0;
-    if (e->s->is_rgb)
+    if (e->is_rgb)
         g = (g + colour.p1 + colour.p2) / 3; // simple average
     g /= 5;
     g += 0.8f * (powf(1 - fabsf(yc / cylinderRadius), 0.2f) / 2 + P5f);
     colour.p0 = g;
-    colour.p1 = colour.p2 = e->s->is_rgb ? g : P5f;
+    colour.p1 = colour.p2 = e->is_rgb ? g : P5f;
     return colour;
 }
 
