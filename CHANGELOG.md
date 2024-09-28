@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `gl_StarWipe` custom transition expression
+- `-g` option for gif transparent colour in `xfade_easing.sh` script
 
 ### Changed
 
@@ -26,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- colour parameter error parsing sign bit rror
+- colour parameter error parsing sign bit
 
 ## [3.0.1] - 2024-09-20
 
