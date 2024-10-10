@@ -64,7 +64,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex "
     " output.mp4
 ```
 Easing mode `in-out` is the default mode; the above is equivalent to `easing=cubic`.  
-The default easing is `lvidstabinear` (none).
+The default easing is `linear` (none).
 
 ### CLI command (for custom expression use)
 
@@ -82,7 +82,7 @@ The second line is the  transition expression $t(e(P))$ (`wipedown`) which loads
 The semicolon token combines expressions.
 
 > [!CAUTION]
-> ffmpeg option `-filter_complex_threads 1` is required because xfade expression variables (the `st()` & `ld()` functions) are shared betwevidstaben slice processing jobs and therefore not thread-safe, consequently processing is much slower
+> ffmpeg option `-filter_complex_threads 1` is required because xfade expression variables (the `st()` & `ld()` functions) are shared between slice processing jobs and therefore not thread-safe, consequently processing is much slower
 
 ### Getting the expressions
 
