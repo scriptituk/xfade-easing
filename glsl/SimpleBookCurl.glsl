@@ -16,10 +16,10 @@ vec4 transition (vec2 uv) {
     // setup
     float phi = radians(float(angle)) - M_PI_2; // target curl angle
     vec2 dir = normalize(vec2(cos(phi) * ratio, sin(phi))); // direction unit vector
-    vec2 q = vec2((dir.x >= 0.) ? 1. : -1., (dir.y >= 0.) ? 1. : -1.); // quadrant corner
+    vec2 q = vec2((dir.x >= 0.) ? 0.5 : -0.5, (dir.y >= 0.) ? 0.5 : -0.5); // quadrant corner
     vec2 i = abs(dir);
     float k = (i.x == 0.) ? M_PI_2 : atan(i.y, i.x); // absolute curl angle
-    i = dir * dot(q * .5, dir); // initial position, curl axis on corner
+    i = dir * dot(q, dir); // initial position, curl axis on corner
     float m1 = length(i); // length for rotating
     float m2 = M_PI * radius; // length of half-cylinder arc
 
@@ -29,13 +29,13 @@ vec4 transition (vec2 uv) {
     float m = (m1 + m2) * progress; // current position along lengths
     if (m < m1) { // rotating page
         phi = k * (1. + cos(m / m1 * M_PI)) * .5; // eased new absolute curl angle
-        dir = normalize(vec2(cos(phi), sin(phi)) * q * .5); // new direction
+        dir = normalize(vec2(cos(phi), sin(phi)) * q); // new direction
         p = (m1 - m) * dir;
         // TODO: prevent small radii crossing spine
     } else { // straightening curl
         if (m2 > 0.)
             rad *= pow(1. - (m - m1) / m2, 2.); // eased new radius
-        dir = vec2(q.x, 0.); // new direction
+        dir = vec2(q.x * 2., 0.); // new direction
         p = vec2(0., 0.);
     }
 

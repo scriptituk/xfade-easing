@@ -19,8 +19,8 @@ vec4 transition (vec2 uv) {
     // setup
     float phi = radians(float(angle)) - M_PI / 2.; // target curl angle
     vec2 dir = normalize(vec2(cos(phi) * ratio, sin(phi))); // direction unit vector
-    vec2 q = vec2((dir.x >= 0.) ? 1. : -1., (dir.y >= 0.) ? 1. : -1.); // quadrant corner
-    vec2 i = dir * dot(q * .5, dir); // initial position, curl axis on corner
+    vec2 q = vec2((dir.x >= 0.) ? 0.5 : -0.5, (dir.y >= 0.) ? 0.5 : -0.5); // quadrant corner
+    vec2 i = dir * dot(q, dir); // initial position, curl axis on corner
     vec2 f = -(i + dir * radius * 2.); // final position, curl & shadow just out of view
     vec2 m = f - i; // path extent, perpendicular to curl axis
 
