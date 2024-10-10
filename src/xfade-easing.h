@@ -8,6 +8,7 @@
 
 #include <stdbool.h>
 #include <float.h>
+#include "libavfilter/version.h"
 #include "libavutil/avstring.h"
 #include "libavutil/mem.h"
 #include "libavutil/parseutils.h"
@@ -68,11 +69,11 @@ typedef struct {
 
 // transition thread data, modelled on GL Transition Specification v1
 typedef struct XTransition {
-    const float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
-    const float ratio; // viewport width / height (cf. W / H)
+    float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
+    float ratio; // viewport width / height (cf. W / H)
     vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
     vec4 a, b; // plane data at p (cf. A, B)
-    const bool is_rgb; // pixel format is RGB class
+    bool is_rgb; // pixel format is RGB type
     const struct XFadeEasingContext *k; // the XFadeEasingContext
 } XTransition;
 
@@ -882,7 +883,7 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
         if (e->is_rgb)
             comp.p1 += c.p1 / iters, comp.p2 += c.p2 / iters;
         else
-            comp.p1 = comp.p1, comp.p2 = c.p2;
+            comp.p1 = c.p1, comp.p2 = c.p2;
         comp.p3 = c.p3;
     }
     return comp;
@@ -1335,12 +1336,12 @@ static vec4 gl_SimpleBookCurl(const XTransition *e) // by Raymond Luckhurst
     INIT {
         phi = radians(angle) - M_PI_2f; // target curl angle
         dir = normalize(VEC2(cosf(phi) * e->ratio, sinf(phi))); // direction unit vector
-        i = VEC2((dir.x >= 0) ? 1 : -1, (dir.y >= 0) ? 1 : -1);
+        i = VEC2((dir.x >= 0) ? P5f : -P5f, (dir.y >= 0) ? P5f : -P5f);
     }
     VAR2(vec2, q, i.x, i.y) // quadrant corner
     INIT i = abs2(dir);
     VAR1(float, k, (i.x == 0) ? M_PI_2f : atn2(i)) // absolute curl angle
-    INIT i = mul2f(dir, dot(mul2f(q, P5f), dir)); // initial position, curl axis on corner
+    INIT i = mul2f(dir, dot(q, dir)); // initial position, curl axis on corner
     VAR1(float, m1, length(i)) // length for rotating
     VAR1(float, m2, M_PIf * radius) // length of half-cylinder arc
 //INIT xe_debug(NULL, "gl_SimpleBookCurl phi=%g=%g dir=%g,%g q=%g,%g k=%g=%g i=%g,%g m1=%g m2=%g\n", phi, degrees(phi), dir.x, dir.y, q.x, q.y, k, degrees(k), i.x, i.y, m1, m2);
@@ -1352,20 +1353,20 @@ static vec4 gl_SimpleBookCurl(const XTransition *e) // by Raymond Luckhurst
     if (m < m1) { // rotating page
         XFadeEasingContext x = { .eargs = { .e.mode = EASE_INOUT } };
         phi = k * (1 - rp_sinusoidal(&x, m / m1)); // eased new absolute curl angle
-        dir = normalize(mul2(VEC2(cosf(phi), sinf(phi)), mul2f(q, P5f))); // new direction
+        dir = normalize(mul2(VEC2(cosf(phi), sinf(phi)), q)); // new direction
         p = mul2f(dir, m1 - m);
 /*      if (P5f - (m1 - m) * fabsf(dir.y) > FLT_EPSILON) { // curled beyond spine
-            i = mul2f(dir, dot(VEC2(0, q.y * P5f), dir)); // for curl axis on spine
+            i = mul2f(dir, dot(VEC2(0, q.y), dir)); // for curl axis on spine
             phi = M_PI_2f - phi;
             dir = normalize(mul2(VEC2(P5f * tan(phi) + distance(i, p) * cos(phi), P5f), q));
-            p = mul2f(dir, dot(VEC2(0, q.y * P5f), dir)); // clamped curl axis to spine
+            p = mul2f(dir, dot(VEC2(0, q.y), dir)); // clamped curl axis to spine
 if(!dbg)dbg=1,xe_debug(NULL, "gl_SimpleBookCurl_dbg phi=%g=%g dir=%g,%g p=%g,%g i=%g,%g m=%g\n", phi, degrees(phi), dir.x, dir.y, p.x, p.y, i.x, i.y, m);
         }*/ // TODO: finish this - prevent small radii crossing spine
     } else { // straightening curl
         XFadeEasingContext x = { .eargs = { .e.mode = EASE_OUT } };
         if (m2 > 0)
             rad *= 1 - rp_quadratic(&x, (m - m1) / m2); // eased new radius
-        dir = VEC2(q.x, 0); // new direction
+        dir = VEC2(q.x + q.x, 0); // new direction
         p = VEC2(0, 0);
     }
     // get point relative to curl axis
@@ -1569,9 +1570,7 @@ static vec4 gl_static_wipe(const XTransition *e) // by Ben Lucas
     float d = frandf(e->p.x * (1 + e->progress), e->p.y * (1 + e->progress));
     vec4 noise = transitionMix;
     noise.p0 = d;
-    if (!e->is_rgb)
-        d = P5f;
-    noise.p1 = noise.p2 = d;
+    noise.p1 = noise.p2 = e->is_rgb ? d : P5f;
     return mix4(transitionMix, noise, noiseEnvelope);
 }
 
@@ -1606,10 +1605,8 @@ static vec4 gl_Stripe_Wipe(const XTransition *e) // by Boundless
     if (betweenf(colorMix, 0, 1)) {
         vec4 v = mix4(color1, color2, colorMix);
         v.p0 *= shadeComp.p0;
-        if (e->is_rgb) { // bend the stripe colour for RGB only
-            v.p1 *= shadeComp.p1;
-            v.p2 *= shadeComp.p2;
-        }
+        if (e->is_rgb) // bend the stripe colour for RGB only
+            v.p1 *= shadeComp.p1, v.p2 *= shadeComp.p2;
         return v;
     }
     vec4 colorComp = (e->progress > colorMix) ? e->a : e->b;
@@ -2211,7 +2208,11 @@ static int config_xfade_easing(AVFilterContext *ctx)
 
     k->duration = (float)s->duration / AV_TIME_BASE; // seconds
     AVFilterLink *l = ctx->outputs[0];
-    AVRational r = l->frame_rate;
+#if LIBAVFILTER_VERSION_MINOR <= 1
+    AVRational r = l->frame_rate; // v6.x, v7.0
+#else
+    AVRational r = ff_filter_link(l)->frame_rate;
+#endif
     k->framerate = (float)r.num / r.den;
     if (s->is_rgb) {
         k->black = VEC4(0, 0, 0, 1);
