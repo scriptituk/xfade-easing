@@ -4,8 +4,8 @@
 
 ## Summary
 
-This project is a port of standard easing equations, CSS easings and many [GLSL transitions](#glsl-transitions) for use in tandem with easing or alone.
-The easing expressions can be used for other filters besides xfade.
+This project is a port of standard easing equations, [CSS easings](#css-easings) and many [GLSL transitions](#glsl-transitions) for use in tandem with easing or alone.
+The easing expressions can be used for [other filters](#easing-other-filters) besides xfade.
 
 <img src="assets/xfade-easing.gif" alt="Summary" align="right">
 
@@ -21,7 +21,8 @@ Easing inserts a progress envelope to smooth transitions in a natural way.
 Example usage:
 * **custom ffmpeg**:
 set the new `easing` option to the easing name, with optional CSS-easing arguments,
-and the `transition` option to the transition name, with optional customisation arguments.  
+and the `transition` option to the transition name, with optional customisation arguments,
+and if required the new `reverse` option (see [reversing](#reversing-xfade-effects) for values).  
 *Example* (quartic-out,radial):  
 `xfade=duration=3:offset=10:easing=quartic-out:transition=radial`  
 *Example* (CSS,GL,reversed):  
@@ -29,11 +30,11 @@ and the `transition` option to the transition name, with optional customisation 
 `:transition='gl_cube(floating=5,unzoom=0.8)':reverse=1`  
 * **custom expression**:
 set the xfade `transition` option to `custom` and the `expr` option to the concatenation of a standard easing expression and a transition expression
-(this variant does not support CSS easings).  
+(this variant does not support CSS easings or reversed effects).  
 *Example* (quartic-out,radial):  
 `xfade=duration=3:offset=10:transition=custom:expr='st(0,P^4);`  
 `st(1,atan2(X-W/2,Y-H/2)-(ld(0)-0.5)*PI*2.5);st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1)));B*ld(1)+A*(1-ld(1))'`  
-Pre-generated [expressionsvidstab](expr) can be copied verbatim from supplied files.
+Pre-generated [expressions](expr) can be copied verbatim from supplied files.
 
 A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, visual media sequences and more.
 It also facilitates generic ffmpeg filter easing – see [Easing other filters](#easing-other-filters).
@@ -139,15 +140,16 @@ use latest stable release at [Download Source Code](https://ffmpeg.org/download.
 `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
 1. `cd ffmpeg` and patch libavfilter/vf_xfade.c:
    - download [vf_xfade.patch](src/vf_xfade.patch) and run `git apply vf_xfade.patch`
-   - or download [patched vf_xfade.c](src/vf_xfade.c) (for ffmpeg v7.0.2)
+   - or download [patched vf_xfade.c](src/vf_xfade.c)
    - or patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 9 small changes  
+   - (see [src/](src/) for older ffmpeg versions)
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
    to replicate an existing configuration run `ffmpeg -hide_banner -buildconf` and copy-paste the options
 1. install required library packages:  
-Use your package management tool AptGet/MacPorts/Homebrew/etc.
-If you install ffmpeg itself then its dependencies will also get installed ready for the custom build.
-Export `PATH`,`LD_LIBRARY_PATH`,`LDFLAGS` environment variables to find the package components.
+use a package management tool AptGet/MacPorts/Homebrew/etc.
+(if you install ffmpeg itself then its dependencies will also get installed ready for the custom build);
+export `PATH`,`LD_LIBRARY_PATH`,`LDFLAGS` environment variables to find the package components
 1. run `make`, it takes a while  
 the C99 code mixes declarations and statements so may produce profuse compiler warnings  
 the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/questions/51314888/ld-warning-text-based-stub-file-are-out-of-sync-falling-back-to-library-file)
@@ -159,8 +161,9 @@ As those functions have no external linkage and completely implement an interfac
 
 ### Testing
 
-The custom FFmpeg version has been built and tested on Mac with Clang and Ubuntu Linux with GCC, not Windows.
+The custom FFmpeg version has been built and tested on Mac with Clang and Ubuntu Linux with GCC.
 It uses C99 features so expect some warnings.
+Any advice on building for Windows would be appreciated.
 
 ---
 
@@ -613,10 +616,10 @@ Customizable parameters are generally stored first.
 ```c
 static vec4 gl_randomsquares(const XTransition *e)
 {
-    PARAM_BEGIN
-    PARAM_2(ivec2, size, 10, 10)
-    PARAM_1(float, smoothness, 0.5)
-    PARAM_END
+    INIT_BEGIN
+    ARG2(ivec2, size, 10, 10)
+    ARG1(float, smoothness, 0.5)
+    INIT_END
     float r = frand2(floor2(mul2(vec2i(size), e->p)));
     float m = smoothstep(0, -smoothness, r - e->progress * (1 + smoothness));
     return mix4(e->a, e->b, m);
@@ -625,8 +628,8 @@ static vec4 gl_randomsquares(const XTransition *e)
 Here, `vec4` and `ivec2` simulate GLSL vector types and `XTransition` encapsulates all data pertaining to a transition:
 ```c
 typedef struct { // modelled on GL Transition Specification v1
-    const float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
-    const float ratio; // viewport width / height (cf. W / H)
+    float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
+    float ratio; // viewport width / height (cf. W / H)
     vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
     vec4 a, b; // plane data at p (cf. A, B)
     ...
@@ -884,7 +887,7 @@ There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 
 ### Usage
 ```
-FFmpeg XFade easing and extensions version 3.0.3 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.0.4 by Raymond Luckhurst, https://scriptit.uk
 Generates custom expressions for rendering eased transitions and easing in other filters,
 also creates easing graphs, demo videos, presentations and slideshows
 See https://github.com/scriptituk/xfade-easing
