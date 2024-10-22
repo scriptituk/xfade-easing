@@ -371,7 +371,7 @@ And the drawtext `y` expression with `squareroot` easing is:
 ```
 y='st(0, clip((t - 1) / 3, 0, 1));
      st(0, if(lt(ld(0), 0.5), sqrt(ld(0) / 2), 1 - sqrt((1-ld(0)) / 2)));
-   lerp(line_h - 7, h - line_h * 2 - 7, ld(0))'
+   lerp(line_h - 10, h - line_h * 2 - 5, ld(0))'
 ```
 
 ---
