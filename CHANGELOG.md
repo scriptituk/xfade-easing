@@ -4,7 +4,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.4] - 2024-10-??
+## [3.1.0] - 2024-10-22
+
+### Added
+
+- `gl_random` pseudo transition, cycles through shuffled GLSL transition names
+
+### Changed
+
+- standardised colour parameter values:
+  - negative for transparent
+  - 0.0 to 1.0 for greyscale
+  - ffmpeg colour spec for RGBA (custom ffmpeg)
+- consolidated background colour parameters, now all called `background`
+- simpler `PLANE` tests in custom expressions
+- updated and reorganised README details on colour
+
+### Fixed
+
+- no transparent backgrounds for non-RGB formats in custom expressions
+- `gl_heart` custom expression div zero
+- minor issues, efficiencies and improvements
+
+## [3.0.4] - 2024-10-10
 
 ### Fixed
 

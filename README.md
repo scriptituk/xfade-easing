@@ -27,7 +27,7 @@ and if required the new `reverse` option (see [reversing](#reversing-xfade-effec
 `xfade=duration=3:offset=10:easing=quartic-out:transition=radial`  
 *Example* (CSS,GL,reversed):  
 `xfade=duration=3:offset=10:easing='cubic-bezier(0.12,0.57,0.63,0.21)'`  
-`:transition='gl_cube(floating=5,unzoom=0.8)':reverse=1`  
+`:transition='gl_cube(floating=5,unzoom=0.8,background=SlateGray)':reverse=1`  
 * **custom expression**:
 set the xfade `transition` option to `custom` and the `expr` option to the concatenation of a standard easing expression and a transition expression
 (this variant does not support CSS easings or reversed effects).  
@@ -44,7 +44,7 @@ Installation involves a [few patches](https://htmlpreview.github.io/?https://git
 The **custom expression** variant is convenient but clunky
 – see [Performance](#custom-expression-performance) –
 and runs on plain vanilla ffmpeg but with restrictions:
-it doesn’t support CSS easings, certain transitions, or the [reverse](#reversing-xfade-effects) feature.
+it doesn’t support CSS easings, certain transitions, the [reverse](#reversing-xfade-effects) feature or full colour parameters.
 
 At present extended transitions are limited to ported GLSL transitions but more effects may be added downstream.
 
@@ -142,7 +142,7 @@ use latest stable release at [Download Source Code](https://ffmpeg.org/download.
    - download [vf_xfade.patch](src/vf_xfade.patch) and run `git apply vf_xfade.patch`
    - or download [patched vf_xfade.c](src/vf_xfade.c)
    - or patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 9 small changes  
-   - (see [src/](src/) for older ffmpeg versions)
+   - (see [src/](src/) for old ffmpeg versions)
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
    to replicate an existing configuration run `ffmpeg -hide_banner -buildconf` and copy-paste the options
@@ -206,12 +206,12 @@ st(2, ld(2) + ld(6) * ld(7) / ld(8));
 if(between(ld(1), 0, 1) * between(ld(2), 0, 1),
  st(1, ld(1) * W);
  st(2, (1 - ld(2)) * H);
- st(3, ifnot(PLANE, a0(ld(1),ld(2)), if(eq(PLANE,1), a1(ld(1),ld(2)), if(eq(PLANE,2), a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
- st(4, ifnot(PLANE, b0(ld(1),ld(2)), if(eq(PLANE,1), b1(ld(1),ld(2)), if(eq(PLANE,2), b2(ld(1),ld(2)), b3(ld(1),ld(2))))));
+ st(3, ifnot(PLANE, a0(ld(1),ld(2)), ifnot(1-PLANE, a1(ld(1),ld(2)), ifnot(2-PLANE, a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
+ st(4, ifnot(PLANE, b0(ld(1),ld(2)), ifnot(1-PLANE, b1(ld(1),ld(2)), ifnot(2-PLANE, b2(ld(1),ld(2)), b3(ld(1),ld(2))))));
  st(5, 1 - ld(0));
  ld(3) * (1 - ld(5)) + ld(4) * ld(5),
  st(1, 0.15);
- if(eq(PLANE,3), 255, ld(1)*255)
+ gte(ld(1),0) * max(ld(1), eq(PLANE,3)) * 255
 )
 ```
 
@@ -224,7 +224,7 @@ These use `P` directly for progress instead of `ld(0)`. They are especially usef
 ```
 st(1, 30);
 st(2, 30);
-st(3, 1 - P);
+st(3, 1 - ld(0));
 st(4, X / W - 0.5);
 st(5, 0.5 - Y / H);
 st(6, hypot(ld(4), ld(5)));
@@ -234,7 +234,7 @@ st(7, if(lte(ld(6), ld(3)),
  st(5, ld(5) * ld(1));
  st(4, X + ld(4) * W);
  st(5, Y - ld(5) * H);
- ifnot(PLANE, a0(ld(4),ld(5)), if(eq(PLANE,1), a1(ld(4),ld(5)), if(eq(PLANE,2), a2(ld(4),ld(5)), a3(ld(4),ld(5))))),
+ ifnot(PLANE, a0(ld(4),ld(5)), ifnot(1-PLANE, a1(ld(4),ld(5)), ifnot(2-PLANE, a2(ld(4),ld(5)), a3(ld(4),ld(5))))),
  A
 ));
 ld(7) * (1 - ld(3)) + B * ld(3)
@@ -353,9 +353,8 @@ The last line scales the result to zoom between 1x and 3x.
 The middle line performs `elastic-out` easing, obtained from [generic-easings-script.txt](expr/generic-easings-script.txt), or  
 `xfade-easing.sh -e elastic-out -s %G -x -`
 
-The [zoompan filter](https://ffmpeg.org/ffmpeg-filters.html#zoompan) can produce impressive [Ken Burns effects](https://www.epidemicsound.com/blog/ken-burns-effect/) when `zoom`, `x` & `y` are all dynamic.
+The [zoompan filter](https://ffmpeg.org/ffmpeg-filters.html#zoompan) can produce impressive [Ken Burns effects](https://www.epidemicsound.com/blog/ken-burns-effect/) when `zoom`, `x`, `y` are all dynamic.
 Adding easing can take the illusion of motion even further.
-I have another FFmpeg project on the go that does just that.
 
 *Example*: zoompan with `back` zooming and drawtext with `squareroot` scrolling
 
@@ -371,8 +370,8 @@ z='st(0, clip((time - 1) / 3, 0, 1));
 And the drawtext `y` expression with `squareroot` easing is:
 ```
 y='st(0, clip((t - 1) / 3, 0, 1));
-     st(0, if(lt(ld(0), 0.5), sqrt(2 * ld(0)), 2 - sqrt(2 * (1 - ld(0)))) / 2);
-   lerp(line_h + 3, h - line_h * 2 + 5, ld(0))'
+     st(0, if(lt(ld(0), 0.5), sqrt(ld(0) / 2), 1 - sqrt((1-ld(0)) / 2)));
+   lerp(line_h - 7, h - line_h * 2 - 7, ld(0))'
 ```
 
 ---
@@ -403,7 +402,7 @@ Omitted transitions are `distance` and `hblur` which perform aggregation, so can
 - `coverleft` `coverright` `coverup` `coverdown`
 - `revealleft` `revealright` `revealup` `revealdown`
 
-#### Gallery
+#### XFade gallery
 
 Here are the xfade transitions processed using custom expressions instead of the built-in transitions (for testing), without easing –
 see also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) page:
@@ -416,66 +415,66 @@ The open collection of [GL Transitions](https://gl-transitions.com/) initiative 
 “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
 
 Other GLSL transition sources were found on [shadertoy](https://www.shadertoy.com/) and the [Vegas Forum](https://www.vegascreativesoftware.info/us/forum/gl-transitions-gallery-sharing-place-share-the-code-here--133472/).
-All GLSL transitions adapted to the GL Transition Specification are at [glsl/](glsl/).
+All GLSL transitions adapted to the GL Transition Specification are in [glsl/](glsl/).
 
 Many of the transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) and elsewhere
-have been transpiled to native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing.
+have been here transpiled into native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing.
 The list shows the names, authors, and customisation parameters and defaults:
 
-- `gl_angular` [args: `startingAngle`,`clockwise`; default: `(90,0)`] (by: Fernando Kuteken)
-- `gl_BookFlip` (by: hong)
-- `gl_Bounce` [args: `shadowAlpha`,`shadowHeight`,`bounces`,`direction`; default: `(0.6,0.075,3,0)`] (by: Adrian Purser)
-- `gl_BowTie` [args: `vertical`; default: `(0)`] (by: huynx)
-- `gl_cannabisleaf` (by: Flexi23)
-- `gl_CornerVanish` (by: Mark Craig)
-- `gl_CrazyParametricFun` [args: `a`,`b`,`amplitude`,`smoothness`; default: `(4,1,120,0.1)`] (by: mandubian)
-- `gl_crosshatch` [args: `center.x`,`center.y`,`threshold`,`fadeEdge`; default: `(0.5,0.5,3,0.1)`] (by: pthrasher)
-- `gl_CrossOut` [args: `smoothness`; default: `(0.05)`] (by: Mark Craig)
-- `gl_crosswarp` (by: Eke Péter)
-- `gl_cube` [args: `persp`,`unzoom`,`reflection`,`floating`,`bgBkWhTr`; default: `(0.7,0.3,0.4,3,0)`] (by: gre)
-- `gl_Diamond` [args: `smoothness`; default: `(0.05)`] (by: Mark Craig)
-- `gl_DirectionalScaled` [args: `direction.x`,`direction.y`,`scale`,`bgBkWhTr`; default: `(0,1,0.7,0)`] (by: Thibaut Foussard)
-- `gl_directionalwarp` [args: `smoothness`,`direction.x`,`direction.y`; default: `(0.1,-1,1)`] (by: pschroen)
-- `gl_doorway` [args: `reflection`,`perspective`,`depth`,`bgBkWhTr`; default: `(0.4,0.4,3,0)`] (by: gre)
-- `gl_DoubleDiamond` [args: `smoothness`; default: `(0.05)`] (by: Mark Craig)
-- `gl_Dreamy` (by: mikolalysenko)
-- `gl_Exponential_Swish` [args: `zoom`,`angle`,`offset`,`exponent`,`wrap.x`,`wrap.y`,`blur`,`bgBkWhTr`; default: `(0.8,0,0,4,2,2,0,0)`] (by: Boundless)
-- `gl_FanIn` [args: `smoothness`; default: `(0.05)`] (by: Mark Craig)
-- `gl_FanOut` [args: `smoothness`; default: `(0.05)`] (by: Mark Craig)
-- `gl_FanUp` [args: `smoothness`; default: `(0.05)`] (by: Mark Craig)
-- `gl_Flower` [args: `smoothness`,`rotation`; default: `(0.05,360)`] (by: Mark Craig)
-- `gl_GridFlip` [args: `size.x`,`size.y`,`pause`,`dividerWidth`,`randomness`,`bgBkWhTr`; default: `(4,4,0.1,0.05,0.1,0)`] (by: TimDonselaar)
-- `gl_heart` (by: gre)
-- `gl_hexagonalize` [args: `steps`,`horizontalHexagons`; default: `(50,20)`] (by: Fernando Kuteken)
-- `gl_InvertedPageCurl` [args: `angle`,`radius`,`reverseEffect`; default: `(100,0.159,0)`] (by: Hewlett-Packard)
-- `gl_kaleidoscope` [args: `speed`,`angle`,`power`; default: `(1,1,1.5)`] (by: nwoeanhinnogaehr)
-- `gl_Lissajous_Tiles` [args: `grid.x`,`grid.y`,`speed`,`freq.x`,`freq.y`,`offset`,`zoom`,`fade`,`backColor`; default: `(10,10,0.5,2,3,2,0.8,3,0)`] (by: Boundless)
-- `gl_Mosaic` [args: `endx`,`endy`; default: `(2,-1)`] (by: Xaychru)
-- `gl_perlin` [args: `scale`,`smoothness`; default: `(4,0.01)`] (by: Rich Harris)
-- `gl_pinwheel` [args: `speed`; default: `(2)`] (by: Mr Speaker)
-- `gl_polar_function` [args: `segments`; default: `(5)`] (by: Fernando Kuteken)
-- `gl_PolkaDotsCurtain` [args: `dots`,`centre.x`,`centre.y`; default: `(20,0,0)`] (by: bobylito)
-- `gl_powerKaleido` [args: `scale`,`z`,`speed`; default: `(2,1.5,5)`] (by: Boundless)
-- `gl_randomNoisex` (by: towrabbit)
-- `gl_randomsquares` [args: `size.x`,`size.y`,`smoothness`; default: `(10,10,0.5)`] (by: gre)
-- `gl_ripple` [args: `amplitude`,`speed`; default: `(100,50)`] (by: gre)
-- `gl_Rolls` [args: `type`,`rotDown`; default: `(0,0)`] (by: Mark Craig)
-- `gl_RotateScaleVanish` [args: `fadeInSecond`,`reverseEffect`,`reverseRotation`,`bgBkWhTr`; default: `(1,0,0,0)`] (by: Mark Craig)
-- `gl_rotateTransition` (by: haiyoucuv)
-- `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`backColor`; default: `(0.5,0.5,1,8,0.15)`] (by: Fernando Kuteken)
-- `gl_SimpleBookCurl` [args: `angle`,`radius`,`shadow`; default: `(150,0.1,0.2)`] (by: Raymond Luckhurst)
-- `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`greyBack`,`opacity`,`shadow`; default: `(80,0.15,0,0,0,0.8,0.2)`] (by: Andrew Hung)
-- `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] (by: Mark Craig)
-- `gl_squareswire` [args: `squares.h`,`squares.v`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] (by: gre)
-- `gl_StarWipe` [args: `border_thickness`,`star_rotation`,`border_color`; default: `(0.01,0.75,1)`] (by: Ben Lucas)
-- `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] (by: Ben Lucas)
-- `gl_Stripe_Wipe` [args: `nlayers`,`layerSpread`,`color1`,`color2`,`shadowIntensity`,`shadowSpread`,`angle`; default: `(3,0.5,0x3319CCFF,0x66CCFFFF,0.7,0,0)`] (by: Boundless)
-- `gl_swap` [args: `reflection`,`perspective`,`depth`,`bgBkWhTr`; default: `(0.4,0.2,3,0)`] (by: gre)
-- `gl_Swirl` (by: Sergey Kosarevsky)
-- `gl_WaterDrop` [args: `amplitude`,`speed`; default: `(30,30)`] (by: Paweł Płóciennik)
-- `gl_windowblinds` (by: Fabien Benetou)
+- `gl_angular` [args: `startingAngle`,`clockwise`; default: `(90,0)`] by  _Fernando Kuteken_
+- `gl_BookFlip` by  _hong_
+- `gl_Bounce` [args: `shadowAlpha`,`shadowHeight`,`bounces`,`direction`; default: `(0.6,0.075,3,0)`] by  _Adrian Purser_
+- `gl_BowTie` [args: `vertical`; default: `(0)`] by  _huynx (native-only)_
+- `gl_cannabisleaf` by  _Flexi23_
+- `gl_CornerVanish` by  _Mark Craig_
+- `gl_CrazyParametricFun` [args: `a`,`b`,`amplitude`,`smoothness`; default: `(4,1,120,0.1)`] by  _mandubian_
+- `gl_crosshatch` [args: `center.x`,`center.y`,`threshold`,`fadeEdge`; default: `(0.5,0.5,3,0.1)`] by  _pthrasher_
+- `gl_CrossOut` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
+- `gl_crosswarp` by  _Eke Péter_
+- `gl_cube` [args: `persp`,`unzoom`,`reflection`,`floating`,`background`; default: `(0.7,0.3,0.4,3,0)`] by  _gre_
+- `gl_Diamond` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
+- `gl_DirectionalScaled` [args: `direction.x`,`direction.y`,`scale`,`background`; default: `(0,1,0.7,0)`] by  _Thibaut Foussard_
+- `gl_directionalwarp` [args: `smoothness`,`direction.x`,`direction.y`; default: `(0.1,-1,1)`] by  _pschroen_
+- `gl_doorway` [args: `reflection`,`perspective`,`depth`,`background`; default: `(0.4,0.4,3,0)`] by  _gre_
+- `gl_DoubleDiamond` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
+- `gl_Dreamy` by  _mikolalysenko_
+- `gl_Exponential_Swish` [args: `zoom`,`angle`,`offset.x`,`offset.y`,`exponent`,`wrap.x`,`wrap.y`,`blur`,`background`; default: `(0.8,0,0,0,4,2,2,0,0)`] by  _Boundless (native-only)_
+- `gl_FanIn` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
+- `gl_FanOut` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
+- `gl_FanUp` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
+- `gl_Flower` [args: `smoothness`,`rotation`; default: `(0.05,360)`] by  _Mark Craig_
+- `gl_GridFlip` [args: `size.x`,`size.y`,`pause`,`dividerWidth`,`randomness`,`background`; default: `(4,4,0.1,0.05,0.1,0)`] by  _TimDonselaar (native-only)_
+- `gl_heart` by  _gre_
+- `gl_hexagonalize` [args: `steps`,`horizontalHexagons`; default: `(50,20)`] by  _Fernando Kuteken_
+- `gl_InvertedPageCurl` [args: `angle`,`radius`,`reverseEffect`; default: `(100,0.159,0)`] by  _Hewlett-Packard_
+- `gl_kaleidoscope` [args: `speed`,`angle`,`power`; default: `(1,1,1.5)`] by  _nwoeanhinnogaehr_
+- `gl_Lissajous_Tiles` [args: `grid.x`,`grid.y`,`speed`,`freq.x`,`freq.y`,`offset`,`zoom`,`fade`,`background`; default: `(10,10,0.5,2,3,2,0.8,3,0)`] by  _Boundless (native-only)_
+- `gl_Mosaic` [args: `endx`,`endy`; default: `(2,-1)`] by  _Xaychru_
+- `gl_perlin` [args: `scale`,`smoothness`; default: `(4,0.01)`] by  _Rich Harris_
+- `gl_pinwheel` [args: `speed`; default: `(2)`] by  _Mr Speaker_
+- `gl_polar_function` [args: `segments`; default: `(5)`] by  _Fernando Kuteken_
+- `gl_PolkaDotsCurtain` [args: `dots`,`centre.x`,`centre.y`; default: `(20,0,0)`] by  _bobylito_
+- `gl_powerKaleido` [args: `scale`,`z`,`speed`; default: `(2,1.5,5)`] by  _Boundless_
+- `gl_randomNoisex` by  _towrabbit_
+- `gl_randomsquares` [args: `size.x`,`size.y`,`smoothness`; default: `(10,10,0.5)`] by  _gre_
+- `gl_ripple` [args: `amplitude`,`speed`; default: `(100,50)`] by  _gre_
+- `gl_Rolls` [args: `type`,`rotDown`; default: `(0,0)`] by  _Mark Craig_
+- `gl_RotateScaleVanish` [args: `fadeInSecond`,`reverseEffect`,`reverseRotation`,`background`,`trkMat`; default: `(1,0,0,0,0)`] by  _Mark Craig_
+- `gl_rotateTransition` by  _haiyoucuv_
+- `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`background`; default: `(0.5,0.5,1,8,0.15)`] by  _Fernando Kuteken_
+- `gl_SimpleBookCurl` [args: `angle`,`radius`,`shadow`; default: `(150,0.1,0.2)`] by  _Raymond Luckhurst (native-only)_
+- `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`greyBack`,`opacity`,`shadow`; default: `(80,0.15,0,0,0,0.8,0.2)`] by  _Andrew Hung_
+- `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] by  _Mark Craig_
+- `gl_squareswire` [args: `squares.x`,`squares.y`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] by  _gre_
+- `gl_StarWipe` [args: `border_thickness`,`star_rotation`,`border_color`; default: `(0.01,0.75,1)`] by  _Ben Lucas_
+- `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] by  _Ben Lucas_
+- `gl_Stripe_Wipe` [args: `nlayers`,`layerSpread`,`color1`,`color2`,`shadowIntensity`,`shadowSpread`,`angle`; default: `(3,0.5,0x3319CCFF,0x66CCFFFF,0.7,0,0)`] by  _Boundless (native-only)_
+- `gl_swap` [args: `reflection`,`perspective`,`depth`,`background`; default: `(0.4,0.2,3,0)`] by  _gre_
+- `gl_Swirl` by  _Sergey Kosarevsky_
+- `gl_WaterDrop` [args: `amplitude`,`speed`; default: `(30,30)`] by  _Paweł Płóciennik_
+- `gl_windowblinds` by  _Fabien Benetou_
 
-#### Gallery
+#### GLSL gallery
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
@@ -511,7 +510,7 @@ e.g. `gl_WaterDrop(speed=20,amplitude=50)`,
 or they may be indexed values, as follows.
 
 For the custom expression variant the parameters must be indexed values only but empty values assume defaults,
-e.g. `gl_GridFlip(5,3,,0.1,,1)` arguments are `size.x=5`,`size.y=3`,`dividerWidth=0.1`,`bgBkWhTr=1` with default values for other parameters.
+e.g. `gl_GridFlip(5,3,,0.1,,1)` arguments are `size.x=5`,`size.y=3`,`dividerWidth=0.1`,`background=1` with default values for other parameters.
 
 Custom [expressions](expr) can also be amended directly:
 parameters are specified using store functions `st(p,v)`
@@ -533,8 +532,7 @@ st(3, 1);
 st(4, hypot(ld(2), ld(3)));
 etc.
 ```
-
-#### Altered GL Transitions
+#### Altered GLSL transition parameters
 
 - `gl_angular` has an additional `clockwise` parameter
 - `gl_Bounce` has an additional `direction` parameter to control bounce direction:
@@ -547,10 +545,9 @@ etc.
   - `reverseEffect` produces an uncurl effect (custom ffmpeg only)
 - `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay – see Dr Who example under [Transparency](#transparency)
 (I might add this feature to other transitions)
-- `gl_rotate_scale_fade` option `backColor` is restricted to greyscale for the custom expression variant
 - several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
-but this implementation provides an additional `bgBkWhTr` parameter to control the background:
-`0`=black (default), `1`=white, `-1`=transparent
+but this implementation provides an additional `background` parameter to control the background,
+see [Colour parameters](#colour-parameters).
 
 *Example*: `gl_InvertedPageCurl` 30° with uncurl
 (useful for sheet music with repeats)  
@@ -638,7 +635,7 @@ typedef struct { // modelled on GL Transition Specification v1
 
 ### Curls and Rolls
 
-##### Transition `gl_InvertedPageCurl`
+#### Transition `gl_InvertedPageCurl`
 
 This is transpiled from the
 [InvertedPageCurl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/InvertedPageCurl.glsl)
@@ -647,7 +644,7 @@ GL transition which originated from the
 which is itself based on code by [Calyptus Life AB](http://blog.calyptus.eu/) which seems no longer available.
 The Hewlett-Packard accreditation by Sergey Kosarevsky is obscure but preserved here.
 
-##### Transition `gl_SimplePageCurl`
+#### Transition `gl_SimplePageCurl`
 
 This is adapted from the elegant
 [simple page curl effect ](https://www.shadertoy.com/view/ls3cDB) by Andrew Hung
@@ -692,7 +689,7 @@ A by-product effect is a wipe transition in any direction, achieved by setting `
 
 ![gl_SimplePageCurl-wipe](assets/wipe.gif)
 
-##### Transition `gl_SimpleBookCurl`
+#### Transition `gl_SimpleBookCurl`
 
 (custom ffmpeg only)
 
@@ -710,6 +707,36 @@ It takes the following parameters:
 
 ![gl_SimpleBookCurl](assets/journal.gif)
 
+### Random transitions
+
+The [CLI script](#cli-script) can generate random GLSL-style transitions using the pseudo transition name `gl_random`
+which shuffles all the available transition names then cycles through them.
+Random transitions are particularly useful for slideshows.
+As the random transition is initially unknown, the expression options will not work in this case.
+
+For the custom expression variant which cannot take named parameters,
+customisation parameters are ignored and resort to defaults.
+
+For the custom ffmpeg variant which can take named parameters,
+a common background colour or transparency can be set using `background`, e.g.:  
+`'gl_random(background=black)'` results in a black background (the default)  
+`'gl_random(background=white)'` results in a white background  
+`'gl_random(background=gray@0.5)'` results in a semi-transparent grey background  
+`'gl_random(background=-1)'` results in a transparent background  
+and for even more randomness:  
+`'gl_random(background=random)'` results in a [random background colour](https://github.com/scriptituk/ffmpeg-colours) picked by ffmpeg  
+These only affect transitions that take a `background` parameter.
+
+*Example*: (7 random transitions)  
+`xfade-easing.sh -X -t gl_random -v left.mp4 gl*.png` (left)  
+`xfade-easing.sh -t 'gl_random(background=random)' -v right.mp4 gl*.png` (right)
+
+![gl_random)](assets/gl_random.gif)
+
+---
+
+## Colour considerations
+
 ### Pixel format
 
 Transitions that affect colour components work differently for RGB than non-RGB colour spaces and for different bit depths.
@@ -719,13 +746,54 @@ See [How does FFmpeg identify color spaces?](https://trac.ffmpeg.org/wiki/colors
 
 The expression files in [expr/](expr) cater for RGB and YUV formats with 8-bit component depth.
 For faster processing of greyscale media use `xfade-easing.sh -f gray`.
-Greyscale is not RGB therefore it is processed as a luma plane.
+Greyscale is not RGB therefore it is processed like a luma plane.
 
 If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-script) `-f` option.
 
+### Colour parameters
+
+These conventions are adopted:
+- all colour values are interpreted according to sign and magnitude:
+  - if negative, there is no colour – it is fully transparent
+  - values between 0 and 1 inclusive are an opaque shade of grey determined by the value,
+    from 0 (black) to 1 (white)
+  - all other values are treated as RGBA colour components packed into 32 bits,
+    specified using the ffmpeg syntax described at
+    [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)
+- all background colour parameters are named `background`
+  (most GL transition backgrounds are named differently)
+
+Consequently a value of exactly 1 is rendered white but 2 (RGB `#000002`) is nearly black.
+If you really want R=0,G=0,B=1 then specify the alpha component,
+which is fully opaque by default, i.e. `#000001FF`.
+
+The custom expression variant does not support colour
+so only transparent and grey are supported, values -1 to +1.  
+e.g. `gl_swap(0.4, 0.2, 3, 0.67)` for 67% grey background.
+
+The custom ffmpeg variant supports the full [Color](https://ffmpeg.org/ffmpeg-utils.html#Color) syntax
+including named colours and variable alpha,  
+e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue, color2=ffd700)`  
+
+Colour value examples:
+- `DarkGoldenRod` (a standard X11 colour name, see [ffmpeg colour names](https://github.com/scriptituk/ffmpeg-colours))
+- `0x56789A` or `#56789A` (packed RGB hexadecimal digits)
+- `0xA987657F` or `#A98765@0.5` or `A98765@0x7F` (packed RGBA)
+- `random` (a random colour from the [ffmpeg set](https://github.com/scriptituk/ffmpeg-colours))
+- `0.75` (75% grey)
+- `-1` (transparent)
+- `12345A` is ambiguous and will result in 12345 decimal, or 0x00003039
+
+Avoid decimal numbers, e.g. 255 is not blue but opaque black (RGB `#000000FF`).
+
+*Example*: `gl_StarWipe` transition with `Lime` green (#00FF00) border colour  
+`gl_StarWipe(border_thickness=0.1, border_color=Lime)`
+
+![star](assets/star.gif)
+
 ### Transparency
 
-The expression files in [expr/](expr) also cater for RGBA and YUVA formats with 4 planes.
+The expression files in [expr/](expr) cater for RGBA and YUVA formats with 4 planes.
 
 For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-v -f ` options with an alpha format, e.g. `rgba`/`yuva420p`, and .mkv filename extension.
 
@@ -752,28 +820,38 @@ then Gallifrey’s Citadel when the transition ends, both planets being opaque i
 
 See also the example under [Transition `gl_SimpleBookCurl`](#transition-gl_simplebookcurl).
 
-### Colour parameters
+---
 
-For the custom expression variant, which does not support colour,
-values are specified as a decimal proportion of maximum and rendered as greyscale.  
-e.g. `gl_rotate_scale_fade(backColor=0.75)`
+## Reversing xfade effects
 
-For the custom ffmpeg variant,
-decimal values from 0 to 1 are rendered as greyscale, as above,
-but all other values are treated as RGBA colour, specified using the ffmpeg syntax described at
-[Color](https://ffmpeg.org/ffmpeg-utils.html#Color).  
-e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue,color2=ffd700)`  
-Consequently, a value of exactly 1 is rendered white but 2 (RGB `#000002`) is nearly black.
-If you really want R=0,G=0,B=1 then specify the alpha component, which is fully opaque by default, i.e. `#000001FF`.
-Colour examples:  
-- `random` (a random colour)
-- `DarkGoldenRod` (a standard X11 colour name, see [FFmpeg colour names](https://github.com/scriptituk/ffmpeg-colours))
-- `0x56789A` or `#56789A` (packed RGB hex digits)
-- `12345A` is ambiguous and will result in 12345 decimal, or 0x00003039
-- `0xA987657F` or `#A98765@0.5` or `A98765@0x7F` (packed RGBA hex digits)
-- `0.75` (75% grey)
+(custom ffmpeg only)
 
-### Custom expression performance
+The generic xfade `reverse` option reverses the transition and/or easing effects.
+It takes a single digit:
+
+- `0` no reverse (default)  
+- `1` swap the inputs and reverse the transition effect  
+- `2` reverse the easing effect  
+- `3` swap the inputs and reverse the transition and easing effects  
+
+It is necessary to swap the inputs during the reversed transition to match the inputs before and after the transition,
+i.e. during the `offset` time and after the `offset`+`duration` time.
+This is tricky but not impossible to implement in the [xfade-easing.sh](#cli-script) script for custom expressions.
+The script has a `-b` option to pass reverse values through to xfade for the custom ffmpeg variant.
+
+Most standard xfade transitions have reversed equivalents, e.g. `wipeleft` and `wiperight`, but few GLSL transitions do.
+Unlike standard easings, CSS easings also have no mirror-image reversal mode.
+
+*Example*: using the same CSS Linear coefficients [as above](#linear-easing)  
+easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'` transition: `gl_FanUp` reverse: `0`–`3`
+
+![reverse effect](assets/reverse.gif)
+
+There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
+
+---
+
+## Custom expression performance
 
 FFmpeg `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in libavutil/eval.c.
 That expression is then executed for every pixel in each plane, which obviously incurs a performance hit,
@@ -792,37 +870,30 @@ Windows performance has not been measured.
 | `fade` `wipeleft` `wipeup` | 2 | 4 | 6 | 12 |
 | `wiperight` `wipedown` | 3 | 6 | 9 | 18 |
 | `wipetl` `wipetr` `wipebl` `wipebr` | 5 | 10 | 14 | 30 |
-| `squeezeh` `squeezev` | 8 | 16 | 24 | 48 |
-| `gl_CornerVanish` | 9 | 18 | 26 | 54 |
+| `squeezeh` `squeezev` `gl_CornerVanish` | 8 | 16 | 24 | 48 |
 | `fadefast` `fadeslow` `rectcrop` | 10 | 20 | 30 | 60 |
-| `dissolve` | 12 | 24 | 36 | 72 |
-| `gl_Diamond` `gl_DoubleDiamond` `gl_FanUp` `gl_randomNoisex` | 14 | 28 | 42 | 84 |
-| `smoothleft` `smoothup` `coverleft` `revealleft` `coverup` `revealup` | 16 | 32 | 48 | 100 |
-| `slideleft` `slideup` `slidedown` `circlecrop` `vertopen` `vertclose` `horzopen` `horzclose` `coverright` `revealright` `coverdown` `revealdown` `gl_FanIn` `gl_FanOut` `gl_pinwheel` | 18 | 36 | 54 | 110 |
-| `slideright` `smoothright` `smoothdown` `diagtl` `diagtr` `diagbl` `diagbr` | 20 | 40 | 60 | 120 |
-| `radial` `gl_CrossOut` | 22 | 42 | 66 | 133 |
+| `coverup` `dissolve` `gl_Diamond` | 14 | 28 | 42 | 84 |
+| `slideleft` `smoothup` `coverleft` `coverright` `revealleft` `revealright` `coverdown` `revealup` `revealdown` `gl_DoubleDiamond` `gl_FanUp` `gl_randomNoisex` | 16 | 32 | 48 | 100 |
+| `slideright` `slideup` `slidedown` `smoothleft` `circlecrop` `vertopen` `diagtl` `gl_FanIn` `gl_pinwheel` | 18 | 36 | 54 | 110 |
+| `smoothdown` `smoothright` `vertclose` `horzopen` `horzclose` `gl_FanOut` | 20 | 40 | 60 | 120 |
+| `diagbl` `diagbr` `diagtr` `radial` `gl_CrossOut` | 22 | 42 | 66 | 133 |
 | `gl_BookFlip` `gl_heart` `gl_polar_function` | 24 | 46 | 72 | 147 |
 | `hlslice` `hrslice` `vdslice` `vuslice` | 28 | 54 | 84 | 171 |
-| `circleopen` `circleclose` `gl_angular` `gl_Slides` | 30 | 60 | 88 | 180 |
-| `hlwind` `hrwind` `vdwind` `vuwind` `gl_PolkaDotsCurtain` | 32 | 63 | 95 | 200 |
-| `gl_WaterDrop` | 36 | 72 | 105 | 220 |
-| `fadeblack` `fadewhite` `gl_windowblinds` | 38 | 76 | 114 | 228 |
-| `gl_Bounce` `pixelize` `gl_cannabisleaf` `gl_randomsquares` `zoomin` | 42 | 84 | 126 | 260 |
+| `circleclose` `circleopen` `gl_angular` `gl_Slides` | 30 | 60 | 88 | 180 |
+| `gl_PolkaDotsCurtain` `hlwind` `hrwind` `vuwind` `vdwind` | 34 | 66 | 100 | 210 |
+| `fadeblack` `fadewhite` `gl_WaterDrop` | 38 | 76 | 114 | 228 |
+| `pixelize` `zoomin` `gl_Bounce` `gl_cannabisleaf` `gl_randomsquares` `gl_windowblinds` | 42 | 84 | 126 | 260 |
 | `gl_Dreamy` `gl_Flower` | 48 | 95 | 140 | 300 |
-| `fadegrays` `gl_rotateTransition` | 51 | 100 | 152 | 304 |
-| `gl_crosswarp` `gl_ripple` | 54 | 105 | 160 | 336 |
-| `gl_DirectionalScaled` | 57 | 114 | 168 | 340 |
-| `gl_Rolls` | 60 | 120 | 180 | 360 |
-| `gl_doorway` | 63 | 126 | 189 | 380 |
-| `gl_RotateScaleVanish` | 66 | 126 | 200 | 400 |
-| `gl_Swirl` | 69 | 133 | 200 | 420 |
+| `fadegrays` `gl_rotateTransition` | 54 | 105 | 160 | 336 |
+| `gl_crosswarp` `gl_DirectionalScaled` `gl_ripple` `gl_Rolls` | 57 | 114 | 168 | 340 |
+| `gl_doorway` `gl_StarWipe` | 63 | 126 | 189 | 380 |
+| `gl_RotateScaleVanish` `gl_Swirl` | 69 | 133 | 200 | 420 |
 | `gl_InvertedPageCurl` `gl_squareswire` | 80 | 160 | 240 | 480 |
-| `gl_CrazyParametricFun` | 84 | 168 | 252 | 520 |
-| `gl_crosshatch` `gl_static_wipe` | 88 | 171 | 260 | 540 |
+| `gl_CrazyParametricFun` `gl_crosshatch` `gl_static_wipe` | 84 | 168 | 252 | 520 |
 | `gl_directionalwarp` `gl_rotate_scale_fade` | 95 | 189 | 280 | 580 |
-| `gl_cube` `gl_hexagonalize` | 105 | 210 | 304 | 640 |
-| `gl_Mosaic` `gl_swap` | 110 | 220 | 320 | 680 |
-| `gl_perlin` | 132 | 260 | 400 | 800 |
+| `gl_cube` `gl_hexagonalize` `gl_Mosaic` `gl_swap` | 108 | 209 | 320 | 660 |
+| `gl_perlin` | 126 | 252 | 380 | 760 |
+| `gl_SimplePageCurl` | 168 | 336 | 500 | 1020 |
 | `gl_kaleidoscope` | 247 | 480 | 720 | 1500 |
 | `gl_powerKaleido` | 1000 | 1960 | 2960 | 6100 |
 
@@ -848,35 +919,6 @@ Other faster ways to use GL Transitions with FFmpeg are:
 
 ---
 
-## Reversing xfade effects
-
-(custom ffmpeg only)
-
-This is a generic xfade `reverse` option that has been added to reverse transition and/or easing effects.
-It takes a single digit:
-
-- `0` no reverse (default)  
-- `1` swap the inputs and reverse the transition effect  
-- `2` reverse the easing effect  
-- `3` swap the inputs and reverse the transition and easing effects  
-
-It is necessary to swap the inputs during the reversed transition to match the inputs before and after the transition,
-i.e. during the `offset` time and after the `offset`+`duration` time.
-This is tricky but not impossible to implement in the [xfade-easing.sh](#cli-script) script for custom expressions.
-The script has a `-b` option to pass reverse values through to xfade for the custom ffmpeg variant.
-
-Most standard xfade transitions have reversed equivalents, e.g. `wipeleft` and `wiperight` but few GLSL transitions have.
-Unlike standard easings, CSS easings also have no mirror-image reversal mode.
-
-*Example*: using the same CSS Linear coefficients [as above](#linear-easing)  
-easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'` transition: `gl_FanUp` reverse: `0`–`3`
-
-![reverse effect](assets/reverse.gif)
-
-There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
-
----
-
 ## CLI script
 
 [xfade-easing.sh](src/xfade-easing.sh) is a Bash 4 shell wrapper for ffmpeg. It can:
@@ -886,18 +928,21 @@ There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 - concenate visual media with eased transitions for presentations and slideshows.
 
 ### Usage
+
 ```
-FFmpeg XFade easing and extensions version 3.0.4 by Raymond Luckhurst, https://scriptit.uk
-Generates custom expressions for rendering eased transitions and easing in other filters,
-also creates easing graphs, demo videos, presentations and slideshows
+FFmpeg XFade easing and extensions version 3.1.0 by Raymond Luckhurst, https://scriptit.uk
+Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
+Generates easing and transition expressions for xfade and for easing other filters.
+Also creates easing graphs, demo videos, presentations and slideshows.
 See https://github.com/scriptituk/xfade-easing
 Usage: xfade-easing.sh [options] [image/video inputs]
 Options:
     -t transition name and arguments, if any (default: fade); use -L for list
-       args in parenthesis as CSV, e.g.: 'gl_perlin(5,0.1)' (both variants)
-       or key=value pairs, e.g.: 'gl_perlin(smoothness=0.1, scale=5)' (custom ffmpeg only)
+       args in parenthesis as CSV, e.g.: gl_perlin(5,0.1) (both variants)
+       or key=value pairs, e.g.: gl_perlin(smoothness=0.1, scale=5) (custom ffmpeg only)
+       use gl_random to cycle through shuffled transitions ported from GLSL
     -e easing function and arguments, if any (default: linear)
-       CSS args in parenthesis as CSV, e.g.: 'cubic-bezier(0.17,0.67,0.83,0.67)'
+       CSS args in parenthesis as CSV, e.g.: cubic-bezier(0.17,0.67,0.83,0.67)
     -b reverse transition and/or easing effect (custom ffmpeg only) (default: 0)
        1 reverses the inputs and transition effect; 2 reverses the easing; 3 reverses both
     -x expr output filename (default: no expr), accepts expansions, - for stdout
@@ -954,7 +999,7 @@ Options:
     -V show this script version
     -X use custom expressions, not the xfade API that supports xfade-easing natively
        by default native support is detected automatically using ffmpeg --help filter=xfade
-       the native API adds an easing option and runs much faster
+       the native API adds easing and reverse options and runs much faster
        e.g. xfade=duration=4:offset=1:easing=quintic-out:transition=wiperight
        e.g. xfade=duration=5:offset=2.5:easing='cubic-bezier(.17,.67,.83,.67)' \
             transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
@@ -967,18 +1012,19 @@ Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
     2. this script requires Bash 4 (2009), ffmpeg, ffprobe, gawk, gsed, seq
        also gnuplot for plots, gifsicle for transparent animated gifs
-    3. use ffmpeg option -filter_complex_threads 1 (slower!) because xfade expression
+    3. use ffmpeg option -filter_complex_threads 1 (slower) because xfade expression
        vars used by st() & ld() are shared across slices, therefore not thread-safe
        (the custom ffmpeg build works without -filter_complex_threads 1)
     4. CSS easings are supported in the custom ffmpeg build but not as custom expressions
     4. certain xfade transitions are not implemented as custom expressions because
        they perform aggregation (distance, hblur)
     5. many GLSL transitions are also ported, some of which take customisation parameters
-       to override defaults append parameters in parenthesis (see -X above)
+       to override defaults append parameters in parenthesis (see -t option)
     6. certain GLSL transitions are only available in the custom ffmpeg build
-    7. many transitions do not lend themselves well to easing, others have easing built in
-       easings that overshoot (back & elastic) may cause weird effects!
+    7. many transitions do not lend themselves well to easing, others have built-in easing
+       easings that overshoot (back & elastic) may cause weird effects
 ```
+
 ### Generating expr code
 
 Expr code is generated using the `-x` option and customised with the `-s`,`-a`,`-f` options.
@@ -989,16 +1035,16 @@ prints expr for slideright transition with quadratic-in-out easing to stdout
 prints expr for coverup transition with quartic-in easing to file coverup_quartic-in.txt
 - `xfade-easing.sh -t coverup -e quartic-in -x %t_%e.txt`  
 ditto, using expansion specifiers in file name
-- `xfade-easing.sh -t rectcrop -e exponential-out -s "\$expr['%t_%e'] = '%n%X';" -x exprs.php -a`  
+- `xfade-easing.sh -t rectcrop -e exponential-out -s "\$expr['%t+%e'] = '%n%X';" -x exprs.php -a`  
 appends the following to file exprs.php:
 ```php
-$expr['rectcrop_exponential-out'] = '
-st(0, if(eq(P, 0), 0, 2^(-10 * (1 - P))))
+$expr['rectcrop+exponential-out'] = '
+st(0, if(lte(P, 0), 0, 2^(10 * P - 10)))
 ;
 st(1, abs(ld(0) - 0.5));
 if(lt(abs(X - W / 2), ld(1) * W) * lt(abs(Y - H / 2), ld(1) * H),
  if(lt(ld(0), 0.5), B, A),
- if(lt(PLANE,3), 0, 255)
+ ifnot(3-PLANE, 255)
 )';
 ```
 - `xfade-easing.sh -t gl_polar_function -s "expr='%n%X'" -x fc-script.txt`  
