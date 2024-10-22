@@ -261,6 +261,7 @@ static float css_steps(const XFadeEasingContext *k, float t)
 // FF functions:
 // mix() fract() smoothstep()(clamped) in libavfilter/vf_xfade.c
 // av_strtod() in libavutil/eval.c
+// av_parse_color() in libavutil/parseutils.h
 // av_clip() av_clipf() in libavutil/common.h
 // av_str*() in libavutil/avstring.h
 // various in libavutil/mem.h libavutil/log.h
@@ -432,19 +433,15 @@ static vec4 grey(bool is_rgb, float grey)
     return VEC4(grey, p12, p12, 1);
 }
 
-// convert any colour to texture
-// 0 <= colour <= 1 considered greyscale else colour considered RGBA
-static vec4 colour(bool is_rgb, double colour)
+// convert colour to texture
+//  colour < 0 rendered fully transparent
+//  0 <= colour <= 1 rendered opaque greyscale
+//  colour > 1 rendered RGBA
+static vec4 colour(const XTransition *e, double colour)
 {
-    uint32_t c = colour; // lossless conversion for 4 bytes
-    return (c <= 1 && ceil(colour) <= 1) ? grey(is_rgb, colour) : rgba(is_rgb, c);
-}
-
-// convert black/white/transparent to texture
-static vec4 bwt(const XTransition *e, int bwt)
-{
-    const XFadeEasingContext *k = e->k;
-    return (bwt < 0) ? k->transparent : bwt ? k->white : k->black;
+    if (colour < 0) return e->k->transparent;
+    if (ceil(colour) <= 1) return grey(e->is_rgb, colour);
+    return rgba(e->is_rgb, colour);
 }
 
 // simple slice caching of transition constants
@@ -459,7 +456,7 @@ static vec4 bwt(const XTransition *e, int bwt)
     const type param = (type) { e->k->tdata[argi-2], e->k->tdata[argi-1] };
 #define ARG4(type, param, def) \
     argi++; INIT arg(e->k, argi-1, #type, #param, def); \
-    const type param = colour(e->is_rgb, e->k->tdata[argi-1]);
+    const type param = colour(e, e->k->tdata[argi-1]);
 #define VAR1(type, param, val) \
     argi++; INIT var(e->k, argi-1, val); \
     const type param = e->k->tdata[argi-1];
@@ -700,7 +697,7 @@ static vec4 gl_cube(const XTransition *e) // by gre
     ARG1(float, unzoom, 0.3)
     ARG1(float, reflection, 0.4)
     ARG1(float, floating, 3)
-    ARG1(int, bgBkWhTr, 0)
+    ARG4(vec4, background, 0)
     INIT_END
     float uz = unzoom * 2 * (P5f - fabsf(P5f - e->progress));
     vec2 p = sub2f(mul2f(e->p, 1 + uz), uz / 2);
@@ -718,13 +715,13 @@ static vec4 gl_cube(const XTransition *e) // by gre
     };
     if (between2(toP, 0, 1))
         return getToColor(toP);
-    vec4 back = bwt(e, bgBkWhTr), c = back;
+    vec4 c = background;
     fromP.y = fromP.y * -1.2f - floating / 100;
     if (between2(fromP, 0, 1))
-        c = mix4(back, getFromColor(fromP), reflection * (1 - fromP.y));
+        c = mix4(background, getFromColor(fromP), reflection * (1 - fromP.y));
     toP.y = toP.y * -1.2f - floating / 100;
     if (between2(toP, 0, 1))
-        c = mix4(back, getToColor(toP), reflection * (1 - toP.y));
+        c = mix4(background, getToColor(toP), reflection * (1 - toP.y));
     return c;
 }
 
@@ -745,7 +742,7 @@ static vec4 gl_DirectionalScaled(const XTransition *e) // by Thibaut Foussard
     INIT_BEGIN
     ARG2(vec2, direction, 0, 1)
     ARG1(float, scale, 0.7)
-    ARG1(int, bgBkWhTr, 0)
+    ARG4(vec4, background, 0)
     INIT_END
     float easedProgress = powf(sinf(e->progress * M_PI_2f), 3);
     vec2 p = add2(e->p, mul2f(sign2(direction), easedProgress));
@@ -753,7 +750,7 @@ static vec4 gl_DirectionalScaled(const XTransition *e) // by Thibaut Foussard
     vec2 f = add2f(mul2f(sub2f(fract2(p), P5f), s), P5f);
     if (between2(f, 0, 1))
         return between2(p, 0, 1) ? getFromColor(f) : getToColor(f);
-    return bwt(e, bgBkWhTr);
+    return background;
 }
 
 static vec4 gl_directionalwarp(const XTransition *e) // by pschroen
@@ -779,7 +776,7 @@ static vec4 gl_doorway(const XTransition *e) // by gre
     ARG1(float, reflection, 0.4)
     ARG1(float, perspective, 0.4)
     ARG1(float, depth, 3)
-    ARG1(int, bgBkWhTr, 0)
+    ARG4(vec4, background, 0)
     INIT_END
     float middleSlit = 2 * fabsf(e->p.x - P5f) - e->progress;
     if (middleSlit > 0) {
@@ -795,7 +792,7 @@ static vec4 gl_doorway(const XTransition *e) // by gre
     vec2 pto = { (e->p.x - P5f) * size + P5f, (e->p.y - P5f) * size + P5f };
     if (between2(pto, 0, 1))
         return getToColor(pto);
-    vec4 c = bwt(e, bgBkWhTr);
+    vec4 c = background;
     pto.y = pto.y * -1.2f - 0.02f;
     if (between2(pto, 0, 1))
         c = mix4(c, getToColor(pto), reflection * (1 - pto.y));
@@ -836,18 +833,17 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
     ARG1(int, exponent, 4)
     ARG2(ivec2, wrap, 2, 2)
     ARG1(float, blur, 0) // changed from 0.5 which makes it extremely slow
-    ARG1(int, bgBkWhTr, 0)
+    ARG4(vec4, background, 0)
     VAR1(float, frames, e->k->duration * e->k->framerate)
     VAR1(float, deg, radians(angle))
     VAR1(float, ratio2, (e->ratio - 1) / 2)
     INIT_END
-    const vec4 bgcolor = bwt(e, bgBkWhTr);
     const int iters = 50; // TODO: experiment with this
     const vec2 uv = sub2f(e->p, P5f);
     vec4 comp = {{ 0 }};
     for (int i = 0; i < iters; i++) {
         float p = av_clipf(e->progress + (float)i * blur / frames / iters, 0, 1);
-        float pa0 = powf(2 * p, exponent), pa1 = powf(-2 * p + 2, exponent),
+        float pa0 = powf(2 * p, exponent), pa1 = powf(2 * (1 - p), exponent),
               px0 = 1 - pa0 * fabsf(zoom), px1 = 1 - pa1 * fabsf(zoom),
               px2 = 1 - pa0 * fmaxf(-zoom, 0), px3 = 1 - pa1 * fmaxf(zoom, 0);
         vec2 uv0, uv1;
@@ -876,7 +872,7 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
         bool b = (p < P5f);
         vec4 c = !wrap.x && (b && !betweenf(uv0.x, 0, 1) || !b && !betweenf(uv1.x, 0, 1)) ||
                  !wrap.y && (b && !betweenf(uv0.y, 0, 1) || !b && !betweenf(uv1.y, 0, 1))
-                 ? bgcolor : b ? getFromColor(uv0) : getToColor(uv1);
+                 ? background : b ? getFromColor(uv0) : getToColor(uv1);
         if (blur == 0)
             return c;
         comp.p0 += c.p0 / iters;
@@ -968,9 +964,8 @@ static vec4 gl_GridFlip(const XTransition *e) // by TimDonselaar
     ARG1(float, pause, 0.1)
     ARG1(float, dividerWidth, 0.05)
     ARG1(float, randomness, 0.1)
-    ARG1(int, bgBkWhTr, 0)
+    ARG4(vec4, background, 0)
     INIT_END
-    const vec4 bgcolor = bwt(e, bgBkWhTr);
     const vec2 rectangleSize = inv2(vec2i(size));
     const vec2 rectanglePos = floor2(mul2(vec2i(size), e->p));
     float top = rectangleSize.y * (rectanglePos.y + 1),
@@ -982,17 +977,17 @@ static vec4 gl_GridFlip(const XTransition *e) // by TimDonselaar
     float dividerSize = fminf(rectangleSize.x, rectangleSize.y) * dividerWidth;
     bool individer = fminf(minX, minY) < dividerSize;
     if (e->progress < pause)
-        return mix4(bgcolor, e->a, individer ? 1 - e->progress / pause : 1);
+        return mix4(background, e->a, individer ? 1 - e->progress / pause : 1);
     if (1 - e->progress < pause)
-        return mix4(bgcolor, e->b, individer ? 1 - (1 - e->progress) / pause : 1);
+        return mix4(background, e->b, individer ? 1 - (1 - e->progress) / pause : 1);
     if (individer)
-        return bgcolor;
+        return background;
     float r = frand2(rectanglePos) - randomness;
     float cp = smoothstep(0, 1 - r, (e->progress - pause) / (1 - pause * 2));
     float offset = rectangleSize.x / 2 + left;
     vec2 p = { (e->p.x - offset) / fabsf(cp - P5f) / 2 + offset, e->p.y };
     float s = step(fabsf(size.x * (e->p.x - left) - P5f), fabsf(cp - P5f));
-    return mix4(bgcolor, mix4(getToColor(p), getFromColor(p), step(cp, P5f)), s);
+    return mix4(background, mix4(getToColor(p), getFromColor(p), step(cp, P5f)), s);
 }
 
 static vec4 gl_heart(const XTransition *e) // by gre
@@ -1083,13 +1078,13 @@ static vec4 gl_Lissajous_Tiles(const XTransition *e) // by Boundless
     ARG1(float, offset, 2)
     ARG1(float, zoom, 0.8)
     ARG1(float, fade, 3)
-    ARG4(vec4, backColor, 0)
+    ARG4(vec4, background, 0)
     VAR1(int, n, grid.x * grid.y)
     VAR2(vec2, r, 1.f / grid.x, 1.f / grid.y)
     VAR2(vec2, f, freq.x * M_2PIf, freq.y * M_2PIf)
     VAR1(float, z, zoom / 2)
     INIT_END
-    vec4 c = backColor;
+    vec4 c = background;
     float i = e->progress * 6 * speed;
     float j = i * (1 + offset);
     float k = 1. - powf(fabsf(1 - 2 * e->progress), 3); // transition curve
@@ -1276,7 +1271,7 @@ static vec4 gl_RotateScaleVanish(const XTransition *e) // by Mark Craig
     ARG1(bool, fadeInSecond, 1)
     ARG1(bool, reverseEffect, 0)
     ARG1(bool, reverseRotation, 0)
-    ARG1(int, bgBkWhTr, 0)
+    ARG4(vec4, background, 0)
     ARG1(bool, trkMat, 0)
     INIT_END
     float t = reverseEffect ? 1 - e->progress : e->progress;
@@ -1288,7 +1283,7 @@ static vec4 gl_RotateScaleVanish(const XTransition *e) // by Mark Craig
     if (betweenf(uv2.x, 0, e->ratio) && betweenf(uv2.y, 0, 1))
         uv2.x /= e->ratio, col3 = reverseEffect ? getToColor(uv2) : getFromColor(uv2);
     else if (fadeInSecond)
-        col3 = bwt(e, bgBkWhTr);
+        col3 = background;
     else
         col3 = ColorTo;
     if (trkMat)
@@ -1309,7 +1304,7 @@ static vec4 gl_rotate_scale_fade(const XTransition *e) // by Fernando Kuteken
     ARG2(vec2, center, 0.5, 0.5)
     ARG1(float, rotations, 1)
     ARG1(float, scale, 8)
-    ARG4(vec4, backColor, 0.15)
+    ARG4(vec4, background, 0.15)
     INIT_END
     vec2 difference = sub2(e->p, center);
     float dist = length(difference);
@@ -1320,7 +1315,7 @@ static vec4 gl_rotate_scale_fade(const XTransition *e) // by Fernando Kuteken
     vec2 rotatedUv = add2(center, mul2f(rotatedDir, dist / currentScale));
     if (between2(rotatedUv, 0, 1))
         return mix4(getFromColor(rotatedUv), getToColor(rotatedUv), e->progress);
-    return backColor;
+    return background;
 }
 
 static vec4 gl_SimpleBookCurl(const XTransition *e) // by Raymond Luckhurst
@@ -1520,7 +1515,7 @@ static vec4 gl_squareswire(const XTransition *e) // by gre
 {
     INIT_BEGIN
     ARG2(ivec2, squares, 10, 10)
-    ARG2(vec2, direction, 1.0, 0.5)
+    ARG2(vec2, direction, 1.0, -0.5)
     ARG1(float, smoothness, 1.6)
     vec2 u;
     INIT u = normalize(direction), u = div2f(u, asum(u));
@@ -1627,7 +1622,7 @@ static vec4 gl_swap(const XTransition *e) // by gre
     ARG1(float, reflection, 0.4)
     ARG1(float, perspective, 0.2)
     ARG1(float, depth, 3)
-    ARG1(int, bgBkWhTr, 0)
+    ARG4(vec4, background, 0)
     INIT_END
     float size = mixf(1, depth, e->progress);
     float persp = perspective * e->progress;
@@ -1652,7 +1647,7 @@ static vec4 gl_swap(const XTransition *e) // by gre
     if (between2(pfr, 0, 1))
         return getFromColor(pfr);
     // bgColor
-    vec4 c = bwt(e, bgBkWhTr);
+    vec4 c = background;
     pfr.y = pfr.y * -1.2f - 0.02f;
     if (between2(pfr, 0, 1))
         return mix4(c, getFromColor(pfr), reflection * (1 - pfr.y));
@@ -1864,7 +1859,7 @@ static double argv(char *s, char **p)
         c = s;
         uint8_t rgba[4];
         if (!av_parse_color(rgba, s, -1, NULL)) {
-            d = rgba[0] << 24 | rgba[1] << 16 | rgba[2] << 8 | rgba[3];
+            d = (uint32_t) (rgba[0] << 24 | rgba[1] << 16 | rgba[2] << 8 | rgba[3]);
             c += strlen(s);
         }
     }
