@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.0.4
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.1.0
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Script easing expressions for generic filter_complex_script filterchains
@@ -52,16 +52,16 @@ SINUSOIDAL-IN-OUT
 st(0, (1 - cos(ld(0) * PI)) / 2)
 
 EXPONENTIAL-IN
-st(0, if(lte(ld(0), 0), 0, pow(2, 10 * ld(0) - 10)))
+st(0, if(lte(ld(0), 0), 0, 2^(10 * ld(0) - 10)))
 
 EXPONENTIAL-OUT
-st(0, if(gte(ld(0), 1), 1, 1 - pow(2, -10 * ld(0))))
+st(0, if(gte(ld(0), 1), 1, 1 - 2^(-10 * ld(0))))
 
 EXPONENTIAL-IN-OUT
 st(0,
  if(lt(ld(0), 0.5),
-  if(lte(ld(0), 0), 0, pow(2, 20 * ld(0) - 11)),
-  if(gte(ld(0), 1), 1, 1 - pow(2, 9 - 20 * ld(0)))
+  if(lte(ld(0), 0), 0, 2^(20 * ld(0) - 11)),
+  if(gte(ld(0), 1), 1, 1 - 2^(9 - 20 * ld(0)))
  )
 )
 
@@ -80,15 +80,15 @@ st(0,
 )
 
 ELASTIC-IN
-st(0, cos(20 * (1-ld(0)) * PI / 3) / pow(2, 10 * (1-ld(0))))
+st(0, cos(20 * (1-ld(0)) * PI / 3) / 2^(10 * (1-ld(0))))
 
 ELASTIC-OUT
-st(0, 1 - cos(20 * ld(0) * PI / 3) / pow(2, 10 * ld(0)))
+st(0, 1 - cos(20 * ld(0) * PI / 3) / 2^(10 * ld(0)))
 
 ELASTIC-IN-OUT
 st(0,
  st(1, cos(40 * st(2, 2 * ld(0) - 1) * PI / 9) / 2);
- st(2, pow(2, 10 * ld(2)));
+ st(2, 2^(10 * ld(2)));
  if(lt(ld(0), 0.5), ld(1) * ld(2), 1 - ld(1) / ld(2))
 )
 
