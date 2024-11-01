@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.1.0
+export VERSION=3.1.1
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -437,19 +437,10 @@ _b() { # X Y
 # (not subexpression safe: group first)
 _colour() { # colour (<0 transparent, 0 to 1 grey)
     [[ $# -ne 1 ]] && _error "_c expects 1 arg, got $#"
-    local c="gte($1,0) * max($1, eq(PLANE,3)) * maxv"
-    [[ $p_isrgb -eq 0 ]] && c="if(between(PLANE,1,2), midv, $c)"
-    echo "$c"
-}
-
-# get black/white/transparent value
-# (not subexpression safe: group first)
-_bwt() { # bg
-    [[ $# -ne 1 ]] && _error "_bwt expects 1 arg, got $#"
     if [[ $p_isrgb -ne 0 ]]; then
-        echo "gte($1,lt(PLANE,3))*maxv"
+        echo "if(3-PLANE, max($1, 0), gte($1, 0)) * maxv"
     else
-        echo "if(between(PLANE,1,2), midv, gte($1,not(PLANE))*maxv)"
+        echo "ifnot(PLANE, max($1 * maxv, 0), if(3-PLANE, midv, gte($1, 0) * maxv))"
     fi
 }
 
@@ -457,13 +448,21 @@ _bwt() { # bg
 # (not subexpression safe: group first)
 _mix() { # a b mix xf
     [[ $# -lt 3 ]] && _error "_mix expects 3 args, got $#"
+    local m
     if [[ $# -eq 3 ]]; then
-        echo "$1 * (1 - $3) + $2 * $3"
-    elif [[ $4 == xf ]]; then
-        echo "$1 * $3 + $2 * (1 - $3)" # xfade arg order
+        m="$1 * (1 - $3) + $2 * $3"
+        [[ $1 == 1 ]] && m="1 + ($2 - 1) * $3"
+        [[ $2 == 1 ]] && m="$1 * (1 - $3) + $3"
+        [[ $3 == 1 ]] && m="$2"
+    elif [[ $4 == xf ]]; then # xfade arg order
+        m="$1 * $3 + $2 * (1 - $3)"
+        [[ $1 == 1 ]] && m="$2 * (1 - $3) + $3"
+        [[ $2 == 1 ]] && m="1 + ($1 - 1) * $3"
+        [[ $3 == 1 ]] && m="$1"
     else
         _error 'bad _mix args'
     fi
+    echo "$m"
 }
 
 # dot product
@@ -1737,20 +1736,22 @@ _gl_transition() { # transition args
         _make 'st(7, hypot(ld(5), ld(6)));' # dist
         _make 'st(5, ld(5) / ld(7));' # dir.x
         _make 'st(6, ld(6) / ld(7));' # dir.y
-        _make 'st(3, 2 * PI * ld(3) * (1 - P));' # angle
-        _make 'st(8, 2 * abs(P - 0.5));'
-        _make 'st(8, mix(ld(4), 1, ld(8)));' # currentScale
-        _make 'st(4, ld(5) * cos(ld(3)) - ld(6) * sin(ld(3)));' # rotatedDir.x
-        _make 'st(6, ld(5) * sin(ld(3)) + ld(6) * cos(ld(3)));' # rotatedDir.y
-        _make 'st(1, ld(1) + ld(4) * ld(7) / ld(8));' # rotatedUv.x
-        _make 'st(2, ld(2) + ld(6) * ld(7) / ld(8));' # rotatedUv.y
+        _make 'st(0, 1 - P);' # progress
+        _make 'st(8, 2 * abs(ld(0) - 0.5));'
+        _make 'st(8, ld(7) / (mix(ld(4), 1, ld(8))));' # dist / currentScale
+        _make 'st(3, 2 * PI * ld(3) * ld(0));' # angle
+        _make 'st(4, sin(ld(3)));'
+        _make 'st(3, cos(ld(3)));'
+        _make 'st(7, ld(5) * ld(3) - ld(6) * ld(4));' # rotatedDir.x
+        _make 'st(6, ld(5) * ld(4) + ld(6) * ld(3));' # rotatedDir.y
+        _make 'st(1, ld(1) + ld(7) * ld(8));' # rotatedUv.x
+        _make 'st(2, ld(2) + ld(6) * ld(8));' # rotatedUv.y
         _make 'if(between(ld(1), 0, 1) * between(ld(2), 0, 1),'
         _make ' st(1, ld(1) * W);'
         _make ' st(2, (1 - ld(2)) * H);'
         _make ' st(3, a(ld(1), ld(2)));'
         _make ' st(4, b(ld(1), ld(2)));'
-        _make ' st(5, 1 - P);'
-        _make ' mix(ld(3), ld(4), ld(5)),'
+        _make ' mix(ld(3), ld(4), ld(0)),'
         _make " st(1, ${a[4]:-0.15});" # background
         _make ' colour(ld(1))'
         _make ')'
@@ -2679,8 +2680,8 @@ Options:
        by default native support is detected automatically using ffmpeg --help filter=xfade
        the native API adds easing and reverse options and runs much faster
        e.g. xfade=duration=4:offset=1:easing=quintic-out:transition=wiperight
-       e.g. xfade=duration=5:offset=2.5:easing='cubic-bezier(.17,.67,.83,.67)' \
-            transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
+       e.g. xfade=duration=5:offset=2:easing='cubic-bezier(.17,.67,.83,.67)' \
+            :transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
     -I set ffmpeg loglevel to info for -v (default: warning)
     -D dump debug messages to stderr and set ffmpeg loglevel to debug for -v
     -P log xfade progress percentage using custom expression print() function (implies -I)
