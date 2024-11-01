@@ -1531,22 +1531,22 @@ static vec4 gl_squareswire(const XTransition *e) // by gre
 static vec4 gl_StarWipe(const XTransition *e) // by Ben Lucas
 {
     INIT_BEGIN
-    ARG1(float, border_thickness, 0.01)
-    ARG1(float, star_rotation, 0.75)
-    ARG4(vec4, border_color, 1)
-    VAR1(float, star_angle, M_2PIf / 5)
+    ARG1(float, borderThickness, 0.01)
+    ARG1(float, starRotation, 0.75)
+    ARG4(vec4, borderColor, 1)
+    VAR1(float, starAngle, M_2PIf / 5)
     INIT_END
     const float slope = 0.3f;
-    vec2 r = rot(sub2f(e->p, P5f), -star_rotation * star_angle);
+    vec2 r = rot(sub2f(e->p, P5f), -starRotation * starAngle);
     float theta = atan2f(r.y, r.x) + M_PIf;
-    r = rot(r, star_angle * (floorf(theta / star_angle) + P5f));
+    r = rot(r, starAngle * (floorf(theta / starAngle) + P5f));
     r.x *= slope;
-    float radius = (2 * border_thickness + 1) * e->progress + r.x - border_thickness;
+    float radius = (2 * borderThickness + 1) * e->progress + r.x - borderThickness;
     if (radius > r.y && -radius < r.y)
         return e->b;
-    radius += border_thickness;
+    radius += borderThickness;
     if (radius > r.y && -radius < r.y)
-        return border_color;
+        return borderColor;
     return e->a;
 }
 

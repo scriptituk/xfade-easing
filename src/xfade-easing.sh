@@ -1907,10 +1907,10 @@ _gl_transition() { # transition args
         _make 'if(between(ld(1), ld(5), ld(6)) * between(ld(2), ld(5), ld(6)), B, A)'
         ;;
     gl_StarWipe) # by Ben Lucas
-        _make "st(1, ${a[0]:-0.01});" # border_thickness
-        _make "st(2, ${a[1]:-0.75});" # star_rotation
-        _make "st(3, ${a[2]:-1});" # border_color
-        _make 'st(8, PI * 0.4);' # star_angle
+        _make "st(1, ${a[0]:-0.01});" # borderThickness
+        _make "st(2, ${a[1]:-0.75});" # starRotation
+        _make "st(3, ${a[2]:-1});" # borderColor
+        _make 'st(8, PI * 0.4);' # starAngle
         _make 'st(2, ld(2) * ld(8));'
         _make 'st(7, sin(ld(2)));'
         _make 'st(2, cos(ld(2)));'
