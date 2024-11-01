@@ -1079,7 +1079,7 @@ The plots above in [Standard easings](#standard-easings-robert-penner) show test
 
 ### Generating demo videos
 
-Videos are generated using the `-v` option and customised with the `-r`,`-f`,`-g`,`-z`,`-d`,`-i`,`-l`,`-j`,`-n`,`-u`,`-k` options.
+Videos are generated using the `-v` option and customised with the `-b`,`-r`,`-f`,`-g`,`-z`,`-d`,`-i`,`-l`,`-j`,`-n`,`-u`,`-k` options.
 
 > [!NOTE]
 > all transition effect demos on this page are animated GIFs regardless of the commands shown
