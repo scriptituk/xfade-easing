@@ -58,7 +58,7 @@ At present extended transitions are limited to ported GLSL transitions but more 
 
 ### CLI command (for custom ffmpeg use)
 
-```bash
+```shell
 ffmpeg -i first.mp4 -i second.mp4 -filter_complex "
     xfade=duration=3:offset=1:easing=cubic-in-out:transition=wipedown
     " output.mp4
@@ -68,7 +68,7 @@ The default easing is `linear` (none).
 
 ### CLI command (for custom expression use)
 
-```bash
+```shell
 ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex "
     xfade=duration=3:offset=1:transition=custom:expr='
         st(0, if(lt(P, 0.5), 4 * P^3, 1 - 4 * (1-P)^3)) ;
@@ -90,7 +90,7 @@ In this example you can copy the easing expression from file [easings-inline.txt
 Those contain inline expressions for CLI use.
 
 Alternatively use the [CLI script](#cli-script):
-```bash
+```shell
 xfade-easing.sh -t wipedown -e cubic -x -
 ```
 dumps the xfade `expr` parameter:
@@ -106,7 +106,7 @@ For this same example you can copy the easing expression from file [easings-scri
 Those contain multiline expressions for script use (but the inline expressions work too).
 
 Alternatively use [xfade-easing.sh](#cli-script) with expansion specifiers `expr='%n%X'` (see [Usage](#usage)):
-```bash
+```shell
 xfade-easing.sh -t wipedown -e cubic -s "xfade=offset=10:duration=5:transition=custom:expr='%n%X'" -x script.txt
 ```
 writes the complete xfade filter description to file script.txt:
@@ -117,7 +117,7 @@ st(0, if(lt(P, 0.5), 4 * P^3, 1 - 4 * (1-P)^3))
 if(gt(Y, H * (1 - ld(0))), A, B)'
 ```
 and the command becomes
-```bash
+```shell
 ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex script.txt output.mp4`
 ```
 
@@ -196,20 +196,22 @@ st(6, 1 - Y / H - ld(2));
 st(7, hypot(ld(5), ld(6)));
 st(5, ld(5) / ld(7));
 st(6, ld(6) / ld(7));
-st(3, 2 * PI * ld(3) * (1 - ld(0)));
+st(0, 1 - P);
 st(8, 2 * abs(ld(0) - 0.5));
-st(8, ld(4) * (1 - ld(8)) + 1 * ld(8));
-st(4, ld(5) * cos(ld(3)) - ld(6) * sin(ld(3)));
-st(6, ld(5) * sin(ld(3)) + ld(6) * cos(ld(3)));
-st(1, ld(1) + ld(4) * ld(7) / ld(8));
-st(2, ld(2) + ld(6) * ld(7) / ld(8));
+st(8, ld(7) / (ld(4) * (1 - ld(8)) + ld(8)));
+st(3, 2 * PI * ld(3) * ld(0));
+st(4, sin(ld(3)));
+st(3, cos(ld(3)));
+st(7, ld(5) * ld(3) - ld(6) * ld(4));
+st(6, ld(5) * ld(4) + ld(6) * ld(3));
+st(1, ld(1) + ld(7) * ld(8));
+st(2, ld(2) + ld(6) * ld(8));
 if(between(ld(1), 0, 1) * between(ld(2), 0, 1),
  st(1, ld(1) * W);
  st(2, (1 - ld(2)) * H);
  st(3, ifnot(PLANE, a0(ld(1),ld(2)), ifnot(1-PLANE, a1(ld(1),ld(2)), ifnot(2-PLANE, a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
  st(4, ifnot(PLANE, b0(ld(1),ld(2)), ifnot(1-PLANE, b1(ld(1),ld(2)), ifnot(2-PLANE, b2(ld(1),ld(2)), b3(ld(1),ld(2))))));
- st(5, 1 - ld(0));
- ld(3) * (1 - ld(5)) + ld(4) * ld(5),
+ ld(3) * (1 - ld(0)) + ld(4) * ld(0),
  st(1, 0.15);
  gte(ld(1),0) * max(ld(1), eq(PLANE,3)) * 255
 )
@@ -592,7 +594,7 @@ vec4 transition(vec2 p) {
 ```
 
 [xfade-easing.sh](src/xfade-easing.sh) (custom expression variant):
-```bash
+```shell
 gl_randomsquares) # (case)
     _make "st(1, ${a[0]-10});" # size.x
     _make "st(2, ${a[1]-10});" # size.y
@@ -807,7 +809,7 @@ This needs further investigation.
 To specify alpha in transition parameters, see [Colour parameters](#colour-parameters).
 
 *Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
-```bash
+```shell
 xfade-easing.sh -f rgba -e quadratic-in -t 'gl_RotateScaleVanish(FadeInSecond=0,ReverseEffect=1,trkMat=1)' -v alpha.mkv -z 250x skaro.png tardis.png
 ffmpeg -i gallifrey.png -i alpha.mkv -filter_complex '[0]scale=250:-2[b]; [b][1]overlay' drwho.mp4
 ```
@@ -930,7 +932,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.1.0 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.1.1 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
@@ -1001,8 +1003,8 @@ Options:
        by default native support is detected automatically using ffmpeg --help filter=xfade
        the native API adds easing and reverse options and runs much faster
        e.g. xfade=duration=4:offset=1:easing=quintic-out:transition=wiperight
-       e.g. xfade=duration=5:offset=2.5:easing='cubic-bezier(.17,.67,.83,.67)' \
-            transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
+       e.g. xfade=duration=5:offset=2:easing='cubic-bezier(.17,.67,.83,.67)' \
+            :transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
     -I set ffmpeg loglevel to info for -v (default: warning)
     -D dump debug messages to stderr and set ffmpeg loglevel to debug for -v
     -P log xfade progress percentage using custom expression print() function (implies -I)
