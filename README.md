@@ -468,7 +468,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`greyBack`,`opacity`,`shadow`; default: `(80,0.15,0,0,0,0.8,0.2)`] by  _Andrew Hung_
 - `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] by  _Mark Craig_
 - `gl_squareswire` [args: `squares.x`,`squares.y`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] by  _gre_
-- `gl_StarWipe` [args: `border_thickness`,`star_rotation`,`border_color`; default: `(0.01,0.75,1)`] by  _Ben Lucas_
+- `gl_StarWipe` [args: `borderThickness`,`starRotation`,`borderColor`; default: `(0.01,0.75,1)`] by  _Ben Lucas_
 - `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] by  _Ben Lucas_
 - `gl_Stripe_Wipe` [args: `nlayers`,`layerSpread`,`color1`,`color2`,`shadowIntensity`,`shadowSpread`,`angle`; default: `(3,0.5,0x3319CCFF,0x66CCFFFF,0.7,0,0)`] by  _Boundless (native-only)_
 - `gl_swap` [args: `reflection`,`perspective`,`depth`,`background`; default: `(0.4,0.2,3,0)`] by  _gre_
@@ -789,7 +789,7 @@ Colour value examples:
 Avoid decimal numbers, e.g. 255 is not blue but opaque black (RGB `#000000FF`).
 
 *Example*: `gl_StarWipe` transition with `Lime` green (#00FF00) border colour  
-`gl_StarWipe(border_thickness=0.1, border_color=Lime)`
+`gl_StarWipe(borderThickness=0.1, borderColor=Lime)`
 
 ![star](assets/star.gif)
 
