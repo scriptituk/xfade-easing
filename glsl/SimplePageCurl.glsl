@@ -8,7 +8,7 @@
 const float M_PI = 3.14159265359;
 
 uniform int angle; // = 80
-uniform float radius; // = 0.1
+uniform float radius; // = 0.15
 uniform bool roll; // = false
 uniform bool uncurl; // = false
 uniform bool greyback; // = false
