@@ -34,7 +34,7 @@ vec4 transition (vec2 uv) {
     vec4 a = getFromColor(uv), b = getToColor(uv), c = uncurl ? a : b;
     bool g = false, o = false, s = false; // getcolor & opacity & shadow flags
     if (dist < 0.) { // point is over flat or rolling A
-        if (!roll) {
+        if (!roll) { // curl
             p += dir * (M_PI * radius - dist) + .5;
             g = true;
         } else if (-dist < radius) { // possibly on roll over
@@ -60,12 +60,13 @@ vec4 transition (vec2 uv) {
     }
     if (g) // on A
         c = uncurl ? getToColor(p) : getFromColor(p);
-    if (o) {
+    if (o) { // need opacity
         if (greyback)
             c.rgb = vec3((c.r + c.b + c.g) / 3.);
         c.rgb += (1. - c.rgb) * opacity;
     }
-    if (s && radius > 0.) // TODO: ok over A, makes a tideline over B for large radius
+    if (s && radius > 0.) // need shadow
+        // TODO: ok over A, makes a tideline over B for large radius
         c.rgb *= pow(clamp(abs(dist + (g ? radius : -radius)) / radius, 0., 1.), shadow);
     return c;
 }
