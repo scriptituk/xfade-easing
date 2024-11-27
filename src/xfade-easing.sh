@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.1.1
+export VERSION=3.2.1
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -55,8 +55,10 @@ _main() {
     _tmp || exit $ERROR # set tmp dir
     format=${o_format-$FORMAT}
     _format $format || exit $ERROR # set pix format vars
-    easing=${o_easing-$EASING}; eargs=$(_args "$easing"); easing=${easing%%(*}
-    transition=${o_transition-$TRANSITION}; targs=$(_args "$transition"); transition=${transition%%(*}
+    easing=${o_easing-$EASING}
+    eargs=$(_args "$easing") || exit $ERROR; easing=${easing%%(*}
+    transition=${o_transition-$TRANSITION}
+    targs=$(_args "$transition") || exit $ERROR; transition=${transition%%(*}
     xformat=${o_xformat-$EXPRFORMAT}
 
     [[ -n $o_list ]] && _list && exit 0
@@ -71,7 +73,7 @@ _main() {
     [[ -z $transition_expr ]] && exit $ERROR
 
     expr=$transition_expr # uneased (linear)
-    transition_expr=$(gsed -e "s/\<P\>/ld(0)/g" <<<$transition_expr) # expects eased progress in ld(0)
+    transition_expr=$(gsed -e 's/\<P\>/ld(0)/g' <<<$transition_expr) # expects eased progress in ld(0)
     if [[ $easing != linear || -n $o_easing ]]; then
         expr="$p_easing_expr%n;%n$transition_expr" # chained easing & transition
     fi
@@ -330,9 +332,11 @@ _author() { # transition
 # get easing/transition args
 _args() { # easing/transition
     local a
-    [[ $1 =~ \(.*\)$ ]] && a=${1#*(} a=${a%*)}
+    [[ $1 =~ \( && ! $1 =~ \(.*\)$ ]] && _error "missing ')' in args '$1'" && return $ERROR
+    [[ $1 =~ \( ]] && a=${1#*(} a=${a%*)}
     [[ $a =~ ^\ *$ ]] && a=
     echo "$a"
+    return 0
 }
 
 # get filter string
@@ -937,32 +941,39 @@ _gl_transition() { # transition args
         _make "st(2, ${a[1]:-0.075});" # shadowHeight
         _make "st(3, ${a[2]:-3});" # bounces
         _make "st(4, ${a[3]:-0});" # direction
-        _make 'st(5, 1 - P);' # progress
-        _make 'st(3, ld(5) * PI * ld(3));' # phase
-        _make 'st(3, abs(cos(ld(3))) * (1 - sin(ld(5) * PI / 2)));' # p
+        _make "st(5, ${a[4]:-0});" # shadowColor
+        _make 'st(6, 1 - P);' # progress
+        _make 'st(3, ld(6) * PI * ld(3));' # phase
+        _make 'st(3, abs(cos(ld(3))) * (1 - sin(ld(6) * PI / 2)));' # p
         _make 'if(gt(ld(4), 1), st(3, 1 - ld(3)));'
-        _make 'st(6, X / W);'
-        _make 'st(7, 1 - Y / H);'
-        _make 'st(4, 7 - mod(ld(4), 2));'
+        _make 'st(7, X / W);'
+        _make 'st(8, 1 - Y / H);'
+        _make 'st(4, 8 - mod(ld(4), 2));'
         _make 'st(3, ld(ld(4)) - ld(3));' # d
         _make 'if(gt(ld(3), 0),'
         _make ' if(gt(ld(3), ld(2)),'
         _make '  B,'
-        _make '  st(5, smoothstep(0.95, 1, ld(5), 5));'
+        _make '  st(6, smoothstep(0.95, 1, ld(6), 6));'
         _make '  st(2, (ld(3) / ld(2) - 1) * ld(1) + 1);'
-        _make '  st(2, mix(ld(2), 1, ld(5)));'
-        _make '  st(1, black);'
+        _make '  st(2, mix(ld(2), 1, ld(6)));'
+        _make '  st(1, colour(ld(5)));'
         _make '  mix(ld(1), B, ld(2))'
         _make ' ),'
         _make ' st(ld(4), 1 + ld(3));'
-        _make ' st(6, ld(6) * W);'
-        _make ' st(7, (1 - ld(7)) * H);'
-        _make ' a(ld(6), ld(7))'
+        _make ' st(7, ld(7) * W);'
+        _make ' st(8, (1 - ld(8)) * H);'
+        _make ' a(ld(7), ld(8))'
         _make ')'
         ;;
     gl_BowTie) # by huynx
         _make NATIVE
 #       ${a[0]:-0} # vertical
+        ;;
+    gl_ButterflyWaveScrawler) # by mandubian
+        _make NATIVE
+#       ${a[0]:-1} # amplitude
+#       ${a[1]:-30} # waves
+#       ${a[2]:-0.3} # colorSeparation
         ;;
     gl_cannabisleaf) # by Flexi23
         _make 'if(eq(P, 1), A,'
@@ -973,6 +984,23 @@ _gl_transition() { # transition args
         _make ' st(1, (1 + sin(ld(1))) * (1 + 0.9 * cos(8 * ld(1))) *'
         _make '  (1 + 0.1 * cos(24 * ld(1))) * (0.9 + 0.05 * cos(200 * ld(1))));' # curve
         _make ' if(step(0.18 * ld(1), hypot(ld(2), ld(3))), A, B)'
+        _make ')'
+        ;;
+    gl_chessboard) # by lql
+        _make "st(1, ${a[0]:-8});" # grid
+        _make 'st(2, X / W * ld(1));' # st.x
+        _make 'st(3, (1 - Y / H) * ld(1));' # st.y
+        _make 'st(4, floor(ld(2)));' # idx.x
+        _make 'st(5, floor(ld(3)));' # idx.y
+        _make 'st(2, ld(2) - ld(4));' # g
+        _make 'st(3, bitand(ld(4) + ld(5), 1));' # checker
+        _make 'st(1, 1 - P);' # progress
+        _make 'if('
+        _make ' if(lt(ld(1), 0.5),'
+        _make '  if(ld(3), step(ld(2), ld(1) * 2)),'
+        _make '  if(ld(3), 1, step(ld(2), ld(1) * 2 - 1))'
+        _make ' ),'
+        _make ' B, A'
         _make ')'
         ;;
     gl_CornerVanish) # by Mark Craig
@@ -1047,6 +1075,14 @@ _gl_transition() { # transition args
         _make 'st(5, (0.5 - ld(3) * ld(1)) * H);'
         _make 'st(7, b(ld(4), ld(5)));'
         _make 'mix(ld(6), ld(7), ld(1))'
+        ;;
+    gl_CrossZoom) # by rectalogic
+        _make NATIVE
+#       _make "st(1, ${a[0]:-0.4});" # strength
+#       _make "st(1, ${a[1]:-0.25});" # centerFrom.x
+#       _make "st(2, ${a[2]:-0.5});" # centerFrom.y
+#       _make "st(1, ${a[3]:-0.75});" # centerTo.x
+#       _make "st(2, ${a[4]:-0.5});" # centerTo.y
         ;;
     gl_cube) # by gre
         _make "st(1, ${a[0]:-0.7});" # persp
@@ -1965,6 +2001,13 @@ _gl_transition() { # transition args
         _make ');'
         _make 'mix(ld(7), ld(1), ld(6))'
         ;;
+    gl_StereoViewer) # by Ted Schundler
+        _make NATIVE
+#       ${a[0]:-0.9} # zoom
+#       ${a[1]:-0.25} # radius
+#       ${a[2]:-0} # flip
+#       ${a[3]:-0} # background
+        ;;
     gl_Stripe_Wipe) # by Boundless
         _make NATIVE
 #       ${a[0]:-3} # nlayers
@@ -2124,8 +2167,8 @@ _expr() { # path expr
 # output easing plot
 _plot() { # path easings
     if ! _dep gnuplot; then
-	_error 'missing dependency: gnuplot'
-	return $ERROR
+        _error 'missing dependency: gnuplot'
+        return $ERROR
     fi
     local path=$(_expand "$1")
     local m=$(_heredoc EASINGS | gawk -v m="$2" -f-)

@@ -8,15 +8,24 @@
 
 #include <stdbool.h>
 #include <float.h>
+#include <ctype.h>
 #include "libavfilter/version.h"
 #include "libavutil/avstring.h"
 #include "libavutil/mem.h"
 #include "libavutil/parseutils.h"
-//#define RGB2YUV_SWSSCALE
-#ifdef RGB2YUV_SWSSCALE
-#include "libavutil/pixfmt.h"
-#include "libswscale/swscale.h"
-#endif
+
+////////////////////////////////////////////////////////////////////////////////
+// definitions & prototypes
+////////////////////////////////////////////////////////////////////////////////
+
+#define P5f 0.5f /* ubiquitous point 5 float */
+#define M_1_2PIf (M_1_PIf * P5f) /* 1/(2*pi) */
+#define M_2PIf (M_PIf + M_PIf) /* 2*pi */
+
+static int xe_error(void *avcl, const char *fmt, ...);
+static void xe_warning(void *avcl, const char *fmt, ...);
+static void xe_debug(void *avcl, const char *fmt, ...);
+struct XTransition;
 
 ////////////////////////////////////////////////////////////////////////////////
 // aggregate types
@@ -67,16 +76,6 @@ typedef struct {
     } *argv; // alloc
 } XTransitionArgs;
 
-// transition thread data, modelled on GL Transition Specification v1
-typedef struct XTransition {
-    float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
-    float ratio; // viewport width / height (cf. W / H)
-    vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
-    vec4 a, b; // plane data at p (cf. A, B)
-    bool is_rgb; // pixel format is RGB type
-    const struct XFadeEasingContext *k; // the XFadeEasingContext
-} XTransition;
-
 // xfade-easing context (member of XFadeContext)
 typedef struct XFadeEasingContext {
     float (*easingf)(const struct XFadeEasingContext *k, float progress);
@@ -85,19 +84,20 @@ typedef struct XFadeEasingContext {
     XTransitionArgs targs;
     float duration; // seconds
     float framerate;
-    vec4 black, white, transparent;
     double tdata[20]; // cached transition parameters and constants
     bool init; // true when tdata initialised
-    const struct XFadeContext *s; // the XFadeContext
+    const XFadeContext *s; // the XFadeContext
 } XFadeEasingContext;
 
-static int xe_error(void *avcl, const char *fmt, ...);
-static void xe_warning(void *avcl, const char *fmt, ...);
-static void xe_debug(void *avcl, const char *fmt, ...);
-
-#define P5f 0.5f /* ubiquitous point 5 float */
-#define M_1_2PIf (M_1_PIf * P5f) /* 1/(2*pi) */
-#define M_2PIf (M_PIf + M_PIf) /* 2*pi */
+// transition thread data, modelled on GL Transition Specification v1
+typedef struct XTransition {
+    float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
+    float ratio; // viewport width / height (cf. W / H)
+    vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
+    vec4 a, b; // plane data at p (cf. A, B)
+    bool is_rgb; // pixel format is RGB type
+    const XFadeEasingContext *k; // the XFadeEasingContext
+} XTransition;
 
 ////////////////////////////////////////////////////////////////////////////////
 // easing functions
@@ -267,15 +267,15 @@ static float css_steps(const XFadeEasingContext *k, float t)
 // various in libavutil/mem.h libavutil/log.h
 // FFDIFFSIGN in libavutil/macros.h
 
-typedef struct {
-    int x, y;
-} ivec2;
-
 #define IVEC2(x, y) ((ivec2) { (x), (y) })
 #define VEC2(x, y) ((vec2) { (x), (y) })
 #define VEC4(a, b, c, d) ((vec4) {{ (a), (b), (c), (d) }})
 
 #define sign(x) FFDIFFSIGN((x), 0)
+
+typedef struct {
+    int x, y;
+} ivec2;
 
 static inline vec2 vec2i(ivec2 v) { return VEC2(v.x, v.y); }
 
@@ -321,15 +321,17 @@ static inline float distance(vec2 p, vec2 q) { return length(sub2(p, q)); }
 
 static inline float dot(vec2 p, vec2 q) { return p.x * q.x + p.y * q.y; }
 
-static inline vec2 rot(vec2 v, float angle)
+static inline vec2 rot(vec2 v, float angle) // clockwise
 {
-    const float c = cosf(angle), s = sinf(angle);
+    float c = cosf(angle), s = sinf(angle);
     return VEC2(v.x * c + v.y * s, v.y * c - v.x * s);
 }
 
 static inline vec2 flip2(vec2 v) { return VEC2(v.y, v.x); }
 
 static inline int step(float edge, float x) { return (x < edge) ? 0 : 1; }
+
+static inline float lerp(float x, float y, float z) { return x + (y - x) * z; }
 
 static inline float mixf(float a, float b, float m) { return mix(b, a, m); } // vf_xfade.c mix() args are swapped
 
@@ -338,6 +340,18 @@ static inline vec2 mix2(vec2 a, vec2 b, float m) { return VEC2(mix(b.x, a.x, m),
 static inline vec4 mix4(vec4 a, vec4 b, float m)
 {
     return VEC4(mix(b.p0, a.p0, m), mix(b.p1, a.p1, m), mix(b.p2, a.p2, m), mix(b.p3, a.p3, m));
+}
+
+static inline vec4 screen(vec4 a, vec4 b) // screen blend mode
+{
+    return VEC4(1 - (1 - a.p0) * (1 - b.p0),
+                1 - (1 - a.p1) * (1 - b.p1),
+                1 - (1 - a.p2) * (1 - b.p2),
+                fmaxf(a.p3, b.p3));
+}
+static inline vec4 unscreen(vec4 c) // colour when screened with itself yields original colour
+{
+    return VEC4(1 - sqrt(1 - c.p0), 1 - sqrt(1 - c.p1), 1 - sqrt(1 - c.p2), c.p3);
 }
 
 static inline float degrees(float a) { return a * 180 / M_PIf; }
@@ -361,7 +375,9 @@ static inline bool between2(vec2 v, float min, float max)
     return v.x >= min && v.x <= max && v.y >= min && v.y <= max;
 }
 
-#define LINE(type, frame, plane, y) ((type*)(frame->data[plane] + (y) * frame->linesize[plane]))
+// get plane data line
+static inline uint8_t *line1(const AVFrame *f, int p, int y) { return f->data[p] + y * f->linesize[p]; }
+static inline uint16_t *line2(const AVFrame *f, int p, int y) { return (uint16_t*) line1(f, p, y); }
 
 #define _getFromColor1(v) getColor(e, (v.x), (v.y), 0)
 #define _getFromColor2(x, y) getColor(e, (x), (y), 0)
@@ -378,70 +394,96 @@ static vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_x
     const XFadeContext *s = e->k->s;
     const AVFrame *f = s->xf[nb ^ s->reverse & REVERSE_TRANSITION];
     const float max_value = s->max_value; // as float
-    const int n = s->nb_planes, d = (s->depth > 8), w = f->width, h = f->height;
+    const int n = s->nb_planes, w = f->width, h = f->height;
     const int i = av_clip(x * w, 0, w - 1), j = av_clip((1 - y) * h, 0, h - 1);
     vec4 c;
-    int p;
-    for (p = 0; p < n; p++)
-        c.p[p] = (d ? LINE(uint16_t, f, p, j)[i] : LINE(uint8_t, f, p, j)[i]) / max_value;
+    int p = 0;
+    if (s->depth > 8)
+        do
+            c.p[p] = line2(f, p, j)[i] / max_value;
+        while (++p < n);
+    else
+        do
+            c.p[p] = line1(f, p, j)[i] / max_value;
+        while (++p < n);
     for (; p < 4; p++)
         c.p[p] = c.p[p - 1];
     return c;
 }
 
-// convert packed RGBA to texture
-static vec4 rgba(bool is_rgb, uint32_t rgba)
+// convert GBR to YUV standard-definition BT.601
+// TODO: support high-definition BT.709 too?
+// see https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.601_conversion
+static const float Ky = 0.0627451f, Kc = 0.501961f; // 16/255, 128/255
+static inline vec4 gbr2yuv(vec4 c)
+{
+    // BT.601 matrix          G           B            R
+    static const vec4 Y = {{  0.504129f,  0.0979059f,  0.256788f }}, // 128.553/255 24.966/255 65.481/255
+                      U = {{ -0.290992f,  0.439216f,  -0.148224f }}, // -74.203/255 112/255 -37.797/255
+                      V = {{ -0.367788f, -0.0714275f,  0.439216f }}; // -93.786/255 -18.214/255 112/255
+    return VEC4(c.p0 * Y.p0 + c.p1 * Y.p1 + c.p2 * Y.p2 + Ky,
+                c.p0 * U.p0 + c.p1 * U.p1 + c.p2 * U.p2 + Kc,
+                c.p0 * V.p0 + c.p1 * V.p1 + c.p2 * V.p2 + Kc,
+                c.p3);
+}
+
+// convert YUV to GBR
+static inline vec4 yuv2gbr(vec4 c)
+{
+    // inverse BT.601 matrix Y          U           V
+    static const vec4 G = {{ 1.164385f, -0.391763f, -0.812968f }},
+                      B = {{ 1.164384f,  2.017231f,  0         }},
+                      R = {{ 1.164383f,  0,          1.596026f }};
+    c.p0 -= Ky, c.p1 -= Kc, c.p2 -= Kc;
+    float y = c.p0 * G.p0; // Y G=B=R
+    return VEC4(y + c.p1 * G.p1 + c.p2 * G.p2,
+                y + c.p1 * B.p1,
+                y               + c.p2 * R.p2,
+                c.p3);
+}
+
+// get packed RGBA colour
+static vec4 rgba(const XTransition *e, uint32_t rgba)
 {
     const uint8_t R = rgba >> 24, G = rgba >> 16, B = rgba >> 8, A = rgba;
-    uint8_t dst[] = { G, B, R };
-    if (!is_rgb) { // convert to digital YCbCr from analog RGB (8 bits) for ITU-R BT.601
-#ifndef RGB2YUV_SWSSCALE
-        // convert using RGB to YPbPr(analogue) to YCbCr(digital)
-        // see https://en.wikipedia.org/wiki/YCbCr
-        const float Kr = 0.299f, Kg = 0.587f, Kb = 0.114f;
-        const float r = R / 255.f, g = G / 255.f, b = B / 255.f;
-        const float y = Kr * r + Kg * g + Kb * b, u = (b - y) / (1 - Kb) / 2, v = (r - y) / (1 - Kr) / 2;
-        dst[0] = roundf(16 + 219 * y); // derive digital from analogue
-        dst[1] = roundf(128 + 224 * u);
-        dst[2] = roundf(128 + 224 * v);
-#else
-        // convert using ffmpeg
-        // see http://www.dranger.com/ffmpeg/tutorial08.html
-        const uint8_t src[] = { R, G, B };
-        const uint8_t *psrc[] = { src }; // planes
-        uint8_t *pdst[] = { dst, dst+1, dst+2 };
-        const int lsrc[] = { 3 }, ldst[] = { 1, 1, 1 }; // strides
-        struct SwsContext *ctx = sws_getContext(
-                1, 1, AV_PIX_FMT_RGB24,
-                1, 1, AV_PIX_FMT_YUV444P,
-                SWS_POINT, NULL, NULL, NULL);
-        if (!ctx) {
-            av_log(NULL, AV_LOG_ERROR, "create scale context failed for RGB-YUV conversion\n");
-            return (vec4){{0}};
-        }
-        sws_scale(ctx, psrc, lsrc, 0, 1, pdst, ldst);
-        sws_freeContext(ctx);
-#endif
+    float r = R / 255.f, g = G / 255.f, b = B / 255.f, a = A / 255.f;
+    vec4 c = {{ g, b, r, a }}; // normalised GBRA
+    if (e->is_rgb) {
+        xe_debug(NULL, "colour: gbra = %g %g %g %g\n", c.p0, c.p1, c.p2, c.p3);
+    } else {
+        c = gbr2yuv(c); // normalised YUVA
+        xe_debug(NULL, "colour: yuva = %g %g %g %g\n", c.p0, c.p1, c.p2, c.p3);
+//      vec4 d = yuv2gbr(c); xe_debug(NULL, "colour: err = %g %g %g %g\n", g-d.p0, b-d.p1, r-d.p2, a-d.p3);
     }
-    return VEC4(dst[0] / 255.f, dst[1] / 255.f, dst[2] / 255.f, A / 255.f);
+    return c;
 }
 
-// convert greyscale fraction to texture
-static vec4 grey(bool is_rgb, float grey)
+// get greyscale fraction colour
+static vec4 grey(const XTransition *e, float grey)
 {
-    const float p12 = is_rgb ? grey : P5f;
-    return VEC4(grey, p12, p12, 1);
+    float p12 = e->is_rgb ? grey : P5f;
+    vec4 c = {{ grey, p12, p12, 1 }};
+    xe_debug(NULL, "colour: grey = %g %g %g %g\n", c.p0, c.p1, c.p2, c.p3);
+    return c;
 }
 
-// convert colour to texture
-//  colour < 0 rendered fully transparent
-//  0 <= colour <= 1 rendered opaque greyscale
-//  colour > 1 rendered RGBA
+// get transparent colour
+static vec4 transparent()
+{
+    vec4 c = {{ P5f, P5f, P5f, 0 }}; // transparent grey
+    xe_debug(NULL, "colour: transparent = %g %g %g %g\n", c.p0, c.p1, c.p2, c.p3);
+    return c;
+}
+
+// convert colour arg to GBRA/YUVA plane data
+//  colour < 0 is fully transparent
+//  0 <= colour <= 1 is opaque greyscale
+//  colour > 1 is RGBA (argv() parser adds 1^32 for colours)
 static vec4 colour(const XTransition *e, double colour)
 {
-    if (colour < 0) return e->k->transparent;
-    if (ceil(colour) <= 1) return grey(e->is_rgb, colour);
-    return rgba(e->is_rgb, colour);
+    if (colour < 0) return transparent();
+    if (colour <= 1) return grey(e, colour);
+    return rgba(e, colour); // clips colour flag bit 32
 }
 
 // simple slice caching of transition constants
@@ -486,7 +528,7 @@ static __attribute__ ((noinline)) void arg(
         value = a->argv[argi].value; // positional param
     ret:
     var(k, argi, value); // double to store 32-bit (10-digit) precision lossless colour values
-    xe_debug(NULL, "param: %s %s = %g == %d(int) == 0x%X(unsigned)\n", type, param, value, (int)value, (unsigned)value);
+    xe_debug(NULL, "param: %s %s = %g == %d(int) == 0x%08X(unsigned)\n", type, param, value, (int)value, (unsigned)value);
 }
 
 // extended transitions
@@ -525,8 +567,8 @@ static vec4 gl_BookFlip(const XTransition *e) // by hong
         if (pr)
             return e->b;
         vec2 skewRight = {
-             (e->p.x - e->progress) / (P5f - e->progress) / 2,
-             (e->p.y - P5f) / (P5f + e->progress * (e->p.x - P5f) * 2) / 2 + P5f
+            (e->p.x - e->progress) / (P5f - e->progress) / 2,
+            (e->p.y - P5f) / (P5f + e->progress * (e->p.x - P5f) * 2) / 2 + P5f
         };
         colour = getFromColor(skewRight);
     }
@@ -544,6 +586,7 @@ static vec4 gl_Bounce(const XTransition *e) // by Adrian Purser
     ARG1(float, shadowHeight, 0.075)
     ARG1(float, bounces, 3)
     ARG1(int, direction, 0) // S,W,N,E
+    ARG4(vec4, shadowColor, 0)
     INIT_END
     float phase = e->progress * M_PIf * bounces;
     float p = fabsf(cosf(phase)) * (1 - sinf(e->progress * M_PI_2f));
@@ -565,7 +608,7 @@ static vec4 gl_Bounce(const XTransition *e) // by Adrian Purser
         1,
         smoothstep(0.95f, 1, e->progress) // fade-out the shadow at the end
     );
-    return mix4(e->b, e->k->black, 1 - m);
+    return mix4(e->b, shadowColor, 1 - m);
 }
 
 static vec4 gl_BowTie(const XTransition *e) // by huynx
@@ -609,6 +652,30 @@ static vec4 gl_BowTie(const XTransition *e) // by huynx
     return e->a;
 }
 
+static vec4 gl_ButterflyWaveScrawler(const XTransition *e) // by mandubian
+{
+    INIT_BEGIN
+    ARG1(float, amplitude, 1)
+    ARG1(float, waves, 30)
+    ARG1(float, colorSeparation, 0.3)
+    INIT_END
+    // func compute
+    vec2 o = sub2f(mul2f(e->p, sinf(e->progress * amplitude)), P5f);
+    vec2 h = { 1, 0 }; // horizontal vector
+    float theta = acosf(dot(o, h)) * waves; // butterfly polar function
+    float disp = (expf(cosf(theta)) - 2 * cosf(4 * theta) + powf(sinf((2 * theta - M_PIf) / 24), 5)) / 10;
+    // end compute
+    float dp = disp * e->progress;
+    vec4 texTo = getToColor(add2f(e->p, disp - dp)); // inv
+    vec4 texFrom = getFromColor(add2f(e->p, dp));
+    texFrom.p1 = getFromColor(add2f(e->p, dp * (1 + colorSeparation))).p1;
+    texFrom.p2 = getFromColor(add2f(e->p, dp * (1 - colorSeparation))).p2;
+//  if (!e->is_rgb)
+//      return gbr2yuv(mix4(yuv2gbr(texFrom), yuv2gbr(texTo), e->progress));
+// TODO: conversions don't make any difference; should we do RGB only?
+    return mix4(texFrom, texTo, e->progress);
+}
+
 static vec4 gl_cannabisleaf(const XTransition *e) // by Flexi23
 {
     INIT_END
@@ -621,6 +688,21 @@ static vec4 gl_cannabisleaf(const XTransition *e) // by Flexi23
     // for curve see https://www.wolframalpha.com/input/?i=cannabis+curve{
     float curve = (1 + sinf(o)) * (1 + 0.9f * cosf(8 * o)) * (1 + 0.1f * cosf(24 * o)) * (0.9f + 0.05f * cosf(200 * o));
     return step(r * curve, length(leaf_uv)) ? e->a : e->b;
+}
+
+static vec4 gl_chessboard(const XTransition *e) // by lql
+{
+    INIT_BEGIN
+    ARG1(int, grid, 8)
+    INIT_END
+    vec2 st = mul2f(e->p, grid);
+    vec2 idx = floor2(st);
+    float g = st.x - idx.x;
+    int checker = (int) (idx.x + idx.y) % 2;
+    bool mixFactor = (e->progress < P5f)
+        ? checker && step(g, e->progress * 2)
+        : checker || step(g, e->progress * 2 - 1);
+    return mixFactor ? e->b : e->a;
 }
 
 static vec4 gl_CornerVanish(const XTransition *e) // by Mark Craig
@@ -688,6 +770,41 @@ static vec4 gl_crosswarp(const XTransition *e) // by Eke Péter
     vec4 a = getFromColor(add2f(mul2f(c, 1 - x), P5f));
     vec4 b = getToColor(add2f(mul2f(c, x), P5f));
     return mix4(a, b, x);
+}
+
+static vec4 gl_CrossZoom(const XTransition *e) // by rectalogic
+{
+    INIT_BEGIN
+    ARG1(float, strength, 0.4)
+    ARG2(vec2, centerFrom, 0.25, 0.5)
+    ARG2(vec2, centerTo, 0.75, 0.5)
+    INIT_END
+    // linear interpolate centerpoint travel
+    vec2 center = { lerp(centerFrom.x, centerTo.x, e->progress),
+                    lerp(centerFrom.y, centerTo.y, e->progress) };
+    XFadeEasingContext x = { .eargs = { .e.mode = EASE_INOUT } };
+    float dissolve = rp_exponential(&x, e->progress);
+    // mirrored sinusoidal loop: 0->strength then strength->0
+    float strength2 = strength * rp_sinusoidal(&x, e->progress * 2);
+    vec4 color = {{ 0, 0, 0, mix(e->a.p3, e->b.p3, dissolve) }};
+    float total = 0;
+    vec2 toCenter = sub2(center, e->p);
+    // randomize the lookup values to hide the fixed number of samples
+    float offset = frand2(e->p);
+    for (int t = 0; t <= 40; t++) {
+        float percent = (t + offset) / 40;
+        float weight = 4 * (percent - percent * percent);
+        vec2 p = add2(e->p, mul2f(toCenter, percent * strength2));
+        vec4 c = mix4(getFromColor(p), getToColor(p), dissolve);
+        color.p0 += c.p0 * weight;
+        color.p1 += c.p1 * weight;
+        color.p2 += c.p2 * weight;
+        total += weight;
+    }
+    color.p0 /= total;
+    color.p1 /= total;
+    color.p2 /= total;
+    return color;
 }
 
 static vec4 gl_cube(const XTransition *e) // by gre
@@ -840,7 +957,7 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
     INIT_END
     const int iters = 50; // TODO: experiment with this
     const vec2 uv = sub2f(e->p, P5f);
-    vec4 comp = {{ 0 }};
+    vec4 comp = {{0}};
     for (int i = 0; i < iters; i++) {
         float p = av_clipf(e->progress + (float)i * blur / frames / iters, 0, 1);
         float pa0 = powf(2 * p, exponent), pa1 = powf(2 * (1 - p), exponent),
@@ -1538,7 +1655,7 @@ static vec4 gl_StarWipe(const XTransition *e) // by Ben Lucas
     INIT_END
     const float slope = 0.3f;
     vec2 r = rot(sub2f(e->p, P5f), -starRotation * starAngle);
-    float theta = atan2f(r.y, r.x) + M_PIf;
+    float theta = atn2(r) + M_PIf;
     r = rot(r, starAngle * (floorf(theta / starAngle) + P5f));
     r.x *= slope;
     float radius = (2 * borderThickness + 1) * e->progress + r.x - borderThickness;
@@ -1567,6 +1684,18 @@ static vec4 gl_static_wipe(const XTransition *e) // by Ben Lucas
     noise.p0 = d;
     noise.p1 = noise.p2 = e->is_rgb ? d : P5f;
     return mix4(transitionMix, noise, noiseEnvelope);
+}
+
+static vec4 stereo_viewer(const XTransition *e, float zoom, float radius, bool flip, vec4 background);
+static vec4 gl_StereoViewer(const XTransition *e) // by Ted Schundler
+{
+    INIT_BEGIN
+    ARG1(float, zoom, 0.9)
+    ARG1(float, radius, 0.25)
+    ARG1(bool, flip, 0)
+    ARG4(vec4, background, 0)
+    INIT_END
+    return stereo_viewer(e, zoom, radius, flip, background); // licensed code
 }
 
 static vec4 gl_Stripe_Wipe(const XTransition *e) // by Boundless
@@ -1748,18 +1877,18 @@ static void xtransition##name##_transition(AVFilterContext *ctx,                
         for (int x = 0; x < out->width; x++) { /* int width */                               \
             e.p.x = x / w;                                                                   \
             int p = 0;                                                                       \
-            for (; p < n; p++) {                                                             \
-                e.a.p[p] = LINE(type, a, p, y)[x] / max_value;                               \
-                e.b.p[p] = LINE(type, b, p, y)[x] / max_value;                               \
-            }                                                                                \
+            do {                                                                             \
+                e.a.p[p] = line##div(a, p, y)[x] / max_value;                                \
+                e.b.p[p] = line##div(b, p, y)[x] / max_value;                                \
+            } while (++p < n);                                                               \
             for (; p < 4; p++) {                                                             \
                 e.a.p[p] = e.a.p[p - 1];                                                     \
                 e.b.p[p] = e.b.p[p - 1];                                                     \
             }                                                                                \
             vec4 v = s->k->xtransitionf(&e); /* run */                                       \
             for (p = 0; p < n; p++) {                                                        \
-                type d = av_clipf(v.p[p] * max_value, 0, max_value); /* (sometimes -ve) */   \
-                LINE(type, out, p, y)[x] = d;                                                \
+                type d = av_clip(v.p[p] * max_value, 0, max_value); /* (sometimes -ve) */    \
+                line##div(out, p, y)[x] = d;                                                 \
             }                                                                                \
         }                                                                                    \
     }                                                                                        \
@@ -1854,12 +1983,14 @@ static char *csvtok(char *s, char **p)
 static double argv(char *s, char **p)
 {
     char *c;
-    double d = av_strtod(s, &c); // try number
-    if (c == s || s[0] == '0' && (s[1] | 0x20) == 'x' || *c == '@') { // try colour
+    double d = strtod(s, &c); // try number (inc. grey)
+    if (*s == '#' || !strncmp(s, "0x", 2) || isalpha(*s) || strchr(s, '@')) { // try colour
         c = s;
         uint8_t rgba[4];
-        if (!av_parse_color(rgba, s, -1, NULL)) {
-            d = (uint32_t) (rgba[0] << 24 | rgba[1] << 16 | rgba[2] << 8 | rgba[3]);
+        if (!av_parse_color(rgba, s, -1, NULL)) { // (fails for 0X prefix)
+            uint32_t u = rgba[0] << 24 | rgba[1] << 16 | rgba[2] << 8 | rgba[3];
+            uint64_t l = u | 1ULL << 32; // colour flag bit 32 ensures value > 1
+            d = l;
             c += strlen(s);
         }
     }
@@ -2019,8 +2150,8 @@ static int parse_easing(AVFilterContext *ctx)
     xe_debug(ctx, "parse_easing '%s'\n", s->easing_str);
 
     char *e = s->easing_str, *c;
-    if (strchr(e, '(') && e[strlen(e) - 1] != ')')
-        return xe_error(ctx, "invalid easing option %s\n", e);
+    if ((c = strchr(e, '(')) && !strchr(c, ')'))
+        return xe_error(ctx, "missing ')' in easing option %s\n", e);
 
     e = av_strtok(e, "(", &c);
     if (!e)
@@ -2085,8 +2216,8 @@ static int parse_xtransition(AVFilterContext *ctx)
     }
 
     char *t = s->transition_str, *c, *p;
-    if (strchr(t, '(') && t[strlen(t) - 1] != ')')
-        return xe_error(ctx, "invalid extended transition option %s\n", t);
+    if ((c = strchr(t, '(')) && !strchr(c, ')'))
+        return xe_error(ctx, "missing ')' in transition option %s\n", t);
 
     t = av_strtok(t, "(", &c);
     if (!t)
@@ -2096,12 +2227,15 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_BookFlip")) k->xtransitionf = gl_BookFlip;
     else if (!av_strcasecmp(t, "gl_Bounce")) k->xtransitionf = gl_Bounce;
     else if (!av_strcasecmp(t, "gl_BowTie")) k->xtransitionf = gl_BowTie;
+    else if (!av_strcasecmp(t, "gl_ButterflyWaveScrawler")) k->xtransitionf = gl_ButterflyWaveScrawler;
     else if (!av_strcasecmp(t, "gl_cannabisleaf")) k->xtransitionf = gl_cannabisleaf;
+    else if (!av_strcasecmp(t, "gl_chessboard")) k->xtransitionf = gl_chessboard;
     else if (!av_strcasecmp(t, "gl_CornerVanish")) k->xtransitionf = gl_CornerVanish;
     else if (!av_strcasecmp(t, "gl_CrazyParametricFun")) k->xtransitionf = gl_CrazyParametricFun;
     else if (!av_strcasecmp(t, "gl_crosshatch")) k->xtransitionf = gl_crosshatch;
     else if (!av_strcasecmp(t, "gl_CrossOut")) k->xtransitionf = gl_CrossOut;
     else if (!av_strcasecmp(t, "gl_crosswarp")) k->xtransitionf = gl_crosswarp;
+    else if (!av_strcasecmp(t, "gl_CrossZoom")) k->xtransitionf = gl_CrossZoom;
     else if (!av_strcasecmp(t, "gl_cube")) k->xtransitionf = gl_cube;
     else if (!av_strcasecmp(t, "gl_Diamond")) k->xtransitionf = gl_Diamond;
     else if (!av_strcasecmp(t, "gl_DirectionalScaled")) k->xtransitionf = gl_DirectionalScaled;
@@ -2139,6 +2273,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_squareswire")) k->xtransitionf = gl_squareswire;
     else if (!av_strcasecmp(t, "gl_StarWipe")) k->xtransitionf = gl_StarWipe;
     else if (!av_strcasecmp(t, "gl_static_wipe")) k->xtransitionf = gl_static_wipe;
+    else if (!av_strcasecmp(t, "gl_StereoViewer")) k->xtransitionf = gl_StereoViewer;
     else if (!av_strcasecmp(t, "gl_Stripe_Wipe")) k->xtransitionf = gl_Stripe_Wipe;
     else if (!av_strcasecmp(t, "gl_swap")) k->xtransitionf = gl_swap;
     else if (!av_strcasecmp(t, "gl_Swirl")) k->xtransitionf = gl_Swirl;
@@ -2209,14 +2344,6 @@ static int config_xfade_easing(AVFilterContext *ctx)
     AVRational r = ff_filter_link(l)->frame_rate;
 #endif
     k->framerate = (float)r.num / r.den;
-    if (s->is_rgb) {
-        k->black = VEC4(0, 0, 0, 1);
-        k->white = VEC4(1, 1, 1, 1);
-    } else {
-        k->black = VEC4(0, P5f, P5f, 1);
-        k->white = VEC4(1, P5f, P5f, 1);
-    };
-    k->transparent = VEC4(P5f, P5f, P5f, 0); // transparent grey
 
     XTransition e = { .k = k, .ratio = (float)l->w / l->h, .is_rgb = s->is_rgb };
     k->xtransitionf(&e); // cache transition parameters and constants
@@ -2255,18 +2382,19 @@ are permitted provided that the following conditions are met:
      contributors may be used to endorse or promote products derived from
      this software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+// refactored from GLSL and shrunk by me from
+// https://github.com/gl-transitions/gl-transitions/blob/master/transitions/InvertedPageCurl.glsl
 // see https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html
 // omits anti-alias code
 static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bool reverseEffect)
@@ -2348,6 +2476,106 @@ static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bo
 }
 
 /*
+Copyright (c) 2016, Theodore K Schundler. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+   1. Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+// Stereo Viewer Toy Transition
+// Inspired by ViewMaster / Image3D image viewer devices
+// This effect is similar to what you see when you press the device's lever
+//
+// refactored from GLSL, shrunk and improved by me from
+// https://github.com/gl-transitions/gl-transitions/blob/master/transitions/StereoViewer.glsl
+
+static inline bool in_rounded_mask(vec2 c, vec2 r)
+{
+    c = div2(add2(abs2(c), sub2f(r, P5f)), r);
+    return (c.x < 0 && c.y < 1) || (c.y < 0 && c.x < 1) || dot(c, c) < 1;
+}
+static vec4 stereo_viewer(const XTransition *e, float zoom, float radius, bool flip, vec4 background)
+{
+    vec2 c = sub2f(e->p, P5f); // point from centre
+    float angle;
+    // radius normalised to square
+    vec2 r = { radius / e->ratio, radius };
+    // time sequence
+    if (e->progress <= 0) {
+        // 0.0: start with the base frame always
+        return e->a;
+    } else if (e->progress < 0.1f || e->progress >= 0.9f) {
+        // 0.0-0.1: zoom out and round the corners
+        // 0.9-1.0: zoom in and square the corners
+        angle = (P5f - fabsf(P5f - e->progress)) / 0.1f;
+        c = div2f(c, 1 + angle * (zoom - 1));
+        if (in_rounded_mask(c, mul2f(r, angle))) {
+            c = add2f(c, P5f);
+            return (e->progress < P5f) ? getFromColor(c) : getToColor(c);
+        }
+    } else if (e->progress >= 0.48f && e->progress < 0.52f) {
+        // 0.48-0.52: background
+    } else if (e->progress < 0.9f) {
+        // 0.1-0.48: split original image apart
+        // 0.52-0.9: unmask new image
+        vec2 z;
+        if (e->progress > P5f) {
+            z = div2f(c, zoom);
+            if (!in_rounded_mask(z, r))
+                return background;
+        }
+        angle = 1 - (fabsf(P5f - e->progress) - 0.02f) / 0.38f;
+        angle *= angle; // easing
+        angle /= lerp(1.23f, zoom, -1.6f); // empirical radians
+        if (flip)
+            angle = -angle;
+        float offset = 2; // pivot offset
+        vec2 t[2]; // translated points
+        bool m[2]; // masks
+        for (int i = 0; i < 2; i++) {
+            vec2 q = c;
+            q.x = q.x * e->ratio + offset;
+            q = rot(q, -angle);
+            q.x = (q.x - offset) / e->ratio;
+            q = div2f(q, zoom);
+            m[i] = in_rounded_mask(t[i] = q, r);
+            offset -= offset + offset;
+        }
+        if (m[0] || m[1]) { // within mask
+            vec4 img0, img1;
+            if (e->progress < P5f) { // split image and rotate up and down along off-screen pivot points
+                img0 = m[0] ? unscreen(getFromColor(add2f(t[0], P5f))) : background;
+                img1 = m[1] ? unscreen(getFromColor(add2f(t[1], P5f))) : background;
+            } else { // image stays put but the two masks move
+                vec4 img = unscreen(getToColor(add2f(z, P5f)));
+                img0 = m[0] ? img : background;
+                img1 = m[1] ? img : background;
+            }
+            return screen(img0, img1);
+        }
+    } else {
+        // 1.0: end with base frame
+        return e->b;
+    }
+    return background;
+}
+
+/*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -2358,17 +2586,16 @@ static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bo
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL APPLE INC. OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 // This is refactored WebKit C++ code from UnitBezier.h; all I've done is shrink it and reduce precision to float
 // WebKit: https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/graphics/UnitBezier.h

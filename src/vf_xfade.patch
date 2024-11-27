@@ -1,8 +1,6 @@
-diff --git a/libavfilter/vf_xfade-dist.c b/libavfilter/vf_xfade.c
-index 639904c..cadd3ce 100644
---- a/libavfilter/vf_xfade-dist.c
-+++ b/libavfilter/vf_xfade.c
-@@ -126,6 +126,11 @@ typedef struct XFadeContext {
+--- libavfilter/vf_xfade.c	2024-11-27 23:19:12.000000000 +0000
++++ vf_xfade.c	2024-11-27 23:19:12.000000000 +0000
+@@ -126,6 +126,11 @@
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);
  
@@ -14,7 +12,7 @@ index 639904c..cadd3ce 100644
      AVExpr *e;
  } XFadeContext;
  
-@@ -157,18 +162,22 @@ static const enum AVPixelFormat pix_fmts[] = {
+@@ -157,18 +162,22 @@
      AV_PIX_FMT_NONE
  };
  
@@ -38,7 +36,7 @@ index 639904c..cadd3ce 100644
      {   "custom",    "custom transition",     0, AV_OPT_TYPE_CONST, {.i64=CUSTOM},    0, 0, FLAGS, .unit = "transition" },
      {   "fade",      "fade transition",       0, AV_OPT_TYPE_CONST, {.i64=FADE},      0, 0, FLAGS, .unit = "transition" },
      {   "wipeleft",  "wipe left transition",  0, AV_OPT_TYPE_CONST, {.i64=WIPELEFT},  0, 0, FLAGS, .unit = "transition" },
-@@ -2001,10 +2010,12 @@ REVEALV_TRANSITION(up,   16, uint16_t, 2, -)
+@@ -2001,10 +2010,12 @@
  REVEALV_TRANSITION(down,  8, uint8_t,  1, )
  REVEALV_TRANSITION(down, 16, uint16_t, 2, )
  
@@ -52,7 +50,7 @@ index 639904c..cadd3ce 100644
      const uint8_t *src = in->data[FFMIN(plane, s->nb_planes - 1)];
      int linesize = in->linesize[FFMIN(plane, s->nb_planes - 1)];
      const int w = in->width;
-@@ -2102,6 +2113,9 @@ static int config_output(AVFilterLink *outlink)
+@@ -2102,6 +2113,9 @@
      if (s->duration)
          s->duration_pts = av_rescale_q(s->duration, AV_TIME_BASE_Q, outlink->time_base);
  
@@ -62,7 +60,7 @@ index 639904c..cadd3ce 100644
      switch (s->transition) {
      case CUSTOM:     s->transitionf = s->depth <= 8 ? custom8_transition     : custom16_transition;     break;
      case FADE:       s->transitionf = s->depth <= 8 ? fade8_transition       : fade16_transition;       break;
-@@ -2195,8 +2209,12 @@ static int xfade_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
+@@ -2195,8 +2209,12 @@
      ThreadData *td = arg;
      int slice_start = (outlink->h *  jobnr   ) / nb_jobs;
      int slice_end   = (outlink->h * (jobnr+1)) / nb_jobs;
