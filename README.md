@@ -130,6 +130,14 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex scr
 
 ## Custom FFmpeg
 
+### Implementation
+
+For simplicity, native xfade-easing is a [header-only](https://en.wikipedia.org/wiki/Header-only) implementation
+in [xfade-easing.h](src/xfade-easing.h) which hooks into
+[vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) at an optimal place.
+It comprises static functions only, sharing internal linkage with the vf_xfade.c compilation unit,
+so no makefile changes are necessary.
+
 ### Building ffmpeg
 
 This is easy:
@@ -139,25 +147,26 @@ This is easy:
 use latest stable release at [Download Source Code](https://ffmpeg.org/download.html) then extract the .xz archive:  
 `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
 1. `cd ffmpeg` and patch libavfilter/vf_xfade.c:
-   - download [vf_xfade.patch](src/vf_xfade.patch) and run `git apply vf_xfade.patch`
+   - use patch file (latest stable release only):
+     - download [vf_xfade.patch](src/vf_xfade.patch) to ffmpeg source root
+     - run `patch -b -p0 -i vf_xfade.patch` (saves backup as `vf_xfade.c.orig`)
+     - remove `vf_xfade.patch`
    - or download [patched vf_xfade.c](src/vf_xfade.c)
    - or patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 9 small changes  
-   - (see [src/](src/) for old ffmpeg versions)
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
-1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`);
-   to replicate an existing configuration run `ffmpeg -hide_banner -buildconf` and copy-paste the options
 1. install required library packages:  
 use a package management tool AptGet/MacPorts/Homebrew/etc.
-(if you install ffmpeg itself then its dependencies will also get installed ready for the custom build);
+(if you install ffmpeg itself then its dependencies also get installed ready for the custom build);
 export `PATH`,`LD_LIBRARY_PATH`,`LDFLAGS` environment variables to find the package components
+1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`)  
+   to replicate an existing configuration run `ffmpeg -hide_banner -buildconf` and copy-paste the options
+   (I maintain a conf file and source that)  
+   `./configure` will flag up any missing library packages
 1. run `make`, it takes a while  
-the C99 code mixes declarations and statements so may produce profuse compiler warnings  
+the C99 code mixes declarations and statements so issues profuse compiler warnings (`gcc`, not `clang`)  
 the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/questions/51314888/ld-warning-text-based-stub-file-are-out-of-sync-falling-back-to-library-file)
-1. if required run `make install` or use ffmpeg from the root source directory
-1. test using `ffmpeg -hide_banner --help filter=xfade`: there should be `easing` and `reverse` options under `xfade AVOptions`
-
-For simplicity, xfade-easing is implemented as static functions in the header file [xfade-easing.h](src/xfade-easing.h) and included into vf_xfade.c at an optimal place.
-As those functions have no external linkage and completely implement an interface that is only visible to the vf_xfade.c compilation unit, this approach is justified IMO, even if unusual, and obviates changing the Makefile. Implementation within header files is not uncommon.
+1. if required run `make install` or point `PATH` to the ffmpeg source root
+1. test using `ffmpeg -hide_banner --help filter=xfade`: the `xfade AVOptions` should include `easing` and `reverse`
 
 ### Testing
 
@@ -425,14 +434,17 @@ The list shows the names, authors, and customisation parameters and defaults:
 
 - `gl_angular` [args: `startingAngle`,`clockwise`; default: `(90,0)`] by  _Fernando Kuteken_
 - `gl_BookFlip` by  _hong_
-- `gl_Bounce` [args: `shadowAlpha`,`shadowHeight`,`bounces`,`direction`; default: `(0.6,0.075,3,0)`] by  _Adrian Purser_
+- `gl_Bounce` [args: `shadowAlpha`,`shadowHeight`,`bounces`,`direction`,`shadowColor`; default: `(0.6,0.075,3,0,0)`] by  _Adrian Purser_
 - `gl_BowTie` [args: `vertical`; default: `(0)`] by  _huynx (native-only)_
+- `gl_ButterflyWaveScrawler` [args: `amplitude`,`waves`,`colorSeparation`; default: `(1,30,0.3)`] by  _mandubian (native-only)_
 - `gl_cannabisleaf` by  _Flexi23_
+- `gl_chessboard` [args: `grid`; default: `(8)`] by  _lql_
 - `gl_CornerVanish` by  _Mark Craig_
 - `gl_CrazyParametricFun` [args: `a`,`b`,`amplitude`,`smoothness`; default: `(4,1,120,0.1)`] by  _mandubian_
 - `gl_crosshatch` [args: `center.x`,`center.y`,`threshold`,`fadeEdge`; default: `(0.5,0.5,3,0.1)`] by  _pthrasher_
 - `gl_CrossOut` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
 - `gl_crosswarp` by  _Eke Péter_
+- `gl_CrossZoom` [args: `strength`,`centerFrom.x`,`centerFrom.y`,`centerTo.x`,`centerTo.y`; default: `(0.4,0.25,0.5,0.75,0.5)`] by  _rectalogic_
 - `gl_cube` [args: `persp`,`unzoom`,`reflection`,`floating`,`background`; default: `(0.7,0.3,0.4,3,0)`] by  _gre_
 - `gl_Diamond` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
 - `gl_DirectionalScaled` [args: `direction.x`,`direction.y`,`scale`,`background`; default: `(0,1,0.7,0)`] by  _Thibaut Foussard_
@@ -470,6 +482,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 - `gl_squareswire` [args: `squares.x`,`squares.y`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] by  _gre_
 - `gl_StarWipe` [args: `borderThickness`,`starRotation`,`borderColor`; default: `(0.01,0.75,1)`] by  _Ben Lucas_
 - `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] by  _Ben Lucas_
+- `gl_StereoViewer` [args: `zoom`,`radius`,`flip`,`background`; default: `(0.9,0.25,0,0)`] by  _Ted Schundler (native-only)_
 - `gl_Stripe_Wipe` [args: `nlayers`,`layerSpread`,`color1`,`color2`,`shadowIntensity`,`shadowSpread`,`angle`; default: `(3,0.5,0x3319CCFF,0x66CCFFFF,0.7,0,0)`] by  _Boundless (native-only)_
 - `gl_swap` [args: `reflection`,`perspective`,`depth`,`background`; default: `(0.4,0.2,3,0)`] by  _gre_
 - `gl_Swirl` by  _Sergey Kosarevsky_
@@ -538,17 +551,19 @@ etc.
 
 - `gl_angular` has an additional `clockwise` parameter
 - `gl_Bounce` has an additional `direction` parameter to control bounce direction:
-`0`=south, `1`=west, `2`=north, `3`=east
+`0`=south, `1`=west, `2`=north, `3`=east; also a `shadowColor` parameter
 - `gl_BowTie` combines `BowTieHorizontal` and `BowTieVertical` using parameter `vertical`
+- `gl_CrossZoom` has additional `centerFrom`,`centerTo` parameters to tune the cross traversal
 - `gl_Exponential_Swish` option `blur` default was originally `0.5` but blurring makes it unacceptably slow
 - `gl_InvertedPageCurl` omits anti-aliased edges and takes 3 parameters:
   - `angle` may be `100` (default) or `30` degrees from horizontal east
   - `radius` is the cylinder radius
   - `reverseEffect` produces an uncurl effect (custom ffmpeg only)
 - `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay – see Dr Who example under [Transparency](#transparency)
+- `gl_StereoViewer` (custom ffmpeg only) has an additional `flip` parameter to flip the split angles and a `background` parameter
 (I might add this feature to other transitions)
 - several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
-but this implementation provides an additional `background` parameter to control the background,
+but this implementation provides a `background` parameter to control the background,
 see [Colour parameters](#colour-parameters).
 
 *Example*: `gl_InvertedPageCurl` 30° with uncurl
@@ -743,7 +758,7 @@ These only affect transitions that take a `background` parameter.
 
 Transitions that affect colour components work differently for RGB than non-RGB colour spaces and for different bit depths.
 For the custom expression variant, [xfade-easing.sh](#cli-script) emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing the RGB signal type `AV_PIX_FMT_FLAG_RGB` from the `-f` option format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and the bit depth from `ffmpeg -pix_fmts` data.
-It can then set the black, white and mid plane values correctly.
+It can then set the maximum and mid plane values correctly.
 See [How does FFmpeg identify color spaces?](https://trac.ffmpeg.org/wiki/colorspace#HowdoesFFmpegidentifycolorspaces) for details.
 
 The expression files in [expr/](expr) cater for RGB and YUV formats with 8-bit component depth.
@@ -755,7 +770,7 @@ If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-scr
 ### Colour parameters
 
 These conventions are adopted:
-- all colour values are interpreted according to sign and magnitude:
+- all colour values are interpreted according to sign, magnitude and syntax:
   - if negative, there is no colour – it is fully transparent
   - values between 0 and 1 inclusive are an opaque shade of grey determined by the value,
     from 0 (black) to 1 (white)
@@ -766,12 +781,11 @@ These conventions are adopted:
   (most GL transition backgrounds are named differently)
 
 Consequently a value of exactly 1 is rendered white but 2 (RGB `#000002`) is nearly black.
-If you really want R=0,G=0,B=1 then specify the alpha component,
-which is fully opaque by default, i.e. `#000001FF`.
+If you want R=0,G=0,B=1 then specify the colour using hexadecimal notation, `#000001`.
 
-The custom expression variant does not support colour
-so only transparent and grey are supported, values -1 to +1.  
-e.g. `gl_swap(0.4, 0.2, 3, 0.67)` for 67% grey background.
+The custom expression variant only suports fully transparent and opaque grey values, -1 and 0.0 to 1.0,
+it does not support colour.  
+e.g. `gl_swap(, , , 0.67)` for 67% grey background (other parameters take default values).
 
 The custom ffmpeg variant supports the full [Color](https://ffmpeg.org/ffmpeg-utils.html#Color) syntax
 including named colours and variable alpha,  
@@ -781,10 +795,11 @@ Colour value examples:
 - `DarkGoldenRod` (a standard X11 colour name, see [ffmpeg colour names](https://github.com/scriptituk/ffmpeg-colours))
 - `0x56789A` or `#56789A` (packed RGB hexadecimal digits)
 - `0xA987657F` or `#A98765@0.5` or `A98765@0x7F` (packed RGBA)
-- `random` (a random colour from the [ffmpeg set](https://github.com/scriptituk/ffmpeg-colours))
+- `random` (a random colour generated by ffmpeg)
 - `0.75` (75% grey)
+- `bfbfbf80` (75% grey with 50% alpha)
 - `-1` (transparent)
-- `12345A` is ambiguous and will result in 12345 decimal, or 0x00003039
+- `12345A` is ambiguous and yields 12345 decimal, or 0x00003039
 
 Avoid decimal numbers, e.g. 255 is not blue but opaque black (RGB `#000000FF`).
 
@@ -932,7 +947,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.1.1 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.2.1 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
