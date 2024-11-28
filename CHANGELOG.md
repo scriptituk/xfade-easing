@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - all backgrounds now customisable in GLSL-ported transitions
 - improved colour parser and processing (custom ffmpeg)
-- improved parameter error checking (custom ffmpeg)
+- improved parameter error checking (custom expression)
 - optimised plane data read/write (custom ffmpeg)
 
 ### Fixed
