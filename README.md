@@ -170,7 +170,7 @@ the fix for `ld: warning: text-based stub file are out of sync` warnings [is her
 
 ### Testing
 
-The custom FFmpeg version has been built and tested on Mac with Clang and Ubuntu Linux with GCC.
+The custom FFmpeg version has been built and tested on Mac with `clang` and Ubuntu Linux with `gcc`.
 It uses C99 features so expect some warnings.
 Any advice on building for Windows would be appreciated.
 
@@ -391,9 +391,10 @@ y='st(0, clip((t - 1) / 3, 0, 1));
 
 ### Xfade transitions
 
-The custom ffmpeg variant eases the built-in xfade transitions; these are provided for custom expression use.
-They are converted from C-code in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) to custom expressions for use with easing.
-Omitted transitions are `distance` and `hblur` which perform aggregation, so cannot be computed efficiently on a per plane-pixel basis.
+The custom ffmpeg variant eases the built-in xfade transitions;
+these are provided for custom expression use with easing.
+They are converted from C-code in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) to custom expressions.
+Omitted transitions are `distance` and `hblur` which perform aggregation, so cannot be processed efficiently on a per plane-pixel basis.
 
 - `fade` `fadefast` `fadeslow`
 - `fadeblack` `fadewhite` `fadegrays`
@@ -428,7 +429,7 @@ The open collection of [GL Transitions](https://gl-transitions.com/) initiative 
 Other GLSL transition sources were found on [shadertoy](https://www.shadertoy.com/) and the [Vegas Forum](https://www.vegascreativesoftware.info/us/forum/gl-transitions-gallery-sharing-place-share-the-code-here--133472/).
 All GLSL transitions adapted to the GL Transition Specification are in [glsl/](glsl/).
 
-Many of the transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) and elsewhere
+Most of the transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) and many from elsewhere
 have been here transpiled into native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing.
 The list shows the names, authors, and customisation parameters and defaults:
 
@@ -773,10 +774,9 @@ These conventions are adopted:
 - all colour values are interpreted according to sign, magnitude and syntax:
   - if negative, there is no colour – it is fully transparent
   - values between 0 and 1 inclusive are an opaque shade of grey determined by the value,
-    from 0 (black) to 1 (white)
-  - all other values are treated as RGBA colour components packed into 32 bits,
-    specified using the ffmpeg syntax described at
-    [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)
+    from 0.0 (black) to 1.0 (white)
+  - values that match the ffmpeg [Color syntax](https://ffmpeg.org/ffmpeg-utils.html#Color)
+    are treated as RGBA colour components packed into 32 bits,
 - all background colour parameters are named `background`
   (most GL transition backgrounds are named differently)
 
@@ -801,7 +801,7 @@ Colour value examples:
 - `-1` (transparent)
 - `12345A` is ambiguous and yields 12345 decimal, or 0x00003039
 
-Avoid decimal numbers, e.g. 255 is not blue but opaque black (RGB `#000000FF`).
+Avoid decimal integers, e.g. 255 is not blue but opaque black (RGB `#000000FF`).
 
 *Example*: `gl_StarWipe` transition with `Lime` green (#00FF00) border colour  
 `gl_StarWipe(borderThickness=0.1, borderColor=Lime)`
