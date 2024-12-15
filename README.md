@@ -162,8 +162,8 @@ export `PATH`,`LD_LIBRARY_PATH`,`LDFLAGS` environment variables to find the pack
    to replicate an existing configuration run `ffmpeg -hide_banner -buildconf` and copy-paste the options
    (I maintain a conf file and source that)  
    `./configure` will flag up any missing library packages
-1. run `make`, it takes a while  
-the C99 code mixes declarations and statements so issues profuse compiler warnings (`gcc`, not `clang`)  
+1. run `make ECFLAGS=-Wno-declaration-after-statement`, it takes a while  
+the C99 code mixes declarations and statements so issues profuse compiler warnings without the `ECFLAGS` setting  
 the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/questions/51314888/ld-warning-text-based-stub-file-are-out-of-sync-falling-back-to-library-file)
 1. if required run `make install` or point `PATH` to the ffmpeg source root
 1. test using `ffmpeg -hide_banner --help filter=xfade`: the `xfade AVOptions` should include `easing` and `reverse`
@@ -171,7 +171,6 @@ the fix for `ld: warning: text-based stub file are out of sync` warnings [is her
 ### Testing
 
 The custom FFmpeg version has been built and tested on Mac with `clang` and Ubuntu Linux with `gcc`.
-It uses C99 features so expect some warnings.
 Any advice on building for Windows would be appreciated.
 
 ---
@@ -870,10 +869,12 @@ There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 
 ## Custom expression performance
 
-FFmpeg `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in libavutil/eval.c.
+FFmpeg incorporates a simple arithmetic expression evaluator written as an LL(1) recursive descent parser.
+Custom `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in libavutil/eval.c.
 That expression is then executed for every pixel in each plane, which obviously incurs a performance hit,
-considerably exacerbated by disabling slice threading in order to use the `st()` and `ld()` functions.
-So custom transition expressions are not fast.
+considerably exacerbated by disabling threading in order to use the `st()` and `ld()` variables shared between slices
+(a slice is a range of frame lines processed by a thread job).
+So custom transition expressions are not fast despite the pre-parse.
 
 The following times are based on empirical timings scaled by benchmark scores (the [Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks)).
 They are rough estimates in seconds to process a 3-second transition of HD720 (1280x720) 3-plane media (rgb24) through a null muxer at Mac benchmark midpoints.
