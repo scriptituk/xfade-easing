@@ -2338,7 +2338,7 @@ static int config_xfade_easing(AVFilterContext *ctx)
 
     k->duration = (float)s->duration / AV_TIME_BASE; // seconds
     AVFilterLink *l = ctx->outputs[0];
-#if LIBAVFILTER_VERSION_MINOR <= 1
+#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(10, 4, 100)
     AVRational r = l->frame_rate; // v6.x, v7.0
 #else
     AVRational r = ff_filter_link(l)->frame_rate;
