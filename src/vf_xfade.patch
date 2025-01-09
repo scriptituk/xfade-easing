@@ -1,5 +1,5 @@
---- libavfilter/vf_xfade.c	2024-11-27 23:19:12.000000000 +0000
-+++ vf_xfade.c	2024-11-27 23:19:12.000000000 +0000
+--- libavfilter/vf_xfade.c	2025-01-09 22:25:05.000000000 +0000
++++ vf_xfade.c	2025-01-09 22:25:05.000000000 +0000
 @@ -126,6 +126,11 @@
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);
@@ -46,7 +46,7 @@
  {
      XFadeContext *s = priv;
 -    AVFrame *in = s->xf[nb];
-+    AVFrame *in = s->xf[nb ^ s->reverse & REVERSE_TRANSITION];
++    AVFrame *in = s->xf[nb ^ (s->reverse & REVERSE_TRANSITION)];
      const uint8_t *src = in->data[FFMIN(plane, s->nb_planes - 1)];
      int linesize = in->linesize[FFMIN(plane, s->nb_planes - 1)];
      const int w = in->width;

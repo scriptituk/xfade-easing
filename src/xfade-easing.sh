@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.2.1
+export VERSION=3.3.0
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -221,7 +221,7 @@ _format() { # pix_fmt
     [[ -z $pf ]] && _error "unknown format: $1" && return $ERROR
     local planes=${pf%,*} depth=${pf#*,}
     p_maxv=$(((1<<$depth)-1))
-    p_midv=$((1<<($depth-1)))
+    p_midv=$(((1<<($depth-1))-1))
     p_alpha=0; [[ $planes -eq 4 ]] && p_alpha=1
     p_isrgb=0; [[ $1 =~ (rgb|bgr|gbr|rbg|bggr|rggb) ]] && p_isrgb=1 # (from libavutil/pixdesc.c)
     if [[ $p_isrgb -ne 0 ]]; then
@@ -901,6 +901,16 @@ _gl_transition() { # transition args
         _make 'st(1, fract(ld(1)));'
         _make 'if(step(ld(1), ld(3)), B, A)'
         ;;
+    gl_Bars) # by Mark Craig
+        _make "st(1, ${a[0]:-0});" # vertical
+        _make 'st(1, if(ld(1), X / W, 1 - Y / H));'
+        _make 'st(1, frand(ld(1), 0, 1));' # r
+        _make 'if(step(ld(1), 1 - P), B, A)'
+        ;;
+    gl_blend) # by scriptituk
+        _make NATIVE
+#       ${a[0]:-0} # mode
+        ;;
     gl_BookFlip) # by hong
         _make 'st(1, X / W - 0.5);'
         _make 'st(2, 0.5 - Y / H);'
@@ -1078,11 +1088,11 @@ _gl_transition() { # transition args
         ;;
     gl_CrossZoom) # by rectalogic
         _make NATIVE
-#       _make "st(1, ${a[0]:-0.4});" # strength
-#       _make "st(1, ${a[1]:-0.25});" # centerFrom.x
-#       _make "st(2, ${a[2]:-0.5});" # centerFrom.y
-#       _make "st(1, ${a[3]:-0.75});" # centerTo.x
-#       _make "st(2, ${a[4]:-0.5});" # centerTo.y
+#       ${a[0]:-0.4} # strength
+#       ${a[1]:-0.25} # centerFrom.x
+#       ${a[2]:-0.5} # centerFrom.y
+#       ${a[3]:-0.75} # centerTo.x
+#       ${a[4]:-0.5} # centerTo.y
         ;;
     gl_cube) # by gre
         _make "st(1, ${a[0]:-0.7});" # persp
@@ -1250,6 +1260,11 @@ _gl_transition() { # transition args
         _make 'st(5, (1 - ld(5)) * H);'
         _make 'st(5, b(X, ld(5)));'
         _make 'mix(ld(4), ld(5), ld(3))'
+        ;;
+    gl_EdgeTransition) # by Woohyun Kim
+        _make NATIVE
+#       ${a[0]:-0.001} # edgeThickness
+#       ${a[1]:-8} # edgeBrightness
         ;;
     gl_Exponential_Swish) # by Boundless
         _make NATIVE
@@ -1523,6 +1538,10 @@ _gl_transition() { # transition args
 #       ${a[7]:-3} # fade
 #       ${a[8]:-0} # background
         ;;
+    gl_morph) # by paniq
+        _make NATIVE
+#       ${a[0]:-0.1} # strength
+        ;;
     gl_Mosaic) # by Xaychru
         _make "st(1, ${a[0]:-2});" # endx
         _make "st(2, ${a[1]:--1});" # endy
@@ -1792,7 +1811,7 @@ _gl_transition() { # transition args
         _make ' colour(ld(1))'
         _make ')'
         ;;
-    gl_SimpleBookCurl) # by Raymond Luckhurst
+    gl_SimpleBookCurl) # by scriptituk
         _make NATIVE
 #       ${a[0]:-150} # angle
 #       ${a[1]:-0.1} # radius
@@ -2007,6 +2026,7 @@ _gl_transition() { # transition args
 #       ${a[1]:-0.25} # radius
 #       ${a[2]:-0} # flip
 #       ${a[3]:-0} # background
+#       ${a[4]:-0} # trkMat
         ;;
     gl_Stripe_Wipe) # by Boundless
         _make NATIVE
@@ -2106,6 +2126,12 @@ _gl_transition() { # transition args
         _make 'st(3, clip(mix(ld(2), ld(1), ld(3)), 0, 1));'
         _make 'mix(A, B, ld(3))'
         ;;
+    test_blend)
+        _make NATIVE
+        ;;
+    test_texture)
+        _make NATIVE
+        ;;
     esac
     x=$made
     echo "$x"
@@ -2116,7 +2142,7 @@ _st_transition() { # transition
     local x # expr
     _make ''
 #   case $1 in
-#   s_none) # by Raymond Luckhurst
+#   s_none) # by scriptituk
 #       x='if(gt(P, 0.5), A, B)' # no transition, flips at halfway point
 #       ;;
 #   esac
@@ -2529,6 +2555,7 @@ if(a[1]=="st") next # historic
 }
 
 match($1, /^([A-Za-z_|]+)\)$/, a) && go { # case
+    if (a[1] ~ /^test_/) next # testing
     cases = a[1]
     native = author = args = defs = c = ""
     n = 0

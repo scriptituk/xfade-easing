@@ -2015,7 +2015,7 @@ REVEALV_TRANSITION(down, 16, uint16_t, 2, )
 static inline double getpix(void *priv, double x, double y, int plane, int nb)
 {
     XFadeContext *s = priv;
-    AVFrame *in = s->xf[nb ^ s->reverse & REVERSE_TRANSITION];
+    AVFrame *in = s->xf[nb ^ (s->reverse & REVERSE_TRANSITION)];
     const uint8_t *src = in->data[FFMIN(plane, s->nb_planes - 1)];
     int linesize = in->linesize[FFMIN(plane, s->nb_planes - 1)];
     const int w = in->width;
