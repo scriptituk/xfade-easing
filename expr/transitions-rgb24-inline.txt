@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.2.1
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.3.0
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Inline transition expressions (rgb24) for filter_complex filterchains
@@ -174,6 +174,12 @@ st(1,trunc(H*ld(0)));st(2,ld(1)+Y);st(3,(ld(2)-trunc(ld(2)/H)*H)+H*lt(ld(2),0));
 GL_ANGULAR
 st(1,90);st(2,0);st(3,1-ld(0));st(1,ld(1)*PI/180);st(1,atan2(0.5-Y/H,X/W-0.5)+ld(1));st(1,ld(1)/2/PI+0.5);if(ld(2),st(1,-ld(1)));st(1,ld(1)-floor(ld(1)));if(gte(ld(3),ld(1)),B,A)
 
+GL_BARS
+st(1,0);st(1,if(ld(1),X/W,1-Y/H));st(1,st(1,sin(ld(1)*12.9898+0*78.233)*43758.545)-floor(ld(1)));if(gte(1-ld(0),ld(1)),B,A)
+
+GL_BLEND
+NATIVE
+
 GL_BOOKFLIP
 st(1,X/W-0.5);st(2,0.5-Y/H);st(3,gte(X/W,ld(0)));st(4,if(3-PLANE,max(0.7,abs(ld(0)-0.5)*2),1));if(lt(ld(1),0),ifnot(ld(3),A,st(5,ld(1)/(1-2*ld(0))+0.5);st(6,ld(2)/(1-4*ld(0)*ld(1))+0.5);st(5,ld(5)*W);st(6,(1-ld(6))*H);st(3,ifnot(PLANE,b0(ld(5),ld(6)),ifnot(1-PLANE,b1(ld(5),ld(6)),ifnot(2-PLANE,b2(ld(5),ld(6)),b3(ld(5),ld(6))))));ld(3)*ld(4)),if(ld(3),B,st(5,(ld(1)-0.5+ld(0))/(2*ld(0)-1));st(6,ld(2)/(1+4*(1-ld(0))*ld(1))+0.5);st(5,ld(5)*W);st(6,(1-ld(6))*H);st(3,ifnot(PLANE,a0(ld(5),ld(6)),ifnot(1-PLANE,a1(ld(5),ld(6)),ifnot(2-PLANE,a2(ld(5),ld(6)),a3(ld(5),ld(6))))));ld(3)*ld(4)))
 
@@ -231,6 +237,9 @@ st(1,0.05);st(3,1-st(2,ld(0)/2));st(4,abs(X/W-0.5)+abs(0.5-Y/H));if(between(ld(4
 GL_DREAMY
 st(1,X/W);st(2,1-Y/H);st(3,1-ld(0));st(4,0.03*ld(3)*cos(10*(ld(3)+ld(1))));st(4,ld(2)+ld(4));st(4,(1-ld(4))*H);st(4,ifnot(PLANE,a0(X,ld(4)),ifnot(1-PLANE,a1(X,ld(4)),ifnot(2-PLANE,a2(X,ld(4)),a3(X,ld(4))))));st(5,0.03*(1-ld(3))*cos(10*(1-ld(3)+ld(1))));st(5,ld(2)+ld(5));st(5,(1-ld(5))*H);st(5,ifnot(PLANE,b0(X,ld(5)),ifnot(1-PLANE,b1(X,ld(5)),ifnot(2-PLANE,b2(X,ld(5)),b3(X,ld(5))))));ld(4)*(1-ld(3))+ld(5)*ld(3)
 
+GL_EDGETRANSITION
+NATIVE
+
 GL_EXPONENTIAL_SWISH
 NATIVE
 
@@ -262,6 +271,9 @@ GL_KALEIDOSCOPE
 st(1,1);st(2,1);st(3,1.5);st(0,1-ld(0));st(4,X/W-0.5);st(5,0.5-Y/H);st(1,ld(0)^ld(3)*ld(1));st(3,0);while(lte(st(3,ld(3)+1),7),st(6,sin(ld(1)));st(7,cos(ld(1)));st(8,ld(6)*ld(4)+ld(7)*ld(5));st(5,ld(6)*ld(5)-ld(7)*ld(4));st(4,abs(mod(ld(8),2)-1));st(5,abs(mod(ld(5),2)-1));st(1,ld(1)+ld(2)));st(4,ld(4)*W);st(5,(1-ld(5))*H);st(7,ifnot(PLANE,a0(ld(4),ld(5)),ifnot(1-PLANE,a1(ld(4),ld(5)),ifnot(2-PLANE,a2(ld(4),ld(5)),a3(ld(4),ld(5))))));st(8,ifnot(PLANE,b0(ld(4),ld(5)),ifnot(1-PLANE,b1(ld(4),ld(5)),ifnot(2-PLANE,b2(ld(4),ld(5)),b3(ld(4),ld(5))))));st(1,A*(1-ld(0))+B*ld(0));st(2,ld(7)*(1-ld(0))+ld(8)*ld(0));st(3,1-2*abs(ld(0)-0.5));ld(1)*(1-ld(3))+ld(2)*ld(3)
 
 GL_LISSAJOUS_TILES
+NATIVE
+
+GL_MORPH
 NATIVE
 
 GL_MOSAIC
