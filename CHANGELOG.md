@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2025-01-10
+
+### Changed
+
+- rounded conversions of pixel coordinates and colour values (custom ffmpeg)
+- transparency (grey) now variable from black to white (custom ffmpeg)
+- code optimisations and refactored aggregates
+
+### Added
+
+- `gl_Bars` transition by Mark Craig
+- `gl_blend` transition by scriptituk (custom ffmpeg only)
+- `gl_EdgeTransition` transition by Woohyun Kim (custom ffmpeg only)
+- `gl_morph` transition by paniq (custom ffmpeg only)
+- `gl_StereoViewer` transition: added `trkMat` parameter
+- textured backgrounds feature
+- blending discussion in README
+
+### Fixed
+
+- incorrect grey rendering of alpha (custom ffmpeg)
+
 ## [3.2.1] - 2024-11-28
 
 ### Added
@@ -48,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- no transparent backgrounds for non-RGB formats in custom expressions
+- transparent backgrounds for non-RGB formats in custom expressions
 - `gl_heart` custom expression div zero
 - minor issues, efficiencies and improvements
 
