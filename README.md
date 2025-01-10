@@ -1,10 +1,10 @@
 # Easing and extensions for FFmpeg Xfade filter
 
-### Standard easings &bull; CSS easings &bull; transpiled GLSL transitions &bull; custom expressions 
+### Standard easings &bull; CSS easings &bull; ported GLSL transitions &bull; custom expressions 
 
 ## Summary
 
-This project is a port of standard easing equations, [CSS easings](#css-easings) and many [GLSL transitions](#glsl-transitions) for use in tandem with easing or alone.
+This project is a port of standard easing equations, [CSS easings](#css-easings) and many [GLSL transitions](#ported-glsl-transitions) for use in tandem with easing or alone.
 The easing expressions can be used for [other filters](#easing-other-filters) besides xfade.
 
 <img src="assets/xfade-easing.gif" alt="Summary" align="right">
@@ -33,7 +33,7 @@ set the xfade `transition` option to `custom` and the `expr` option to the conca
 (this variant does not support CSS easings or reversed effects).  
 *Example* (quartic-out,radial):  
 `xfade=duration=3:offset=10:transition=custom:expr='st(0,P^4);`  
-`st(1,atan2(X-W/2,Y-H/2)-(ld(0)-0.5)*PI*2.5);st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1)));B*ld(1)+A*(1-ld(1))'`  
+`st(1,atan2(X-W/2,Y-H/2)-(ld(0)-0.5)*PI*2.5); st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1))); B*ld(1)+A*(1-ld(1))'`  
 Pre-generated [expressions](expr) can be copied verbatim from supplied files.
 
 A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, visual media sequences and more.
@@ -44,7 +44,7 @@ Installation involves a [few patches](https://htmlpreview.github.io/?https://git
 The **custom expression** variant is convenient but clunky
 – see [Performance](#custom-expression-performance) –
 and runs on plain vanilla ffmpeg but with restrictions:
-it doesn’t support CSS easings, certain transitions, the [reverse](#reversing-xfade-effects) feature or full colour parameters.
+it doesn’t support CSS easings, certain transitions, the [reverse](#reversing-xfade-effects) feature, full colour or textures.
 
 At present extended transitions are limited to ported GLSL transitions but more effects may be added downstream.
 
@@ -81,8 +81,8 @@ The first line is the easing expression $e(P)$ (`cubic in-out`) which stores its
 The second line is the  transition expression $t(e(P))$ (`wipedown`) which loads its eased progress value from `ld(0)` instead of `P`.
 The semicolon token combines expressions.
 
-> [!CAUTION]
-> ffmpeg option `-filter_complex_threads 1` is required because xfade expression variables (the `st()` & `ld()` functions) are shared between slice processing jobs and therefore not thread-safe, consequently processing is much slower
+> [!NOTE]
+> ffmpeg option `-filter_complex_threads 1` is required because ffmpeg expression variables (the `st()` & `ld()` functions) are shared between slice processing jobs and therefore not thread-safe, consequently processing is slower
 
 ### Getting the expressions
 
@@ -122,7 +122,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex scr
 ```
 
 > [!NOTE]
-> this option syntax has changed and is not documented:
+> this option syntax has changed but is undocumented:
 > - for ffmpeg version 7+ use `-/filter_complex filename`
 > - for earlier versions use `-filter_complex_script filename`
 
@@ -420,7 +420,7 @@ see also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) pag
 
 ![Xfade gallery](assets/xf-gallery.gif)
 
-### GLSL transitions
+### Ported GLSL transitions
 
 The open collection of [GL Transitions](https://gl-transitions.com/) initiative lead by [Gaëtan Renaudeau](https://github.com/gre) (gre)
 “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
@@ -432,62 +432,70 @@ Most of the transitions at [gl-transitions](https://github.com/gl-transitions/gl
 have been here transpiled into native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing.
 The list shows the names, authors, and customisation parameters and defaults:
 
-- `gl_angular` [args: `startingAngle`,`clockwise`; default: `(90,0)`] by  _Fernando Kuteken_
-- `gl_BookFlip` by  _hong_
-- `gl_Bounce` [args: `shadowAlpha`,`shadowHeight`,`bounces`,`direction`,`shadowColor`; default: `(0.6,0.075,3,0,0)`] by  _Adrian Purser_
-- `gl_BowTie` [args: `vertical`; default: `(0)`] by  _huynx (native-only)_
-- `gl_ButterflyWaveScrawler` [args: `amplitude`,`waves`,`colorSeparation`; default: `(1,30,0.3)`] by  _mandubian (native-only)_
-- `gl_cannabisleaf` by  _Flexi23_
-- `gl_chessboard` [args: `grid`; default: `(8)`] by  _lql_
-- `gl_CornerVanish` by  _Mark Craig_
-- `gl_CrazyParametricFun` [args: `a`,`b`,`amplitude`,`smoothness`; default: `(4,1,120,0.1)`] by  _mandubian_
-- `gl_crosshatch` [args: `center.x`,`center.y`,`threshold`,`fadeEdge`; default: `(0.5,0.5,3,0.1)`] by  _pthrasher_
-- `gl_CrossOut` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
-- `gl_crosswarp` by  _Eke Péter_
-- `gl_CrossZoom` [args: `strength`,`centerFrom.x`,`centerFrom.y`,`centerTo.x`,`centerTo.y`; default: `(0.4,0.25,0.5,0.75,0.5)`] by  _rectalogic_
-- `gl_cube` [args: `persp`,`unzoom`,`reflection`,`floating`,`background`; default: `(0.7,0.3,0.4,3,0)`] by  _gre_
-- `gl_Diamond` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
-- `gl_DirectionalScaled` [args: `direction.x`,`direction.y`,`scale`,`background`; default: `(0,1,0.7,0)`] by  _Thibaut Foussard_
-- `gl_directionalwarp` [args: `smoothness`,`direction.x`,`direction.y`; default: `(0.1,-1,1)`] by  _pschroen_
-- `gl_doorway` [args: `reflection`,`perspective`,`depth`,`background`; default: `(0.4,0.4,3,0)`] by  _gre_
-- `gl_DoubleDiamond` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
-- `gl_Dreamy` by  _mikolalysenko_
-- `gl_Exponential_Swish` [args: `zoom`,`angle`,`offset.x`,`offset.y`,`exponent`,`wrap.x`,`wrap.y`,`blur`,`background`; default: `(0.8,0,0,0,4,2,2,0,0)`] by  _Boundless (native-only)_
-- `gl_FanIn` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
-- `gl_FanOut` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
-- `gl_FanUp` [args: `smoothness`; default: `(0.05)`] by  _Mark Craig_
-- `gl_Flower` [args: `smoothness`,`rotation`; default: `(0.05,360)`] by  _Mark Craig_
-- `gl_GridFlip` [args: `size.x`,`size.y`,`pause`,`dividerWidth`,`randomness`,`background`; default: `(4,4,0.1,0.05,0.1,0)`] by  _TimDonselaar (native-only)_
-- `gl_heart` by  _gre_
-- `gl_hexagonalize` [args: `steps`,`horizontalHexagons`; default: `(50,20)`] by  _Fernando Kuteken_
-- `gl_InvertedPageCurl` [args: `angle`,`radius`,`reverseEffect`; default: `(100,0.159,0)`] by  _Hewlett-Packard_
-- `gl_kaleidoscope` [args: `speed`,`angle`,`power`; default: `(1,1,1.5)`] by  _nwoeanhinnogaehr_
-- `gl_Lissajous_Tiles` [args: `grid.x`,`grid.y`,`speed`,`freq.x`,`freq.y`,`offset`,`zoom`,`fade`,`background`; default: `(10,10,0.5,2,3,2,0.8,3,0)`] by  _Boundless (native-only)_
-- `gl_Mosaic` [args: `endx`,`endy`; default: `(2,-1)`] by  _Xaychru_
-- `gl_perlin` [args: `scale`,`smoothness`; default: `(4,0.01)`] by  _Rich Harris_
-- `gl_pinwheel` [args: `speed`; default: `(2)`] by  _Mr Speaker_
-- `gl_polar_function` [args: `segments`; default: `(5)`] by  _Fernando Kuteken_
-- `gl_PolkaDotsCurtain` [args: `dots`,`centre.x`,`centre.y`; default: `(20,0,0)`] by  _bobylito_
-- `gl_powerKaleido` [args: `scale`,`z`,`speed`; default: `(2,1.5,5)`] by  _Boundless_
-- `gl_randomNoisex` by  _towrabbit_
-- `gl_randomsquares` [args: `size.x`,`size.y`,`smoothness`; default: `(10,10,0.5)`] by  _gre_
-- `gl_ripple` [args: `amplitude`,`speed`; default: `(100,50)`] by  _gre_
-- `gl_Rolls` [args: `type`,`rotDown`; default: `(0,0)`] by  _Mark Craig_
-- `gl_RotateScaleVanish` [args: `fadeInSecond`,`reverseEffect`,`reverseRotation`,`background`,`trkMat`; default: `(1,0,0,0,0)`] by  _Mark Craig_
-- `gl_rotateTransition` by  _haiyoucuv_
-- `gl_rotate_scale_fade` [args: `centre.x`,`centre.y`,`rotations`,`scale`,`background`; default: `(0.5,0.5,1,8,0.15)`] by  _Fernando Kuteken_
-- `gl_SimpleBookCurl` [args: `angle`,`radius`,`shadow`; default: `(150,0.1,0.2)`] by  _Raymond Luckhurst (native-only)_
-- `gl_SimplePageCurl` [args: `angle`,`radius`,`roll`,`reverseEffect`,`greyBack`,`opacity`,`shadow`; default: `(80,0.15,0,0,0,0.8,0.2)`] by  _Andrew Hung_
-- `gl_Slides` [args: `type`,`slideIn`; default: `(0,0)`] by  _Mark Craig_
-- `gl_squareswire` [args: `squares.x`,`squares.y`,`direction.x`,`direction.y`,`smoothness`; default: `(10,10,1.0,-0.5,1.6)`] by  _gre_
-- `gl_StarWipe` [args: `borderThickness`,`starRotation`,`borderColor`; default: `(0.01,0.75,1)`] by  _Ben Lucas_
-- `gl_static_wipe` [args: `upToDown`,`maxSpan`; default: `(1,0.5)`] by  _Ben Lucas_
-- `gl_StereoViewer` [args: `zoom`,`radius`,`flip`,`background`; default: `(0.9,0.25,0,0)`] by  _Ted Schundler (native-only)_
-- `gl_Stripe_Wipe` [args: `nlayers`,`layerSpread`,`color1`,`color2`,`shadowIntensity`,`shadowSpread`,`angle`; default: `(3,0.5,0x3319CCFF,0x66CCFFFF,0.7,0,0)`] by  _Boundless (native-only)_
-- `gl_swap` [args: `reflection`,`perspective`,`depth`,`background`; default: `(0.4,0.2,3,0)`] by  _gre_
-- `gl_Swirl` by  _Sergey Kosarevsky_
-- `gl_WaterDrop` [args: `amplitude`,`speed`; default: `(30,30)`] by  _Paweł Płóciennik_
-- `gl_windowblinds` by  _Fabien Benetou_
+| transition | parameters (=default) | author |
+| :--------: | :-------------------: | :----: |
+| gl_angular | `startingAngle=90`<br>`clockwise=0` | Fernando Kuteken |
+| gl_Bars | `vertical=0` | Mark Craig |
+| gl_blend<sup>*</sup> | `mode=0` | scriptituk |
+| gl_BookFlip |  | hong |
+| gl_Bounce | `shadowAlpha=0.6`<br>`shadowHeight=0.075`<br>`bounces=3`<br>`direction=0`<br>`shadowColor=0` | Adrian Purser |
+| gl_BowTie<sup>*</sup> | `vertical=0` | huynx |
+| gl_ButterflyWaveScrawler<sup>*</sup> | `amplitude=1`<br>`waves=30`<br>`colorSeparation=0.3` | mandubian |
+| gl_cannabisleaf |  | Flexi23 |
+| gl_chessboard | `grid=8` | lql |
+| gl_CornerVanish |  | Mark Craig |
+| gl_CrazyParametricFun | `a=4`<br>`b=1`<br>`amplitude=120`<br>`smoothness=0.1` | mandubian |
+| gl_crosshatch | `center.x=0.5`<br>`center.y=0.5`<br>`threshold=3`<br>`fadeEdge=0.1` | pthrasher |
+| gl_CrossOut | `smoothness=0.05` | Mark Craig |
+| gl_crosswarp |  | Eke Péter |
+| gl_CrossZoom<sup>*</sup> | `strength=0.4`<br>`centerFrom.x=0.25`<br>`centerFrom.y=0.5`<br>`centerTo.x=0.75`<br>`centerTo.y=0.5` | rectalogic |
+| gl_cube | `persp=0.7`<br>`unzoom=0.3`<br>`reflection=0.4`<br>`floating=3`<br>`background=0` | gre |
+| gl_Diamond | `smoothness=0.05` | Mark Craig |
+| gl_DirectionalScaled | `direction.x=0`<br>`direction.y=1`<br>`scale=0.7`<br>`background=0` | Thibaut Foussard |
+| gl_directionalwarp | `smoothness=0.1`<br>`direction.x=-1`<br>`direction.y=1` | pschroen |
+| gl_doorway | `reflection=0.4`<br>`perspective=0.4`<br>`depth=3`<br>`background=0` | gre |
+| gl_DoubleDiamond | `smoothness=0.05` | Mark Craig |
+| gl_Dreamy |  | mikolalysenko |
+| gl_EdgeTransition<sup>*</sup> | `edgeThickness=0.001`<br>`edgeBrightness=8` | Woohyun Kim |
+| gl_Exponential_Swish<sup>*</sup> | `zoom=0.8`<br>`angle=0`<br>`offset.x=0`<br>`offset.y=0`<br>`exponent=4`<br>`wrap.x=2`<br>`wrap.y=2`<br>`blur=0`<br>`background=0` | Boundless |
+| gl_FanIn | `smoothness=0.05` | Mark Craig |
+| gl_FanOut | `smoothness=0.05` | Mark Craig |
+| gl_FanUp | `smoothness=0.05` | Mark Craig |
+| gl_Flower | `smoothness=0.05`<br>`rotation=360` | Mark Craig |
+| gl_GridFlip<sup>*</sup> | `size.x=4`<br>`size.y=4`<br>`pause=0.1`<br>`dividerWidth=0.05`<br>`randomness=0.1`<br>`background=0` | TimDonselaar |
+| gl_heart |  | gre |
+| gl_hexagonalize | `steps=50`<br>`horizontalHexagons=20` | Fernando Kuteken |
+| gl_InvertedPageCurl | `angle=100`<br>`radius=0.159`<br>`reverseEffect=0` | Hewlett-Packard |
+| gl_kaleidoscope | `speed=1`<br>`angle=1`<br>`power=1.5` | nwoeanhinnogaehr |
+| gl_Lissajous_Tiles<sup>*</sup> | `grid.x=10`<br>`grid.y=10`<br>`speed=0.5`<br>`freq.x=2`<br>`freq.y=3`<br>`offset=2`<br>`zoom=0.8`<br>`fade=3`<br>`background=0` | Boundless |
+| gl_morph<sup>*</sup> | `strength=0.1` | paniq |
+| gl_Mosaic | `endx=2`<br>`endy=-1` | Xaychru |
+| gl_perlin | `scale=4`<br>`smoothness=0.01` | Rich Harris |
+| gl_pinwheel | `speed=2` | Mr Speaker |
+| gl_polar_function | `segments=5` | Fernando Kuteken |
+| gl_PolkaDotsCurtain | `dots=20`<br>`centre.x=0`<br>`centre.y=0` | bobylito |
+| gl_powerKaleido | `scale=2`<br>`z=1.5`<br>`speed=5` | Boundless |
+| gl_randomNoisex |  | towrabbit |
+| gl_randomsquares | `size.x=10`<br>`size.y=10`<br>`smoothness=0.5` | gre |
+| gl_ripple | `amplitude=100`<br>`speed=50` | gre |
+| gl_Rolls | `type=0`<br>`rotDown=0` | Mark Craig |
+| gl_RotateScaleVanish | `fadeInSecond=1`<br>`reverseEffect=0`<br>`reverseRotation=0`<br>`background=0`<br>`trkMat=0` | Mark Craig |
+| gl_rotateTransition |  | haiyoucuv |
+| gl_rotate_scale_fade | `centre.x=0.5`<br>`centre.y=0.5`<br>`rotations=1`<br>`scale=8`<br>`background=0.15` | Fernando Kuteken |
+| gl_SimpleBookCurl<sup>*</sup> | `angle=150`<br>`radius=0.1`<br>`shadow=0.2` | scriptituk |
+| gl_SimplePageCurl | `angle=80`<br>`radius=0.15`<br>`roll=0`<br>`reverseEffect=0`<br>`greyBack=0`<br>`opacity=0.8`<br>`shadow=0.2` | Andrew Hung |
+| gl_Slides | `type=0`<br>`slideIn=0` | Mark Craig |
+| gl_squareswire | `squares.x=10`<br>`squares.y=10`<br>`direction.x=1.0`<br>`direction.y=-0.5`<br>`smoothness=1.6` | gre |
+| gl_StarWipe | `borderThickness=0.01`<br>`starRotation=0.75`<br>`borderColor=1` | Ben Lucas |
+| gl_static_wipe | `upToDown=1`<br>`maxSpan=0.5` | Ben Lucas |
+| gl_StereoViewer<sup>*</sup> | `zoom=0.9`<br>`radius=0.25`<br>`flip=0`<br>`background=0`<br>`trkMat=0` | Ted Schundler |
+| gl_Stripe_Wipe<sup>*</sup> | `nlayers=3`<br>`layerSpread=0.5`<br>`color1=0x3319CCFF`<br>`color2=0x66CCFFFF`<br>`shadowIntensity=0.7`<br>`shadowSpread=0`<br>`angle=0` | Boundless |
+| gl_swap | `reflection=0.4`<br>`perspective=0.2`<br>`depth=3`<br>`background=0` | gre |
+| gl_Swirl |  | Sergey Kosarevsky |
+| gl_WaterDrop | `amplitude=30`<br>`speed=30` | Paweł Płóciennik |
+| gl_windowblinds |  | Fabien Benetou |
+
+<sup>*</sup> native build only
 
 #### GLSL gallery
 
@@ -512,7 +520,7 @@ GLSL transitions can also be eased, although easing is integral with some:
 #### Customisation parameters
 
 Many GLSL transitions accept parameters to customise the transition effect.
-The parameters and default values are shown [above](#glsl-transitions).
+The parameters and default values are shown [above](#ported-glsl-transitions).
 
 *Example*: two pinwheel speeds: `'gl_pinwheel(0.5)'` and `'gl_pinwheel(10)'`
 
@@ -560,11 +568,8 @@ etc.
   - `radius` is the cylinder radius
   - `reverseEffect` produces an uncurl effect (custom ffmpeg only)
 - `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay – see Dr Who example under [Transparency](#transparency)
-- `gl_StereoViewer` (custom ffmpeg only) has an additional `flip` parameter to flip the split angles and a `background` parameter
-(I might add this feature to other transitions)
-- several GL Transitions show a black background during their transition, e.g. `gl_cube` and `gl_doorway`,
-but this implementation provides a `background` parameter to control the background,
-see [Colour parameters](#colour-parameters).
+- `gl_StereoViewer` (custom ffmpeg only) has an additional `flip` parameter to flip the split angles, a `background` parameter and a `trkMat` parameter
+- this implementation provides a `background` parameter for all GL Transitions that show a black background during their transition, e.g. `gl_cube` and `gl_doorway`, see [Colour parameters](#colour-parameters) and [Backgrounds](#backgrounds).
 
 *Example*: `gl_InvertedPageCurl` 30° with uncurl
 (useful for sheet music with repeats)  
@@ -574,7 +579,7 @@ see [Colour parameters](#colour-parameters).
 
 #### Porting
 
-GLSL shader code runs on the GPU in real time. However GL Transition and Xfade APIs are broadly similar and non-complex algorithms are easily ported using vector resolution.
+GLSL shader code runs on the GPU in real time. However GL Transition and Xfade APIs are broadly similar and non-complex algorithms are easily ported using simple vector resolution.
 
 | context | GL Transitions | Xfade filter | notes |
 | :---: | :---: | :---: | --- |
@@ -641,9 +646,9 @@ static vec4 gl_randomsquares(const XTransition *e)
 ```
 Here, `vec4` and `ivec2` simulate GLSL vector types and `XTransition` encapsulates all data pertaining to a transition:
 ```c
-typedef struct { // modelled on GL Transition Specification v1
-    float progress; // transition progress, moves from 0.0 to 1.0 (cf. P)
-    float ratio; // viewport width / height (cf. W / H)
+typedef struct XTransition {
+    float progress; // transition progress, 0.0 to 1.0 (cf. P)
+    float ratio; // frame width / height (cf. W / H)
     vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
     vec4 a, b; // plane data at p (cf. A, B)
     ...
@@ -656,7 +661,7 @@ typedef struct { // modelled on GL Transition Specification v1
 
 This is transpiled from the
 [InvertedPageCurl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/InvertedPageCurl.glsl)
-GL transition which originated from the
+GL Transition which originated from the
 [WebVfx WebGL pagecurl shader](https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html)
 which is itself based on code by [Calyptus Life AB](http://blog.calyptus.eu/) which seems no longer available.
 The Hewlett-Packard accreditation by Sergey Kosarevsky is obscure but preserved here.
@@ -688,12 +693,14 @@ The main differences from `gl_InvertedPageCurl` are:
 
 *Example*: using `gl_SimplePageCurl` to emulate `gl_InvertedPageCurl`  
 `'gl_InvertedPageCurl(30)'` vs `'gl_SimplePageCurl(24.8,0.159,1,0,1,0.8,0.1)'`  
-these parameters factor in the disregarded aspect ratio (5:4 here), 1/2π radius, roll effect, greyscale overleaf, and shadowing.
+these parameters factor in the aspect ratio (5:4 here), 1/2π radius, roll effect, greyscale overleaf, and shadowing.
 
 ![gl_PageCurl](assets/curl.gif)
 
 There is barely any noticeable difference,
-which confirms Mr Hung’s observation that complex mathematics is unjustified: scalar product projections and simple trigonometry are sufficient.
+which confirms Mr Hung’s observation that complex mathematics is unjustified:
+scalar product projections and simple trigonometry are sufficient.
+However `gl_SimplePageCurl` takes twice as long to process as`gl_InvertedPageCurl`.
 
 *Example*: `gl_SimplePageCurl` with various `angle` and `roll` options
 (Abstract and Renaissance art by Kandinsky and Titian)
@@ -735,18 +742,19 @@ For the custom expression variant which cannot take named parameters,
 customisation parameters are ignored and resort to defaults.
 
 For the custom ffmpeg variant which can take named parameters,
-a common background colour or transparency can be set using `background`, e.g.:  
-`'gl_random(background=black)'` results in a black background (the default)  
-`'gl_random(background=white)'` results in a white background  
-`'gl_random(background=gray@0.5)'` results in a semi-transparent grey background  
-`'gl_random(background=-1)'` results in a transparent background  
+a common background colour or transparency or texture can be set using `background`, e.g.:  
+`'gl_random(background=black)'` renders a black background (the default)  
+`'gl_random(background=white)'` renders a white background  
+`'gl_random(background=gray@0.5)'` renders a semi-transparent grey background  
+`'gl_random(background=-1)'` renders a transparent background  
+`'gl_random(background=-10)'` renders the [texture](#textures) -10 (a rainbow effect)
 and for even more randomness:  
-`'gl_random(background=random)'` results in a [random background colour](https://github.com/scriptituk/ffmpeg-colours) picked by ffmpeg  
-These only affect transitions that take a `background` parameter.
+`'gl_random(background=random)'` renders a [random background colour](https://github.com/scriptituk/ffmpeg-colours) picked by ffmpeg  
+These affect transitions that take a `background` parameter and have no effect on those that do not.
 
 *Example*: (7 random transitions)  
-`xfade-easing.sh -X -t gl_random -v left.mp4 gl*.png` (left)  
-`xfade-easing.sh -t 'gl_random(background=random)' -v right.mp4 gl*.png` (right)
+`xfade-easing.sh -X -t gl_random -v left.mp4 gl*.png` (left, custom expression)  
+`xfade-easing.sh -t 'gl_random(background=random)' -v right.mp4 gl*.png` (right, custom ffmpeg)
 
 ![gl_random)](assets/gl_random.gif)
 
@@ -757,7 +765,7 @@ These only affect transitions that take a `background` parameter.
 ### Pixel format
 
 Transitions that affect colour components work differently for RGB than non-RGB colour spaces and for different bit depths.
-For the custom expression variant, [xfade-easing.sh](#cli-script) emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` logic, deducing the RGB signal type `AV_PIX_FMT_FLAG_RGB` from the `-f` option format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and the bit depth from `ffmpeg -pix_fmts` data.
+For the custom expression variant, [xfade-easing.sh](#cli-script) emulates [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) function `config_output()` by deducing the RGB signal type `AV_PIX_FMT_FLAG_RGB` from the `-f` option format name (rgb/bgr/etc. see [pixdesc.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/pixdesc.c)) and the bit depth from `ffmpeg -pix_fmts` data.
 It can then set the maximum and mid plane values correctly.
 See [How does FFmpeg identify color spaces?](https://trac.ffmpeg.org/wiki/colorspace#HowdoesFFmpegidentifycolorspaces) for details.
 
@@ -770,20 +778,22 @@ If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-scr
 ### Colour parameters
 
 These conventions are adopted:
-- all colour values are interpreted according to sign, magnitude and syntax:
-  - if negative, there is no colour – it is fully transparent
-  - values between 0 and 1 inclusive are an opaque shade of grey determined by the value,
-    from 0.0 (black) to 1.0 (white)
+- colour values are interpreted according to sign, magnitude and syntax:
+  - values from 0.0 (black) to 1.0 (white) inclusive are an opaque shade of grey
+  - values from -0.0 (black) to -1.0 (white) are a transparent shade of grey  
+    (-0, negative zero, is recognised; -1 to -2 exclusive is clipped to -1)
+  - values -2 or less truncate towards zero to integers and select a [texture](#textures)
+    (default -2)
   - values that match the ffmpeg [Color syntax](https://ffmpeg.org/ffmpeg-utils.html#Color)
     are treated as RGBA colour components packed into 32 bits,
 - all background colour parameters are named `background`
-  (most GL transition backgrounds are named differently)
+  (most GL Transition backgrounds are named differently)
 
-Consequently a value of exactly 1 is rendered white but 2 (RGB `#000002`) is nearly black.
-If you want R=0,G=0,B=1 then specify the colour using hexadecimal notation, `#000001`.
+Consequently a value of exactly 1 is rendered white but 2 (RGBA `#00000002`) is almost transparent black.
+To get R=0,G=0,B=1 then specify the colour using hexadecimal notation, `#000001`.
 
 The custom expression variant only suports fully transparent and opaque grey values, -1 and 0.0 to 1.0,
-it does not support colour.  
+it does not support colour or textures.  
 e.g. `gl_swap(, , , 0.67)` for 67% grey background (other parameters take default values).
 
 The custom ffmpeg variant supports the full [Color](https://ffmpeg.org/ffmpeg-utils.html#Color) syntax
@@ -791,25 +801,112 @@ including named colours and variable alpha,
 e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue, color2=ffd700)`  
 
 Colour value examples:
-- `DarkGoldenRod` (a standard X11 colour name, see [ffmpeg colour names](https://github.com/scriptituk/ffmpeg-colours))
+- `CornflowerBlue` (a standard X11 colour name, see [ffmpeg colour names](https://github.com/scriptituk/ffmpeg-colours))
 - `0x56789A` or `#56789A` (packed RGB hexadecimal digits)
 - `0xA987657F` or `#A98765@0.5` or `A98765@0x7F` (packed RGBA)
 - `random` (a random colour generated by ffmpeg)
+- `0` (black)
+- `1` (white)
 - `0.75` (75% grey)
-- `bfbfbf80` (75% grey with 50% alpha)
-- `-1` (transparent)
+- `bfbfbf7f` (75% grey with 50% alpha)
+- `-0.75` (75% grey with 100% alpha, i.e. transparent)
+- `-0` (transparent black, negative zero)
+- `-1` (transparent white)
+- `-2` (moving texture number -2)
+- `-3` (still image version of texture -2)
 - `12345A` is ambiguous and yields 12345 decimal, or 0x00003039
 
-Avoid decimal integers, e.g. 255 is not blue but opaque black (RGB `#000000FF`).
+Avoid decimal numbers above 1, e.g. 255 is not blue but opaque black (RGB `#000000FF`).
 
-*Example*: `gl_StarWipe` transition with `Lime` green (#00FF00) border colour  
-`gl_StarWipe(borderThickness=0.1, borderColor=Lime)`
+*Example*: `gl_StarWipe` transitions with `Lime` and `-15` (still diamond pattern) border colours  
+`gl_StarWipe(borderThickness=0.1, borderColor=Lime)` (left)  
+`gl_StarWipe(borderThickness=0.1, borderColor=-15)` (right)
 
 ![star](assets/star.gif)
 
+### Backgrounds
+
+Many transitions reveal areas which are not painted, exposing a background instead.
+Unlike GL Transitions which show a black background,
+this implementation provides a `background` parameter which takes a [colour value](#colour-parameters) –
+a [RGBA colour](https://ffmpeg.org/ffmpeg-utils.html#Color) or a [texture](#textures) or transparent
+(the custom expression variant only suports grey and transparent).
+Transparent background transitions make for good
+[overlay](https://ffmpeg.org/ffmpeg-filters.html#overlay-1) effects.
+
+#### Textures
+
+(custom ffmpeg only)
+
+> [!NOTE]
+> this features is experimental –
+> for generic background effects use the ffmpeg
+> [overlay](https://ffmpeg.org/ffmpeg-filters.html#overlay-1) filter
+> in conjunction with xfade-easing.
+
+Textures are shader effects ported from [Shadertoy](https://www.shadertoy.com/),
+mainly for transition backgrounds selected with the `background` parameter,
+but any colour parameter can select a texture – see [Colour parameters](#colour-parameters).
+They are referenced by a negative index, where
+- even values show a moving texture
+- odd values show a still version of its even-valued texture,
+  e.g. -5 is a still of -4 at the halfway point
+
+-2,-3: [Natural vignetting](https://www.shadertoy.com/view/4lSXDm) by ApoorvaJ  
+-4,-5: [glowingMarblingBlack](https://www.shadertoy.com/view/WtdXR8) by nasana  
+-6,-7: [Monochrome Hyperbola](https://www.shadertoy.com/view/Xtf3WN) by MichaelPohoreski  
+-8,-9: [Skyline in 132 chars](https://www.shadertoy.com/view/MtXSR7) by GregRostami  
+-10,-11: [simple rainbow formula](https://www.shadertoy.com/view/4l2cDm) by Jodie  
+-12,-13: [simple plasma](https://www.shadertoy.com/view/ldBGRR) by Kastor  
+-14,-15: [diamond pattern](https://www.shadertoy.com/view/ltX3W4) by rcread  
+-16,-17: [Glowing thing](https://www.shadertoy.com/view/4lB3DG) by denzen  
+-18,-19: [cinetunnel](https://www.shadertoy.com/view/WdycRw) by tomviolin  
+-20,-21: [spring time](https://www.shadertoy.com/view/XllGDH) by bergi  
+-22,-23: [Skyline4](https://www.shadertoy.com/view/XlsXRM) by FabriceNeyret2  
+-24,-25: [Water Ripple](https://www.shadertoy.com/view/4cl3W4) by liucc09  
+
+![texture](assets/textures.gif)
+
+*Example*: `gl_DirectionalScaled` transition with `glowingMarblingBlack` background texture and sinusoidal easing  
+`gl_DirectionalScaled(direction.x=-1,direction.y=1,scale=0.1,background=-4)`
+
+![textures](assets/texture.gif)
+
+#### Blending
+
+Blending is compositing image layers in various ways taking transparency into account,
+whereas normal transition colour mixing performs simple linear interpolation in all planes determined by a weight factor.
+
+One exception is the `gl_blend` transition (custom ffmpeg only)
+which blends the inputs according to its numerical `mode` parameter.
+The first input acts as the backdrop layer and the second as the source layer.
+At half the duration, the source is blended over the backdrop according to the blend mode algorithm.
+Blend modes available are the [CSS blend modes](https://www.w3.org/TR/compositing-1/#blending)
+which use the standard
+[PDF 1.7 section 11.3.3](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf#page=330)
+compositing formula and blending functions, which are quite ubiquitous:
+
+![blending](assets/blending.gif)
+
+To blend transitions over a backdrop layer use the [blend filter](https://ffmpeg.org/ffmpeg-filters.html#blend-1).
+It is poorly documented and the implementation in
+[vf_blend.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_blend.c),
+[vf_blend_init.h](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_blend_init.h),
+[blend_modes.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/blend_modes.c)
+is quite basic: it does not render standard blending as above because it seems to be designed for premultiplied alpha,
+achieved for RGB using  
+`geq="r='r(X,Y)*alpha(X,Y)/255':g='g(X,Y)*alpha(X,Y)/255':b='b(X,Y)*alpha(X,Y)/255'"`  
+before `blend`.
+
+*Example*: four `all_mode` blend options for `gl_StereoViewer` transitions with 50% grey transparency  
+`gl_StereoViewer(zoom=0.6,radius=0.3,flip=1,background=-0.5)`
+
+![blending](assets/blend.gif)
+
 ### Transparency
 
-The expression files in [expr/](expr) cater for RGBA and YUVA formats with 4 planes.
+The expression files in [expr/](expr) cater for RGBA and YUVA transparency formats in 4 planes
+as well as opaque RGB and YUV in 3 planes and mono/gray in 1 plane.
 
 For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-v -f ` options with an alpha format, e.g. `rgba`/`yuva420p`, and .mkv filename extension.
 
@@ -824,6 +921,15 @@ To specify alpha in transition parameters, see [Colour parameters](#colour-param
 
 *Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
 ```shell
+ffmpeg -i skaro.png -i tardis.png -i gallifrey.png -filter_complex "
+    [0]loop=-1:1, fps=25, format=rgba, scale=250:-2[a];
+    [1]loop=-1:1, fps=25, format=rgba, scale=250:-2[b];
+    [2]loop=-1:1, fps=25, format=rgb24, scale=250:-2[bg];
+    [a][b]xfade=offset=1:duration=3:easing=quadratic-in:transition='gl_RotateScaleVanish(FadeInSecond=0,ReverseEffect=1,trkMat=1)'[fg];
+    [bg][fg]overlay" -t 5 -c:v libx264 -pix_fmt yuv420p drwho.mp4
+```
+or using the [CLI script](#cli-script)
+```shell
 xfade-easing.sh -f rgba -e quadratic-in -t 'gl_RotateScaleVanish(FadeInSecond=0,ReverseEffect=1,trkMat=1)' -v alpha.mkv -z 250x skaro.png tardis.png
 ffmpeg -i gallifrey.png -i alpha.mkv -filter_complex '[0]scale=250:-2[b]; [b][1]overlay' drwho.mp4
 ```
@@ -834,7 +940,8 @@ This demonstrates the additional `trkMat` option which tracks the Tardis alpha v
 then Gallifrey’s Citadel when the transition ends, both planets being opaque images.  
 (trkMat is only availble in the custom ffmpeg variant)
 
-See also the example under [Transition `gl_SimpleBookCurl`](#transition-gl_simplebookcurl).
+See also the example under [Transition `gl_SimpleBookCurl`](#transition-gl_simplebookcurl)
+which overlays a transparent transition.
 
 ---
 
@@ -865,59 +972,36 @@ easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'` transition: `gl_FanUp` reverse: `
 
 There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 
+This is a powerful feature that almost doubles the number of transitions available.
+
 ---
 
 ## Custom expression performance
 
 FFmpeg incorporates a simple arithmetic expression evaluator written as an LL(1) recursive descent parser.
-Custom `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in libavutil/eval.c.
+Custom `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in
+[libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c).
 That expression is then executed for every pixel in each plane, which obviously incurs a performance hit,
 considerably exacerbated by disabling threading in order to use the `st()` and `ld()` variables shared between slices
 (a slice is a range of frame lines processed by a thread job).
 So custom transition expressions are not fast despite the pre-parse.
 
-The following times are based on empirical timings scaled by benchmark scores (the [Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks)).
-They are rough estimates in seconds to process a 3-second transition of HD720 (1280x720) 3-plane media (rgb24) through a null muxer at Mac benchmark midpoints.
-For greyscale (single plane), subtract two thirds.
-For an alpha plane, add a third.
-Mac model performance varies enormously so the Mac vintage dates are only approximate.
+Based on empirical timings scaled by benchmark scores ([Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks))
+the time to process a 3-second transition of HD720 (1280x720) 3-plane media (rgb24) through a null muxer on M1-M3 Macs is roughly:
+
+- up to 45 seconds for an eased xfade transition
+- 15s to 2 minutes for most ported GLSL transitions
+
+For greyscale (single plane), subtract two thirds.  
+For an alpha plane, add a third.  
+For 2017‑19 Macs double it.  
+For 2013‑16 Macs triple it.
+
+Mac model performance varies enormously so these Mac vintage dates are only approximate.
 Windows performance has not been measured.
 
-| benchmark → <br/> transition ↓ | 2335&#8209;3120 <br/> M1,M2,M3 Macs | 1150&#8209;1655 <br/> 2017&#8209;19 Macs | 700&#8209;1150 <br/> 2013&#8209;16 Macs | 195&#8209;700 <br/> 2008&#8209;12 Macs |
-| :---: | :---: | :---: | :---: | :---: |
-| `fade` `wipeleft` `wipeup` | 2 | 4 | 6 | 12 |
-| `wiperight` `wipedown` | 3 | 6 | 9 | 18 |
-| `wipetl` `wipetr` `wipebl` `wipebr` | 5 | 10 | 14 | 30 |
-| `squeezeh` `squeezev` `gl_CornerVanish` | 8 | 16 | 24 | 48 |
-| `fadefast` `fadeslow` `rectcrop` | 10 | 20 | 30 | 60 |
-| `coverup` `dissolve` `gl_Diamond` | 14 | 28 | 42 | 84 |
-| `slideleft` `smoothup` `coverleft` `coverright` `revealleft` `revealright` `coverdown` `revealup` `revealdown` `gl_DoubleDiamond` `gl_FanUp` `gl_randomNoisex` | 16 | 32 | 48 | 100 |
-| `slideright` `slideup` `slidedown` `smoothleft` `circlecrop` `vertopen` `diagtl` `gl_FanIn` `gl_pinwheel` | 18 | 36 | 54 | 110 |
-| `smoothdown` `smoothright` `vertclose` `horzopen` `horzclose` `gl_FanOut` | 20 | 40 | 60 | 120 |
-| `diagbl` `diagbr` `diagtr` `radial` `gl_CrossOut` | 22 | 42 | 66 | 133 |
-| `gl_BookFlip` `gl_heart` `gl_polar_function` | 24 | 46 | 72 | 147 |
-| `hlslice` `hrslice` `vdslice` `vuslice` | 28 | 54 | 84 | 171 |
-| `circleclose` `circleopen` `gl_angular` `gl_Slides` | 30 | 60 | 88 | 180 |
-| `gl_PolkaDotsCurtain` `hlwind` `hrwind` `vuwind` `vdwind` | 34 | 66 | 100 | 210 |
-| `fadeblack` `fadewhite` `gl_WaterDrop` | 38 | 76 | 114 | 228 |
-| `pixelize` `zoomin` `gl_Bounce` `gl_cannabisleaf` `gl_randomsquares` `gl_windowblinds` | 42 | 84 | 126 | 260 |
-| `gl_Dreamy` `gl_Flower` | 48 | 95 | 140 | 300 |
-| `fadegrays` `gl_rotateTransition` | 54 | 105 | 160 | 336 |
-| `gl_crosswarp` `gl_DirectionalScaled` `gl_ripple` `gl_Rolls` | 57 | 114 | 168 | 340 |
-| `gl_doorway` `gl_StarWipe` | 63 | 126 | 189 | 380 |
-| `gl_RotateScaleVanish` `gl_Swirl` | 69 | 133 | 200 | 420 |
-| `gl_InvertedPageCurl` `gl_squareswire` | 80 | 160 | 240 | 480 |
-| `gl_CrazyParametricFun` `gl_crosshatch` `gl_static_wipe` | 84 | 168 | 252 | 520 |
-| `gl_directionalwarp` `gl_rotate_scale_fade` | 95 | 189 | 280 | 580 |
-| `gl_cube` `gl_hexagonalize` `gl_Mosaic` `gl_swap` | 108 | 209 | 320 | 660 |
-| `gl_perlin` | 126 | 252 | 380 | 760 |
-| `gl_SimplePageCurl` | 168 | 336 | 500 | 1020 |
-| `gl_kaleidoscope` | 247 | 480 | 720 | 1500 |
-| `gl_powerKaleido` | 1000 | 1960 | 2960 | 6100 |
-
-The slowest supported transition `gl_powerKaleido` is clearly impractical for most purposes!
-The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring;
-it omits anti-aliasing for simplicity.
+The slowest supported transition `gl_powerKaleido` is impractical for most purposes, taking over 15 minutes.
+The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring.
 
 See [xfade-easing.h](src/xfade-easing.h) for the C code transpiled from GLSL that helped to optimize the custom expressions.
 See the files in [glsl/](glsl/) refactored from other GLSL transition sources that were used for intermediate testing in the [GL Transition Editor](https://gl-transitions.com/editor).
@@ -948,7 +1032,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.2.1 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.3.0 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
@@ -1173,7 +1257,7 @@ a GL transition with arguments and cubic-bezier easing, running at 30fps for 7 s
 - [GLSL Vector and Matrix Operations](https://en.wikibooks.org/wiki/GLSL_Programming/Vector_and_Matrix_Operations) GLSL specific built-in data types and functions
 - [The Book of Shaders](https://thebookofshaders.com/) a guide through the universe of Fragment Shaders
 - [Shadertoy mrmcsoftware](https://www.shadertoy.com/view/NdGfzG) GLSL video transitions by Mark Craig
-- [Shadertoy laserdog](https://www.shadertoy.com/view/ls3cDB) GLSL simple page curl transitions by Andrew Hung; his [breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
+- [Shadertoy laserdog](https://www.shadertoy.com/view/ls3cDB) GLSL simple page curl transitions by Andrew Hung; his [code breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
 - [libavfilter/vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) xfade source code
 - [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c) expr source code
 - [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) Node.js package, concats videos with GL Transitions
