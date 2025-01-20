@@ -149,10 +149,10 @@ use latest stable release at [Download Source Code](https://ffmpeg.org/download.
 1. `cd ffmpeg` and patch libavfilter/vf_xfade.c:
    - use patch file (latest stable release only):
      - download [vf_xfade.patch](src/vf_xfade.patch) to ffmpeg source root
-     - run `patch -b -p0 -i vf_xfade.patch` (saves backup as `vf_xfade.c.orig`)
+     - run `patch -buN -p0 -i vf_xfade.patch` (saves backup as `vf_xfade.c.orig`)
      - remove `vf_xfade.patch`
-   - or download [patched vf_xfade.c](src/vf_xfade.c)
-   - or patch manually, see [vf_xfade diff](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) – only 9 small changes  
+   - or download [patched vf_xfade.c](src/vf_xfade.c) which works with latest stable ffmpeg release
+   - or patch manually, [click here](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html), only 9 small changes  
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. install required library packages:  
 use a package management tool AptGet/MacPorts/Homebrew/etc.
@@ -501,7 +501,9 @@ The list shows the names, authors, and customisation parameters and defaults:
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
-Here are the ported GLSL transitions with default parameters and no easing.
+Here are the ported GLSL transitions with default parameters and no easing, supported by the custom ffmpeg variant.
+Check [above](#ported-glsl-transitions) for the dozen or so that are not supported by the custom expression variant.
+
 See also the [GL Transitions Gallery](https://gl-transitions.com/gallery)
 which lacks many recent contributor transitions plus even more stacking up as
 [Pull requests](https://github.com/gl-transitions/gl-transitions/pulls) –
@@ -584,15 +586,19 @@ GLSL shader code runs on the GPU in real time. However GL Transition and Xfade A
 | context | GL Transitions | Xfade filter | notes |
 | :---: | :---: | :---: | --- |
 | progress | `uniform float progress` <br/> moves from 0&nbsp;to&nbsp;1 | `P` <br/> moves from 1 to 0 | `progress ≡ 1 - P` |
-| ratio | `uniform float ratio` | `W / H` | GL width and height are normalised |
-| coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
-| texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | `vec4 transition(vec2 uv) {...}` runs for every pixel position <br/> xfade `expr` is evaluated for every texture component (plane) and pixel position |
+| ratio | `uniform float ratio` | `W / H` | |
+| coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | GL width and height are normalised <br/> `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
+| texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | GL colour values are normalised <br/> GL function runs for every pixel position <br/> xfade `expr` runs for every texture component (plane) and pixel position |
 | plane data | normalised RGBA | GBRA or YUVA unsigned integer | xfade bit depth depends on pixel format |
 
+Note that like GL Transitions, the custom ffmpeg variant operates on
+[unit interval](https://en.wikipedia.org/wiki/Unit_interval)
+coordinate and colour data, processing all planes simultaneously.
+
 To make the transpiled code easier to follow,
-original variable names from the GLSL and xfade source code are replicated in
+original variable names from the GLSL and xfade source code are retained in
 [xfade-easing.sh](src/xfade-easing.sh) and [xfade-easing.h](src/xfade-easing.h).
-The script uses pseudo functions to emulate real functions, expanding them inline later.
+The CLI script uses pseudo functions to emulate real functions, expanding them inline later.
 
 *Example*: porting transition `gl_randomsquares`
 
@@ -644,7 +650,8 @@ static vec4 gl_randomsquares(const XTransition *e)
     return mix4(e->a, e->b, m);
 }
 ```
-Here, `vec4` and `ivec2` simulate GLSL vector types and `XTransition` encapsulates all data pertaining to a transition:
+Here, `vec4` and `ivec2` simulate GLSL vector types
+and `XTransition` encapsulates all data pertaining to a transition:
 ```c
 typedef struct XTransition {
     float progress; // transition progress, 0.0 to 1.0 (cf. P)
@@ -653,6 +660,40 @@ typedef struct XTransition {
     vec4 a, b; // plane data at p (cf. A, B)
     ...
 } XTransition;
+```
+And the transition delegate is:
+```c
+static void xtransition_transition(AVFilterContext *ctx,
+                                   const AVFrame *a, const AVFrame *b,
+                                   AVFrame *out,
+                                   float progress,
+                                   int slice_start, int slice_end, int jobnr)
+{
+    const XFadeContext *s = ctx->priv;
+    const XFadeEasingContext *k = s->k;
+    const float mw = k->mw, mh = k->mh, mv = k->mv; // as float
+    XTransition e = { // slice data
+        .progress = 1 - progress, // 0 to 1 for xtransitions
+        .ratio = k->r, // pixel ratio
+        .k = k // common context
+    };
+    // pixel iterator and unit interval conversions
+    for (int y = slice_start; y < slice_end; y++) {
+        e.p.y = 1 - y / mh; // y=0 is bottom
+        for (int x = 0, p = 0; x <= k->mw; x++) {
+            e.p.x = x / mw;
+            e.a = e.b = VEC4(0, P5f, P5f, 1); // plane defaults
+            do {
+                e.a.p[p] = line(a, p, y)[x] / mv; // from colour
+                e.b.p[p] = line(b, p, y)[x] / mv; // to colour
+            } while (++p < k->n);
+            vec4 c = k->xtransitionf(&e); // transition colour
+            do
+                --p, line(out, p, y)[x] = scaleUI(c.p[p], k->mv);
+            while (p > 0);
+        }
+    }
+}
 ```
 
 ### Curls and Rolls
@@ -911,6 +952,7 @@ as well as opaque RGB and YUV in 3 planes and mono/gray in 1 plane.
 For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-v -f ` options with an alpha format, e.g. `rgba`/`yuva420p`, and .mkv filename extension.
 
 For lossy video with alpha use an alpha format and the .webm extension.
+Note: webm encoding is extremely slow and webm alpha is not widely supported.
 
 For animated GIFs with transparency use a non-alpha format and the `-g` option to specify the transparent colour, and the .gif extension.
 These require [gifsicle](https://www.lcdf.org/gifsicle/).
@@ -971,6 +1013,8 @@ easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'` transition: `gl_FanUp` reverse: `
 ![reverse effect](assets/reverse.gif)
 
 There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
+Other transitions reversing is particurly useful for are
+`gl_BookFlip`, `gl_cube`, `gl_pinwheel`, `gl_Swirl`.
 
 This is a powerful feature that almost doubles the number of transitions available.
 
@@ -1032,7 +1076,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.3.0 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.3.1 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
@@ -1076,6 +1120,7 @@ Options:
        if - then format is the null muxer (no output)
        if -f format has alpha then mkv and webm generate transparent video output
        for gifs see -g; if gifsicle is available then gifs will be optimised
+    -o additional ffmpeg options, e.g. -o '-movflags +faststart' for MP4 Faststart
     -r video framerate (default: 25fps)
     -f pixel format (default: rgb24): use ffmpeg -pix_fmts for list
     -g gif transparent colour, requires gifsicle and a non-alpha format (default: none)
@@ -1105,7 +1150,7 @@ Options:
        e.g. xfade=duration=4:offset=1:easing=quintic-out:transition=wiperight
        e.g. xfade=duration=5:offset=2:easing='cubic-bezier(.17,.67,.83,.67)' \
             :transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
-    -I set ffmpeg loglevel to info for -v (default: warning)
+    -I set ffmpeg loglevel to info for -v (default: warning), also dumps ffmpeg command
     -D dump debug messages to stderr and set ffmpeg loglevel to debug for -v
     -P log xfade progress percentage using custom expression print() function (implies -I)
     -T temporary file directory (default: /tmp)
@@ -1216,9 +1261,13 @@ creates a video of the coverdown transition with bounce-out easing using expansi
 creates a lossless (FFV1) video (e.g. for further processing) of an uneased polar_function GL transition with 25 segments annotated in enlarged text  
 ![gl_polar_function=25](assets/paradise.gif)
 
-- `xfade-easing.sh -t 'gl_Lissajous_Tiles(16,20,0.3,9,3,1,0.8,3,Lavender)' -v lissajous.mp4 titian.png kandinsky.png`
-creates a stunning [Lissajous](https://en.wikipedia.org/wiki/Lissajous_curve) effect against a Lavender background demonstrating extensive use of transition parameters  
+- `xfade-easing.sh -t 'gl_Lissajous_Tiles(16,20,0.3,9,3,1,0.8,3,Lavender)' -e quadratic -v lissajous.mp4 titian.png kandinsky.png`
+creates a stunning [Lissajous](https://en.wikipedia.org/wiki/Lissajous_curve) effect quadratic-eased against a Lavender background demonstrating extensive use of transition parameters  
 ![gl_Lissajous_Tiles](assets/lissajous.gif)
+
+- `xfade-easing.sh -t 'gl_cube(,,,,-23)' -e 'cubic-bezier(0.5,0.9,0.5,0.1)' -v cube.mp4 -b 1 BBC_Test_Card_C.png BBC_Test_Card_J.png`
+creates a reversed cube GL transition against a [texture](#textures) background with cubic-bezier easing that slows down the middle movement  
+![gl_cube](assets/cube.gif)
 
 - `xfade-easing.sh -t 'gl_angular(270,1)' -e exponential -v multiple.mp4 -n -k h -l 20 street.png road.png flowers.png bird.png barley.png`
 creates a video of the angular GL transition with parameter `startingAngle=270` (south) and `clockwise=1` (an added parameter) for 5 inputs with fast exponential easing  
