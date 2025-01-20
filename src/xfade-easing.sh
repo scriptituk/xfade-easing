@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.3.0
+export VERSION=3.3.1
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -100,6 +100,11 @@ _debug() { # message
     [[ $o_loglevel == debug ]] && echo "Debug: $1" >&2
 }
 
+# emit info message to stderr
+_info() { # message
+    [[ $o_loglevel == info || $o_loglevel == debug ]] && echo "$1" >&2
+}
+
 # extract document contained in this script
 _heredoc() { # delimiter
     gsed -n -e "/^@$1/,/^!$1/{//!p}" $0 | gsed '/^[ \t]*#/d'
@@ -162,7 +167,7 @@ _version() {
 _opts() {
     ffmpeg -hide_banner --help filter=xfade | grep -q easing && o_native=true # detect native build
     local OPTIND OPTARG opt
-    while getopts ':t:e:b:x:as:p:m:q:c:v:r:f:g:z:d:i:l:jnu:k:LHVXIPT:KD' opt; do
+    while getopts ':t:e:b:x:as:p:m:q:c:v:o:r:f:g:z:d:i:l:jnu:k:LHVXIPT:KD' opt; do
         case $opt in
         t) o_transition=$OPTARG ;;
         e) o_easing=$OPTARG ;;
@@ -175,6 +180,7 @@ _opts() {
         q) o_ptitle=$OPTARG ;;
         c) o_psize=$OPTARG ;;
         v) o_video=$OPTARG ;;
+        o) o_ffopts=$OPTARG ;;
         r) o_vfps=$OPTARG ;;
         f) o_format=$OPTARG ;;
         g) o_transparent=$OPTARG ;;
@@ -562,15 +568,17 @@ _rp_easing() { # easing mode
         io=$made
         ;;
     bounce)
+        local D3_4=0.75 D4_11=$(_calc 4/11) D6_11=$(_calc 6/11) D8_11=$(_calc 8/11) D9_11=$(_calc 9/11)
+        local D10_11=$(_calc 10/11) D15_16=$(_calc 15/16) D21_22=$(_calc 21/22) D63_64=$(_calc 21/22)
+        local D121_16=$(_calc 121/16)
         _make ''
-        _make ' st(1, 121/16);'
-        _make ' if(lt(T, 4/11),'
-        _make '  ld(1) * T * T,'
-        _make '  if(lt(T, 8/11),'
-        _make '   ld(1) * (T - 6/11)^2 + 3/4,'
-        _make '   if(lt(T, 10/11),'
-        _make '    ld(1) * (T - 9/11)^2 + 15/16,'
-        _make '    ld(1) * (T - 21/22)^2 + 63/64'
+        _make " if(lt(T, $D4_11),"
+        _make "  $D121_16 * T * T,"
+        _make "  if(lt(T, $D8_11),"
+        _make "   $D121_16 * (T - $D6_11)^2 + $D3_4,"
+        _make "   if(lt(T, $D10_11),"
+        _make "    $D121_16 * (T - $D9_11)^2 + $D15_16,"
+        _make "    $D121_16 * (T - $D21_22)^2 + $D63_64"
         _make '   )'
         _make '  )'
         _make ' )'
@@ -608,9 +616,10 @@ _se_easing() { # easing mode
         io='if(lt(T, 0.5), sqrt(T / 2), 1 - sqrt(R / 2))'
     ;;
     cuberoot) # opposite to cubic
-        i='1 - pow(R, 1/3)'
-        o='pow(T, 1/3)'
-        io='if(lt(T, 0.5), pow(T / 4, 1/3), 1 - pow(R / 4, 1/3))'
+        local D1_3=$(_calc 1/3)
+        i="1 - pow(R, $D1_3)"
+        o="pow(T, $D1_3)"
+        io="if(lt(T, 0.5), pow(T / 4, $D1_3), 1 - pow(R / 4, $D1_3))"
     ;;
     *)
         echo '' && return
@@ -1367,17 +1376,18 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_hexagonalize) # by Fernando Kuteken
+        local SQRT3=$(_calc 'sqrt(3)')
         _make "st(1, ${a[0]:-50});" # steps
         _make "st(2, ${a[1]:-20});" # horizontalHexagons
         _make 'st(0, 1 - P);' # progress
         _make 'st(3, 2 * min(ld(0), 1 - ld(0)));' # dist
         _make 'if(gt(ld(1), 0), st(3, ceil(ld(3) * ld(1)) / ld(1)));'
         _make 'if(gt(ld(3), 0),'
-        _make ' st(2, st(1, sqrt(3)) / 3 * ld(3) / ld(2));' # size
+        _make " st(2, $SQRT3 / 3 * ld(3) / ld(2));" # size
         # hexagonFromPoint
         _make ' st(3, (X / W - 0.5) / ld(2));' # point.x
         _make ' st(4, ((H - Y) / W - 0.5) / ld(2));' # point.y
-        _make ' st(3, (ld(1) * ld(3) - ld(4)) / 3);' # hex.q
+        _make " st(3, ($SQRT3 * ld(3) - ld(4)) / 3);" # hex.q
         _make ' st(4, 2 / 3 * ld(4));' # hex.r
         _make ' st(5, -ld(3) - ld(4));' # hex.s
         # roundHexagon
@@ -1392,13 +1402,13 @@ _gl_transition() { # transition args
         _make '  if(gt(ld(4), ld(5)), st(7, -ld(6) - ld(8)))'
         _make ' );'
         # pointFromHexagon
-        _make ' st(3, ld(1) * (ld(6) + ld(7) / 2) * ld(2) + 0.5);' # x
+        _make " st(3, $SQRT3 * (ld(6) + ld(7) / 2) * ld(2) + 0.5);" # x
         _make ' st(4, 3 / 2 * ld(7) * ld(2) + 0.5);' # y
         _make ' st(3, ld(3) * W);'
         _make ' st(4, H - ld(4) * W);'
         _make ' st(1, a(ld(3), ld(4)));'
         _make ' st(2, b(ld(3), ld(4)));'
-        _make ' mix(ld(1), ld(2), ld(0)),'
+        _make " mix($SQRT3, ld(2), ld(0)),"
         _make ' mix(A, B, ld(0))'
         _make ')'
         ;;
@@ -2370,14 +2380,16 @@ EOT
     pg=reserve_transparent=0; [[ $p_alpha -ne 0 ]] && pg=reserve_transparent=1
     if [[ $path == - ]]; then # no output
         enc='-f null'
-    elif [[ $path =~ .gif ]]; then # animated for .md
+    elif [[ $path =~ .gif ]]; then # animated
         echo "[v]split[s0][s1]; [s0]palettegen=$pg[s0]; [s1][s0]paletteuse[v]" >> $fc_script
     elif [[ $path =~ .mkv ]]; then # lossless - see https://trac.ffmpeg.org/wiki/Encode/FFV1
         enc="-c:v ffv1 -level 3 -coder 1 -context 1 -g 1 -pix_fmt $pf -r $fps"
-    elif [[ $path =~ .webm ]]; then # WebM - see https://trac.ffmpeg.org/wiki/Encode/VP9
-        enc="-c:v libvpx-vp9 -pix_fmt $pf -r $fps"
+    elif [[ $path =~ .webm ]]; then # WebM 1080p - see https://developers.google.com/media/vp9/settings/vod
+        enc="-c:v libvpx-vp9 -b:v 1800k -minrate 900k -maxrate 2610k -tile-columns 2 -g 240 -threads 4 -quality good -crf 31 -pix_fmt $pf -r $fps"
     elif [[ $path =~ .mp4 ]]; then # x264 - see https://trac.ffmpeg.org/wiki/Encode/H.264
         enc="-c:v libx264 -preset medium -tune stillimage -pix_fmt yuv420p -r $fps"
+    elif [[ $path =~ .raw ]]; then # to decode: -f rawvideo -pixel_format $pf -framerate $fps -video_size WxH -i ...
+        enc="-c:v rawvideo -pix_fmt $pf -r $fps -s $size -f rawvideo"
     else
         _error 'unknown video type' && exit $ERROR
     fi
@@ -2385,7 +2397,8 @@ EOT
     local fcs="-/filter_complex $fc_script"; [[ $major -lt 7 ]] && fcs="-filter_complex_script $fc_script"
     local ffopts="-y -hide_banner -loglevel ${o_loglevel-warning} -stats_period 1"
     [[ -z $o_native || $o_loglevel == debug ]] && ffopts+=' -filter_complex_threads 1'
-    ffcmd="ffmpeg $ffopts $fcs -map [v]:v -an -t $length $enc '$path'"
+    ffcmd="ffmpeg $ffopts $fcs -map [v]:v -an -t $length $enc $o_ffopts '$path'"
+    _info "$ffcmd"
     echo "$ffcmd" > $ff_cmd
     source $ff_cmd # done this way for documentation
     if [[ $path =~ .gif ]]; then
@@ -2723,6 +2736,7 @@ Options:
        if - then format is the null muxer (no output)
        if -f format has alpha then mkv and webm generate transparent video output
        for gifs see -g; if gifsicle is available then gifs will be optimised
+    -o additional ffmpeg options, e.g. -o '-movflags +faststart' for MP4 Faststart
     -r video framerate (default: ${VIDEOFPS}fps)
     -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
     -g gif transparent colour, requires gifsicle and a non-alpha format (default: none)
@@ -2752,7 +2766,7 @@ Options:
        e.g. xfade=duration=4:offset=1:easing=quintic-out:transition=wiperight
        e.g. xfade=duration=5:offset=2:easing='cubic-bezier(.17,.67,.83,.67)' \
             :transition='gl_swap(depth=5,reflection=0.7,perspective=0.6)' (see repo README)
-    -I set ffmpeg loglevel to info for -v (default: warning)
+    -I set ffmpeg loglevel to info for -v (default: warning), also dumps ffmpeg command
     -D dump debug messages to stderr and set ffmpeg loglevel to debug for -v
     -P log xfade progress percentage using custom expression print() function (implies -I)
     -T temporary file directory (default: $TMPDIR)
