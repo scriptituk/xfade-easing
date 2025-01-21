@@ -44,7 +44,7 @@ typedef struct {
     int x, y;
 } ivec2;
 
-// normalised pixel position
+// normalised pixel coordinates
 typedef struct {
     float x, y;
 } vec2;
@@ -110,7 +110,7 @@ typedef struct XFadeEasingContext {
 typedef struct XTransition {
     float progress; // transition progress, 0.0 to 1.0 (cf. P)
     float ratio; // frame width / height (cf. W / H)
-    vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
+    vec2 p; // pixel position, .y==0 is bottom (cf. X, Y)
     vec4 a, b; // plane data at p (cf. A, B)
     const struct XFadeEasingContext *k; // the XFadeEasingContext
 } XTransition;
@@ -182,9 +182,9 @@ static float rp_circular(const XFadeEasingContext *k, float t)
 static float rp_elastic(const XFadeEasingContext *k, float t)
 {
     const int mode = k->eargs.e.mode;
-    if (mode == EASE_IN) return --t, cosf(20 * t * M_PIf / 3) * exp2f(10 * t);
-    if (mode == EASE_OUT) return 1 - cosf(20 * t * M_PIf / 3) / exp2f(10 * t);
-    float p = t + t - 1, c = cosf(40 * p * M_PIf / 9) / 2; p = exp2f(10 * p);
+    if (mode == EASE_IN) return --t, cosf(t * (M_PIf * 20.f / 3)) * exp2f(10 * t);
+    if (mode == EASE_OUT) return 1 - cosf(t * (M_PIf * 20.f / 3)) / exp2f(10 * t);
+    float p = t + t - 1, c = cosf(p * (M_PIf * 40.f / 9)) / 2; p = exp2f(10 * p);
     return (t < P5f) ? c * p : 1 - c / p;
 }
 
@@ -314,7 +314,7 @@ static float css_steps(const XFadeEasingContext *k, float t)
 
 #define sign(x) FFDIFFSIGN((x), 0)
 
-// scalar operations --------------------------------------------------
+// scalar functions --------------------------------------------------
 
 static inline float degrees(float a) { return a * 180 / M_PIf; }
 static inline float radians(float a) { return a / 180 * M_PIf; }
@@ -327,14 +327,15 @@ static inline bool betweenUI(float x) { return betweenf(x, 0, 1); } // within un
 static inline float clipUI(float x) { return av_clipf(x, 0, 1); } // clip to unit interval
 static inline float frandf(float x, float y)
 {
-    return fract(sin(x * 12.9898 + y * 78.233) * 43758.5453); // doubles render like GL Transitions
+    return fract(sinf(x * 12.9898f + y * 78.233f) * 43758.5453f);
+//  return fract(sin(x * 12.9898 + y * 78.233) * 43758.5453); // doubles render like GL Transitions
 }
 static inline float r2f(AVRational r) { return r.num / (float)r.den; } // cf. av_q2d()
 
-// position operations --------------------------------------------------
+// coordinate functions --------------------------------------------------
 
 static inline vec2 vec2f(float f) { return VEC2(f, f); }
-static inline vec2 vec2i(ivec2 p) { return VEC2(p.x, p.y); }
+static inline vec2 vec2i(ivec2 p) { return VEC2(p.x, p.y); } // as float
 static inline vec2 flip2(vec2 p) { return VEC2(p.y, p.x); }
 static inline vec2 add2f(vec2 p, float f) { return VEC2(p.x + f, p.y + f); }
 static inline vec2 sub2f(vec2 p, float f) { return VEC2(p.x - f, p.y - f); }
@@ -356,7 +357,7 @@ static inline float length2(vec2 p) { return hypotf(p.x, p.y); }
 static inline vec2 normalize2(vec2 p) { return div2f(p, length2(p)); }
 static inline float distance2(vec2 a, vec2 b) { return length2(sub2(a, b)); }
 static inline float dot2(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
-static inline vec2 cossin2(float a) { return VEC2(cosf(a), sinf(a)); } // ASM sincosf
+static inline vec2 cossin2(float a) { return VEC2(cosf(a), sinf(a)); } // cf. sincosf()
 static inline vec2 rot2(vec2 p, float a) // clockwise
 {
     vec2 q = cossin2(a);
@@ -370,7 +371,7 @@ static inline bool betweenUI2(vec2 p) { return between2(p, 0, 1); }
 static inline vec2 mix2(vec2 a, vec2 b, float m) { return VEC2(mix(b.x, a.x, m), mix(b.y, a.y, m)); }
 static inline float frand2(vec2 p) { return frandf(p.x, p.y); }
 
-// colour operations --------------------------------------------------
+// colour functions --------------------------------------------------
 
 static inline vec4 vec4f(float f) { return VEC4(f, f, f, f); }
 static inline vec4 add4(vec4 a, vec4 b) { return VEC4(a.p0 + b.p0, a.p1 + b.p1, a.p2 + b.p2, a.p3 + b.p3); }
@@ -482,18 +483,19 @@ static vec4 sat3f(vec4 c, float s) { // set saturation
     return c;
 }
 
-// this is the colour compositing formula from PDF32000_2008.pdf 11.3.6 but simplified
-static inline float comp(float b, float f, float c, float r, float d) { return ((c - f) * d + f - b) * r + b; }
-
 // composite background, foreground & blended colours with alpha
+// this is the colour compositing formula from PDF32000_2008.pdf 11.3.6 but simplified
 // see https://stackoverflow.com/questions/40796852/mix-two-non-opaque-colors-with-hue-blend-mode/40962043
+static inline float comp(float c, float d, float f, float r, float b) { return fmaf(fmaf(c, d, f), r, b); }
 static vec4 composite(vec4 b, vec4 f, vec4 c) { // bg, fg, blended
-    c.p3 = f.p3 + b.p3 - f.p3 * b.p3; // resulting alpha
-    float r = f.p3 / c.p3;
-    c.p0 = comp(b.p0, f.p0, c.p0, r, b.p3);
-    c.p1 = comp(b.p1, f.p1, c.p1, r, b.p3);
-    c.p2 = comp(b.p2, f.p2, c.p2, r, b.p3);
-    return c;
+    float a = f.p3 + b.p3 - f.p3 * b.p3; // resulting alpha
+    float r = f.p3 / a;
+    c = sub3(c, f);
+    f = sub3(f, b);
+    return VEC4(comp(c.p0, b.p3, f.p0, r, b.p0),
+                comp(c.p1, b.p3, f.p1, r, b.p1),
+                comp(c.p2, b.p3, f.p2, r, b.p2),
+                a);
 }
 
 // blend background & foreground colours
@@ -794,7 +796,7 @@ static vec4 gl_BowTie(const XTransition *e) // by huynx
             dirToPt = sub2(c, p);
             float dist2 = fabsf(dot2(normalize2(perpDir), dirToPt));
             float min_dist = fminf(dist1, dist2);
-            float m = (min_dist < 0.005f) ? min_dist / 0.005f : 1;
+            float m = (min_dist < 0.005f) ? min_dist * 200 : 1;
             return mix4(e->a, e->b, m);
         }
         if (vertical)
@@ -816,7 +818,7 @@ static vec4 gl_ButterflyWaveScrawler(const XTransition *e) // by mandubian
     vec2 o = sub2f(mul2f(e->p, sinf(e->progress * amplitude)), P5f);
     vec2 h = { 1, 0 }; // horizontal vector
     float theta = acosf(dot2(o, h)) * waves; // butterfly polar function
-    float disp = (expf(cosf(theta)) - cosf(4 * theta) * 2 + powf(sinf((theta * 2 - M_PIf) / 24), 5)) / 10;
+    float disp = (expf(cosf(theta)) - cosf(4 * theta) * 2 + powf(sinf((theta * 2 - M_PIf) / 24), 5)) * 0.1f;
     // end compute
     float dp = disp * e->progress;
     vec4 texTo = getToColor(add2f(e->p, disp - dp)); // inv
@@ -945,7 +947,7 @@ static vec4 gl_CrossZoom(const XTransition *e) // by rectalogic
     // randomize the lookup values to hide the fixed number of samples
     float offset = frand2(e->p);
     for (int t = 0; t <= 40; t++) {
-        float percent = (t + offset) / 40;
+        float percent = (t + offset) * 0.025f;
         float weight = 4 * (percent - percent * percent);
         vec2 p = add2(e->p, mul2f(toCenter, percent * strength2));
         vec4 c = mix4(getFromColor(p), getToColor(p), dissolve);
@@ -983,10 +985,10 @@ static vec4 gl_cube(const XTransition *e) // by gre
     if (betweenUI2(toP))
         return getToColor(toP);
     vec4 c = background;
-    fromP.y = fromP.y * -1.2f - floating / 100;
+    fromP.y = fromP.y * -1.2f - floating * 0.01f;
     if (betweenUI2(fromP))
         c = mix4(background, getFromColor(fromP), reflection * (1 - fromP.y));
-    toP.y = toP.y * -1.2f - floating / 100;
+    toP.y = toP.y * -1.2f - floating * 0.01f;
     if (betweenUI2(toP))
         c = mix4(background, getToColor(toP), reflection * (1 - toP.y));
     return c;
@@ -1560,9 +1562,10 @@ static vec4 gl_Rolls(const XTransition *e) // by Mark Craig
         uvi.x = 1 - uvi.x;
     if (type >= 2)
         uvi.y = 1 - uvi.y;
-    vec2 uv2 = rot2(VEC2(uvi.x * e->ratio, uvi.y), theta);
-    if (betweenf(uv2.x, 0, e->ratio) && betweenf(uv2.y, 0, 1)) {
-        uv2.x /= e->ratio;
+    uvi.x *= e->ratio;
+    vec2 uv2 = rot2(uvi, theta);
+    uv2.x /= e->ratio;
+    if (betweenUI2(uv2)) {
         if (!(type == 1 || type == 2))
             uv2.x = 1 - uv2.x;
         if (type >= 2)
@@ -1586,9 +1589,10 @@ static vec4 gl_RotateScaleVanish(const XTransition *e) // by Mark Craig
     vec2 c2 = rot2(VEC2((e->p.x - P5f) * e->ratio, e->p.y - P5f), theta);
     float rad = fmaxf(0.00001f, 1 - t);
     vec2 uv2 = { c2.x / rad + e->ratio / 2, c2.y / rad + P5f };
+    uv2.x /= e->ratio;
     vec4 col3, ColorTo = reverseEffect ? e->a : e->b;
-    if (betweenf(uv2.x, 0, e->ratio) && betweenf(uv2.y, 0, 1))
-        uv2.x /= e->ratio, col3 = reverseEffect ? getToColor(uv2) : getFromColor(uv2);
+    if (betweenUI2(uv2))
+        col3 = reverseEffect ? getToColor(uv2) : getFromColor(uv2);
     else if (fadeInSecond)
         col3 = background;
     else
@@ -2100,19 +2104,19 @@ static vec4 t_Natural_vignetting(const XTransition *e) // by ApoorvaJ (4lSXDm)
     float t = cosf(e->progress * M_2PIf) / 2 + 1;
     vec2 v = mul2f(sub2f(e->p, P5f), e->ratio * 2);
     float r = dot2(v, v) * t * t + 1;
-    return vec3f(1 / r / r);
+    return vec3f(1 / (r * r));
 }
 
 static vec4 t_simple_plasma(const XTransition *e) // by Kastor (ldBGRR)
 {
     float t = e->progress;
     vec2 p = sub2f(mul2f(e->p, 2), 1);
-    float mov0 = p.x + p.y + cosf(sinf(t) * 2) * 100 + sinf(p.x / 100) * 1000;
+    float mov0 = p.x + p.y + cosf(sinf(t) * 2) * 100 + sinf(p.x * 0.01f) * 1000;
     float mov1 = p.y / 0.9f + t;
     float mov2 = p.x / 0.2f;
     float r = fabsf(sinf(mov1 + t) / 2 + mov2 / 2 - mov1 - mov2 + t);
-    float g = fabsf(sinf(r + sinf(mov0 / 1440 + t) + sinf(p.y / 40 + t) + sinf((p.x + p.y) / 100) * 3));
-    float b = fabsf(sinf(g + cosf(mov1 + mov2 + g) + cosf(mov2) + sinf(p.x / 1000)));
+    float g = fabsf(sinf(r + sinf(mov0 / 1440 + t) + sinf(p.y * 0.025f + t) + sinf((p.x + p.y) * 0.01f) * 3));
+    float b = fabsf(sinf(g + cosf(mov1 + mov2 + g) + cosf(mov2) + sinf(p.x * 0.001f)));
     return VEC3(g, b, r);
 }
 
@@ -2259,9 +2263,10 @@ static void xtransition##name##_transition(AVFilterContext *ctx,               \
                 e.b.p[p] = line##div(b, p, y)[x] / mv; /* to colour */         \
             } while (++p < k->n);                                              \
             vec4 c = k->xtransitionf(&e); /* transition colour */              \
-            do                                                                 \
-                --p, line##div(out, p, y)[x] = scaleUI(c.p[p], k->mv);         \
-            while (p > 0);                                                     \
+            do {                                                               \
+                --p;                                                           \
+                line##div(out, p, y)[x] = scaleUI(c.p[p], k->mv); /* clips */  \
+            } while (p > 0);                                                   \
         }                                                                      \
     }                                                                          \
 }
@@ -2413,7 +2418,7 @@ static int parse_linear_easing(AVFilterContext *ctx, char *args)
                 x = strtof(e, &t);
                 if (t == e || *t != '%')
                     return xe_error(ctx, "bad number %s in easing option\n", e);
-                x = d = fmaxf(x / 100, d);
+                x = d = fmaxf(x * 0.01f, d);
                 if (i)
                     n++;
             }
@@ -2854,7 +2859,7 @@ static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bo
     float g = colour.p0;
     if (e->k->is_rgb)
         g = (g + colour.p1 + colour.p2) / 3; // simple average
-    g /= 5;
+    g *= 0.2f;
     g += 0.8f * (powf(1 - fabsf(yc / cylinderRadius), 0.2f) / 2 + P5f);
     colour.p0 = g;
     colour.p1 = colour.p2 = e->k->is_rgb ? g : P5f;
@@ -2911,7 +2916,7 @@ static vec4 stereo_viewer(const XTransition *e, float zoom, float radius, bool f
     if (e->progress < 0.1f || e->progress >= 0.9f) {
         // 0.0-0.1: zoom out and round the corners
         // 0.9-1.0: zoom in and square the corners
-        angle = (P5f - fabsf(P5f - e->progress)) / 0.1f;
+        angle = (P5f - fabsf(P5f - e->progress)) * 10;
         z = div2f(c, 1 + angle * (zoom - 1));
         if (in_rounded_mask(z, mul2f(r, angle))) {
             z = add2f(z, P5f);
