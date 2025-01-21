@@ -147,11 +147,11 @@ This is easy:
 use latest stable release at [Download Source Code](https://ffmpeg.org/download.html) then extract the .xz archive:  
 `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
 1. `cd ffmpeg` and patch libavfilter/vf_xfade.c:
-   - use patch file (latest stable release only):
+   - download [patched vf_xfade.c](src/vf_xfade.c) which works with latest stable ffmpeg release
+   - or use patch file (latest stable release only):
      - download [vf_xfade.patch](src/vf_xfade.patch) to ffmpeg source root
      - run `patch -buN -p0 -i vf_xfade.patch` (saves backup as `vf_xfade.c.orig`)
      - remove `vf_xfade.patch`
-   - or download [patched vf_xfade.c](src/vf_xfade.c) which works with latest stable ffmpeg release
    - or patch manually, [click here](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html), only 9 small changes  
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
 1. install required library packages:  
@@ -252,7 +252,7 @@ ld(7) * (1 - ld(3)) + B * ld(3)
 
 ### Generic, for easing other filters
 
-These ease `ld(0)` instead od `P` - see [Easing other filters](#easing-other-filters).
+These ease `ld(0)` instead of `P` - see [Easing other filters](#easing-other-filters).
 
 ---
 
@@ -589,7 +589,7 @@ However GL Transition and Xfade APIs are broadly similar and non-complex algorit
 | progress | `uniform float progress` <br/> moves from 0&nbsp;to&nbsp;1 | `P` <br/> moves from 1 to 0 | `progress ≡ 1 - P` |
 | ratio | `uniform float ratio` | `W / H` | |
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | GL width and height are normalised <br/> `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
-| texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | GL colour values are normalised <br/> GL function runs for every pixel position <br/> xfade `expr` runs for every component (plane) and pixel position |
+| texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | GL colour values are normalised <br/> GL function runs for every pixel <br/> xfade `expr` runs for each component (plane) of every pixel |
 | plane data | normalised RGBA | GBRA or YUVA unsigned integer | xfade bit depth depends on pixel format |
 
 Note that like GL Transitions, the custom ffmpeg variant operates on
@@ -652,12 +652,12 @@ static vec4 gl_randomsquares(const XTransition *e)
 }
 ```
 Here, `vec4` and `ivec2` simulate GLSL vector types
-and `XTransition` encapsulates all data pertaining to a transition:
+and `XTransition` encapsulates data pertaining to a transition:
 ```c
 typedef struct XTransition {
     float progress; // transition progress, 0.0 to 1.0 (cf. P)
     float ratio; // frame width / height (cf. W / H)
-    vec2 p; // pixel position in slice, .y==0 is bottom (cf. X, Y)
+    vec2 p; // pixel position, .y==0 is bottom (cf. X, Y)
     vec4 a, b; // plane data at p (cf. A, B)
     ...
 } XTransition;
@@ -683,15 +683,16 @@ static void xtransition_transition(AVFilterContext *ctx,
         e.p.y = 1 - y / mh; // y=0 is bottom
         for (int x = 0, p = 0; x <= k->mw; x++) {
             e.p.x = x / mw;
-            e.a = e.b = VEC4(0, P5f, P5f, 1); // plane defaults
+            e.a = e.b = VEC4(0, 0.5, 0.5, 1); // plane defaults
             do {
                 e.a.p[p] = line(a, p, y)[x] / mv; // from colour
                 e.b.p[p] = line(b, p, y)[x] / mv; // to colour
             } while (++p < k->n);
             vec4 c = k->xtransitionf(&e); // transition colour
-            do
-                --p, line(out, p, y)[x] = scaleUI(c.p[p], k->mv);
-            while (p > 0);
+            do {
+                --p;
+                line(out, p, y)[x] = scaleUI(c.p[p], k->mv); // clips
+            } while (p > 0);
         }
     }
 }
@@ -832,9 +833,9 @@ These conventions are adopted:
   (most GL Transition backgrounds are named differently)
 
 Consequently a value of exactly 1 is rendered white but 2 (RGBA `#00000002`) is almost transparent black.
-To get R=0,G=0,B=1 then specify the colour using hexadecimal notation, `#000001`.
+To get R=0,G=0,B=1 specify the colour using hexadecimal notation, `#000001`.
 
-The custom expression variant only suports fully transparent and opaque grey values, -1 and 0.0 to 1.0,
+The custom expression variant only suports transparent white and opaque grey values, -1 and 0.0 to 1.0,
 it does not support colour or textures.  
 e.g. `gl_swap(, , , 0.67)` for 67% grey background (other parameters take default values).
 
@@ -884,10 +885,10 @@ Transparent background transitions make for good
 > this features is experimental –
 > for generic background effects use the ffmpeg
 > [overlay](https://ffmpeg.org/ffmpeg-filters.html#overlay-1) filter
-> in conjunction with xfade-easing.
+> in conjunction with [transparent](#transparency) xfade-easing.
 
 Textures are shader effects ported from [Shadertoy](https://www.shadertoy.com/),
-mainly for transition backgrounds selected with the `background` parameter,
+mainly for transition backgrounds selected with the `background` parameter
 but any colour parameter can select a texture – see [Colour parameters](#colour-parameters).
 They are referenced by a negative index, where
 - even values show a moving texture
@@ -979,9 +980,11 @@ ffmpeg -i gallifrey.png -i alpha.mkv -filter_complex '[0]scale=250:-2[b]; [b][1]
 
 ![alpha](assets/alpha.gif)
 
-This demonstrates the additional `trkMat` option which tracks the Tardis alpha value to expose Skaro behind,
+This demonstrates the additional `trkMat` parameter which tracks the Tardis alpha value to expose Skaro behind,
 then Gallifrey’s Citadel when the transition ends, both planets being opaque images.  
 (trkMat is only availble in the custom ffmpeg variant)
+
+Transition `gl_StereoViewer` also has a `trkMat` parameter for foreground cutout effects.
 
 See also the example under [Transition `gl_SimpleBookCurl`](#transition-gl_simplebookcurl)
 which overlays a transparent transition.
@@ -993,7 +996,7 @@ which overlays a transparent transition.
 (custom ffmpeg only but works on built-in xfade transitions)
 
 The generic xfade `reverse` option reverses the transition and/or easing effects.
-It takes a single digit:
+It takes a bitmapped number:
 
 - `0` no reverse (default)  
 - `1` swap the inputs and reverse the transition effect  
@@ -1009,16 +1012,16 @@ Most standard xfade transitions have reversed equivalents, e.g. `wipeleft` and `
 Unlike standard easings, CSS easings also have no mirror-image reversal mode.
 
 *Example*: using the same CSS Linear coefficients [as above](#linear-easing)  
-easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'` transition: `gl_FanUp` reverse: `0`–`3`
+easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'`, transition: `gl_FanUp`, reverse: `0`–`3`
 
 ![reverse effect](assets/reverse.gif)
 
 There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
-Other transitions reversing is particurly useful for are
+Reversing is also particurly useful for
 `squeezeh`, `squeezev`,
-`gl_BookFlip`, `gl_cube`, `gl_pinwheel`, `gl_Swirl`.
+`gl_BookFlip`, `gl_BowTie`, `gl_cube`, `gl_doorway`, `gl_heart`, `gl_pinwheel`, `gl_rotateTransition`, `gl_Slides`, `gl_Swirl`, `gl_swap`.
 
-This is a powerful feature that almost doubles the number of transitions available.
+This is a powerful feature that considerably increases the number of transitions available.
 
 ---
 
@@ -1072,16 +1075,16 @@ Other faster ways to use GL Transitions with FFmpeg are:
 [xfade-easing.sh](src/xfade-easing.sh) is a Bash 4 shell wrapper for ffmpeg. It can:
 - generate custom easing and transition expressions for the xfade `expr` parameter
 - generate easing graphs via gnuplot (especially useful for CSS easings)
-- create demo videos for testing
-- concenate visual media with eased transitions for presentations and slideshows.
+- create eased transition videos from two visual media sources
+- concenate multiple visual media with eased transitions for presentations and slideshows.
 
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.3.1 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.3.2 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
-Also creates easing graphs, demo videos, presentations and slideshows.
+Also creates easing graphs, videos, presentations and slideshows.
 See https://github.com/scriptituk/xfade-easing
 Usage: xfade-easing.sh [options] [image/video inputs]
 Options:
@@ -1224,7 +1227,7 @@ creates image file bounce.png of the bounce easing scaled to 500px wide with tit
 
 The plots above in [Standard easings](#standard-easings-robert-penner) show test plots for all standard easings and all three modes (in, out and in-out).
 
-### Generating demo videos
+### Generating videos
 
 Videos are generated using the `-v` option and customised with the `-b`,`-r`,`-f`,`-g`,`-z`,`-d`,`-i`,`-l`,`-j`,`-n`,`-u`,`-k`,`-o` options.
 
