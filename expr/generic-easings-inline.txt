@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.3.1
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.3.2
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Inline easing expressions for generic filter_complex filterchains
@@ -70,13 +70,13 @@ CIRCULAR-IN-OUT
 st(0,if(lt(ld(0),0.5),1-sqrt(1-4*ld(0)*ld(0)),1+sqrt(4*ld(0)*(2-ld(0))-3))/2)
 
 ELASTIC-IN
-st(0,cos(20*(1-ld(0))*PI/3)/2^(10*(1-ld(0))))
+st(0,cos((1-ld(0))*20.944)/2^(10*(1-ld(0))))
 
 ELASTIC-OUT
-st(0,1-cos(20*ld(0)*PI/3)/2^(10*ld(0)))
+st(0,1-cos(ld(0)*20.944)/2^(10*ld(0)))
 
 ELASTIC-IN-OUT
-st(0,st(1,cos(40*st(2,2*ld(0)-1)*PI/9)/2);st(2,2^(10*ld(2)));if(lt(ld(0),0.5),ld(1)*ld(2),1-ld(1)/ld(2)))
+st(0,st(1,cos(st(2,2*ld(0)-1)*13.9626)/2);st(2,2^(10*ld(2)));if(lt(ld(0),0.5),ld(1)*ld(2),1-ld(1)/ld(2)))
 
 BACK-IN
 st(0,ld(0)*ld(0)*(ld(0)*2.70158-1.70158))

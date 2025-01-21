@@ -1,4 +1,4 @@
-# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.3.1
+# FFmpeg XFade custom easing and transition expressions, made with xfade-easing.sh v. 3.3.2
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Script uneased transition expressions (rgb24) for filter_complex_script filterchains
@@ -837,7 +837,7 @@ if(gt(ld(3), 0),
  st(4, H - ld(4) * W);
  st(1, ifnot(PLANE, a0(ld(3),ld(4)), ifnot(1-PLANE, a1(ld(3),ld(4)), ifnot(2-PLANE, a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
  st(2, ifnot(PLANE, b0(ld(3),ld(4)), ifnot(1-PLANE, b1(ld(3),ld(4)), ifnot(2-PLANE, b2(ld(3),ld(4)), b3(ld(3),ld(4))))));
- 1.73205 * (1 - ld(0)) + ld(2) * ld(0),
+ ld(1) * (1 - ld(0)) + ld(2) * ld(0),
  A * (1 - ld(0)) + B * ld(0)
 )
 
