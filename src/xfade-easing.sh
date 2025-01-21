@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.3.2
+export VERSION=3.3.3
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -904,13 +904,12 @@ _gl_transition() { # transition args
     gl_angular) # by Fernando Kuteken
         _make "st(1, ${a[0]:-90});" # startingAngle
         _make "st(2, ${a[1]:-0});" # clockwise
-        _make 'st(3, 1 - P);' # progress
         _make 'st(1, ld(1) * PI / 180);' # offset
         _make 'st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(1));' # angle
         _make 'st(1, ld(1) / 2 / PI + 0.5);' # normalizedAngle
         _make 'if(ld(2), st(1, -ld(1)));'
         _make 'st(1, fract(ld(1)));'
-        _make 'if(step(ld(1), ld(3)), B, A)'
+        _make 'if(step(ld(1), 1 - P), B, A)'
         ;;
     gl_Bars) # by Mark Craig
         _make "st(1, ${a[0]:-0});" # vertical
@@ -1381,8 +1380,7 @@ _gl_transition() { # transition args
         local SQRT3=$(_calc 'sqrt(3)')
         _make "st(1, ${a[0]:-50});" # steps
         _make "st(2, ${a[1]:-20});" # horizontalHexagons
-        _make 'st(0, 1 - P);' # progress
-        _make 'st(3, 2 * min(ld(0), 1 - ld(0)));' # dist
+        _make 'st(3, 2 * min(P, 1 - P));' # dist
         _make 'if(gt(ld(1), 0), st(3, ceil(ld(3) * ld(1)) / ld(1)));'
         _make 'if(gt(ld(3), 0),'
         _make " st(2, $SQRT3 / 3 * ld(3) / ld(2));" # size
@@ -1410,8 +1408,8 @@ _gl_transition() { # transition args
         _make ' st(4, H - ld(4) * W);'
         _make ' st(1, a(ld(3), ld(4)));'
         _make ' st(2, b(ld(3), ld(4)));'
-        _make " mix(ld(1), ld(2), ld(0)),"
-        _make ' mix(A, B, ld(0))'
+        _make " mix(ld(2), ld(1), P),"
+        _make ' mix(B, A, P)'
         _make ')'
         ;;
     gl_InvertedPageCurl) # by Hewlett-Packard
@@ -1515,10 +1513,9 @@ _gl_transition() { # transition args
         _make "st(1, ${a[0]:-1});" # speed
         _make "st(2, ${a[1]:-1});" # angle
         _make "st(3, ${a[2]:-1.5});" # power
-        _make 'st(0, 1 - P);' # progress
         _make 'st(4, X / W - 0.5);' # p.x
         _make 'st(5, 0.5 - Y / H);' # p.y
-        _make 'st(1, ld(0) ^ ld(3) * ld(1));' # t
+        _make 'st(1, (1 - P) ^ ld(3) * ld(1));' # t
         _make 'st(3, 0);' # i
         _make 'while(lte(st(3, ld(3) + 1), 7),'
         _make ' st(6, sin(ld(1)));'
@@ -1533,9 +1530,9 @@ _gl_transition() { # transition args
         _make 'st(5, (1 - ld(5)) * H);'
         _make 'st(7, a(ld(4), ld(5)));'
         _make 'st(8, b(ld(4), ld(5)));'
-        _make 'st(1, mix(A, B, ld(0)));'
-        _make 'st(2, mix(ld(7), ld(8), ld(0)));'
-        _make 'st(3, 1 - 2 * abs(ld(0) - 0.5));'
+        _make 'st(1, mix(B, A, P));'
+        _make 'st(2, mix(ld(8), ld(7), P));'
+        _make 'st(3, 1 - 2 * abs(P - 0.5));'
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
     gl_Lissajous_Tiles) # by Boundless
@@ -1601,8 +1598,7 @@ _gl_transition() { # transition args
         _make 'st(6, frand((ld(6) + 1), (ld(6) + 1), 6));' # d
         _make 'st(5, mix(ld(1), ld(8), ld(3)));'
         _make 'st(5, ld(5) + (ld(7) - ld(1)) * ld(4) * (1 - ld(3)) + (ld(6) - ld(8)) * ld(3) * ld(4));' # n
-        _make 'st(1, 1 - P);' # progress
-        _make 'st(1, mix(-ld(2), (1 + ld(2)), ld(1)));' # p
+        _make 'st(1, mix((1 + ld(2)), (-ld(2)), P));' # p
         _make 'st(3, ld(1) + ld(2));' # higher
         _make 'st(2, ld(1) - ld(2));' # lower
         _make 'st(1, 1 - smoothstep(ld(2), ld(3), ld(5), 1));' # 1 - q
@@ -1700,7 +1696,7 @@ _gl_transition() { # transition args
         _make 'st(1, floor(ld(1) * X / W));'
         _make 'st(2, floor(ld(2) * (1 - Y / H)));'
         _make 'st(4, frand(ld(1), ld(2), 4));' # r
-        _make 'st(4, ld(4) - ((1 - P) * (1 + ld(3))));'
+        _make 'st(4, ld(4) - (1 - P) * (1 + ld(3)));'
         _make 'st(4, smoothstep(0, -ld(3), ld(4), 4));' # m
         _make 'mix(A, B, ld(4))'
         ;;
@@ -1779,19 +1775,18 @@ _gl_transition() { # transition args
     gl_rotateTransition) # by haiyoucuv
         _make 'st(1, X / W - 0.5);'
         _make 'st(2, 0.5 - Y / H);'
-        _make 'st(3, 1 - P);' # progress
-        _make 'st(5, ld(3) * PI * 2);' # angle
-        _make 'st(4, sin(ld(5)));'
-        _make 'st(5, cos(ld(5)));'
-        _make 'st(6, ld(1) * ld(5) - ld(2) * ld(4) + 0.5);'
-        _make 'st(5, ld(1) * ld(4) + ld(2) * ld(5) + 0.5);'
-        _make 'st(4, fract(ld(6)));' # p.x
-        _make 'st(5, fract(ld(5)));' # p.y
-        _make 'st(4, ld(4) * W);'
-        _make 'st(5, (1 - ld(5)) * H);'
-        _make 'st(1, a(ld(4), ld(5)));'
-        _make 'st(2, b(ld(4), ld(5)));'
-        _make 'mix(ld(1), ld(2), ld(3))'
+        _make 'st(4, (1 - P) * PI * 2);' # angle
+        _make 'st(3, sin(ld(4)));'
+        _make 'st(4, cos(ld(4)));'
+        _make 'st(5, ld(1) * ld(4) - ld(2) * ld(3) + 0.5);'
+        _make 'st(4, ld(1) * ld(3) + ld(2) * ld(4) + 0.5);'
+        _make 'st(3, fract(ld(5)));' # p.x
+        _make 'st(4, fract(ld(4)));' # p.y
+        _make 'st(3, ld(3) * W);'
+        _make 'st(4, (1 - ld(4)) * H);'
+        _make 'st(1, a(ld(3), ld(4)));'
+        _make 'st(2, b(ld(3), ld(4)));'
+        _make 'mix(ld(2), ld(1), P)'
         ;;
     gl_rotate_scale_fade) # by Fernando Kuteken
         _make "st(1, ${a[0]:-0.5});" # centre.x
@@ -1803,10 +1798,9 @@ _gl_transition() { # transition args
         _make 'st(7, hypot(ld(5), ld(6)));' # dist
         _make 'st(5, ld(5) / ld(7));' # dir.x
         _make 'st(6, ld(6) / ld(7));' # dir.y
-        _make 'st(0, 1 - P);' # progress
-        _make 'st(8, 2 * abs(ld(0) - 0.5));'
+        _make 'st(8, 2 * abs(P - 0.5));'
         _make 'st(8, ld(7) / (mix(ld(4), 1, ld(8))));' # dist / currentScale
-        _make 'st(3, 2 * PI * ld(3) * ld(0));' # angle
+        _make 'st(3, 2 * PI * ld(3) * (1 - P));' # angle
         _make 'st(4, sin(ld(3)));'
         _make 'st(3, cos(ld(3)));'
         _make 'st(7, ld(5) * ld(3) - ld(6) * ld(4));' # rotatedDir.x
@@ -1818,7 +1812,7 @@ _gl_transition() { # transition args
         _make ' st(2, (1 - ld(2)) * H);'
         _make ' st(3, a(ld(1), ld(2)));'
         _make ' st(4, b(ld(1), ld(2)));'
-        _make ' mix(ld(3), ld(4), ld(0)),'
+        _make ' mix(ld(4), ld(3), P),'
         _make " st(1, ${a[4]:-0.15});" # background
         _make ' colour(ld(1))'
         _make ')'
