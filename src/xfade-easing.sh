@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.3.1
+export VERSION=3.3.2
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -547,10 +547,12 @@ _rp_easing() { # easing mode
         io=$made
         ;;
     elastic)
-        i='cos(20 * R * PI / 3) / 2^(10 * R)'
-        o='1 - cos(20 * T * PI / 3) / 2^(10 * T)'
+        local PI20_3=$(_calc 'atan2(0,-1) * 20 / 3')
+        local PI40_9=$(_calc 'atan2(0,-1) * 40 / 9')
+        i="cos(R * $PI20_3) / 2^(10 * R)"
+        o="1 - cos(T * $PI20_3) / 2^(10 * T)"
         _make ''
-        _make 'st(1, cos(40 * st(2, 2 * T - 1) * PI / 9) / 2);'
+        _make "st(1, cos(st(2, 2 * T - 1) * $PI40_9) / 2);"
         _make 'st(2, 2^(10 * ld(2)));'
         _make 'if(lt(T, 0.5), ld(1) * ld(2), 1 - ld(1) / ld(2))'
         io=$made
@@ -1408,7 +1410,7 @@ _gl_transition() { # transition args
         _make ' st(4, H - ld(4) * W);'
         _make ' st(1, a(ld(3), ld(4)));'
         _make ' st(2, b(ld(3), ld(4)));'
-        _make " mix($SQRT3, ld(2), ld(0)),"
+        _make " mix(ld(1), ld(2), ld(0)),"
         _make ' mix(A, B, ld(0))'
         _make ')'
         ;;
