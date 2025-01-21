@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.1] - 2025-01-21
+
+### Added
+
+- `-o` option to `xfade-easing.sh` script to append ffmpeg options for generated video
+- raw encoding for `xfade-easing.sh` generated videos for fast batch processing  
+  (to decode: `ffmpeg -f rawvideo -pixel_format <f> -framerate <r> -video_size <s> -i <f.raw> …`)
+
+### Changed
+
+- vp9 (webm) encoding tuned to 1080p in `xfade-easing.sh` script
+- sundry custom expression optimisations in `xfade-easing.sh` script
+- many README updates
+
+### Fixed
+
+- README: need `-u` unified context patch option in build
+
 ## [3.3.0] - 2025-01-10
 
 ### Changed
@@ -85,12 +103,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `gl_StarWipe` custom transition expression
-- `-g` option for gif transparent colour in `xfade_easing.sh` script
+- `-g` option for gif transparent colour in `xfade-easing.sh` script
 
 ### Changed
 
-- cache transition vars during config in `xfade_easing.h` C file
-- optimise `gl_Lissajous_Tiles` in `xfade_easing.h` C file
+- cache transition vars during config in `xfade-easing.h` C file
+- optimise `gl_Lissajous_Tiles` in `xfade-easing.h` C file
 - README transparency: details about transparent GIFs
 - README build instructions: info about external component packages
 
