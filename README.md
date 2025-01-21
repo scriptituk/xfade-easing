@@ -430,7 +430,7 @@ All GLSL transitions adapted to the GL Transition Specification are in [glsl/](g
 
 Most of the transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) and many from elsewhere
 have been here transpiled into native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing.
-The list shows the names, authors, and customisation parameters and defaults:
+The list shows the transition names, customisation parameters and defaults, and authors:
 
 | transition | parameters (=default) | author |
 | :--------: | :-------------------: | :----: |
@@ -501,7 +501,7 @@ The list shows the names, authors, and customisation parameters and defaults:
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
-Here are the ported GLSL transitions with default parameters and no easing, supported by the custom ffmpeg variant.
+Here are the ported GLSL transitions with default parameters and no easing supported by the custom ffmpeg variant.
 Check [above](#ported-glsl-transitions) for the dozen or so that are not supported by the custom expression variant.
 
 See also the [GL Transitions Gallery](https://gl-transitions.com/gallery)
@@ -581,14 +581,15 @@ etc.
 
 #### Porting
 
-GLSL shader code runs on the GPU in real time. However GL Transition and Xfade APIs are broadly similar and non-complex algorithms are easily ported using simple vector resolution.
+GLSL shader code runs on the GPU in real time unlike ffmpeg.
+However GL Transition and Xfade APIs are broadly similar and non-complex algorithms are easily ported using simple vector resolution.
 
 | context | GL Transitions | Xfade filter | notes |
 | :---: | :---: | :---: | --- |
 | progress | `uniform float progress` <br/> moves from 0&nbsp;to&nbsp;1 | `P` <br/> moves from 1 to 0 | `progress ≡ 1 - P` |
 | ratio | `uniform float ratio` | `W / H` | |
-| coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | GL width and height are normalised <br/> `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
-| texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | GL colour values are normalised <br/> GL function runs for every pixel position <br/> xfade `expr` runs for every texture component (plane) and pixel position |
+| coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | GL width and height are normalised <br/> `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
+| texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | GL colour values are normalised <br/> GL function runs for every pixel position <br/> xfade `expr` runs for every component (plane) and pixel position |
 | plane data | normalised RGBA | GBRA or YUVA unsigned integer | xfade bit depth depends on pixel format |
 
 Note that like GL Transitions, the custom ffmpeg variant operates on
@@ -989,7 +990,7 @@ which overlays a transparent transition.
 
 ## Reversing xfade effects
 
-(custom ffmpeg only)
+(custom ffmpeg only but works on built-in xfade transitions)
 
 The generic xfade `reverse` option reverses the transition and/or easing effects.
 It takes a single digit:
@@ -1014,6 +1015,7 @@ easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'` transition: `gl_FanUp` reverse: `
 
 There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 Other transitions reversing is particurly useful for are
+`squeezeh`, `squeezev`,
 `gl_BookFlip`, `gl_cube`, `gl_pinwheel`, `gl_Swirl`.
 
 This is a powerful feature that almost doubles the number of transitions available.
@@ -1022,13 +1024,13 @@ This is a powerful feature that almost doubles the number of transitions availab
 
 ## Custom expression performance
 
-FFmpeg incorporates a simple arithmetic expression evaluator written as an LL(1) recursive descent parser.
-Custom `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in
+FFmpeg incorporates a simple arithmetic expression evaluator implemented as a LL(1) recursive descent parser,
+so custom `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in
 [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c).
 That expression is then executed for every pixel in each plane, which obviously incurs a performance hit,
-considerably exacerbated by disabling threading in order to use the `st()` and `ld()` variables shared between slices
+considerably exacerbated by disabling threading in order to use the `st()` and `ld()` state variables shared between slices
 (a slice is a range of frame lines processed by a thread job).
-So custom transition expressions are not fast despite the pre-parse.
+So custom transition expressions are very slow despite the pre-parse.
 
 Based on empirical timings scaled by benchmark scores ([Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks))
 the time to process a 3-second transition of HD720 (1280x720) 3-plane media (rgb24) through a null muxer on M1-M3 Macs is roughly:
@@ -1041,7 +1043,7 @@ For an alpha plane, add a third.
 For 2017‑19 Macs double it.  
 For 2013‑16 Macs triple it.
 
-Mac model performance varies enormously so these Mac vintage dates are only approximate.
+Mac model performance varies enormously so these vintage dates are only approximate.
 Windows performance has not been measured.
 
 The slowest supported transition `gl_powerKaleido` is impractical for most purposes, taking over 15 minutes.
@@ -1056,7 +1058,7 @@ While much slower than a GPU, CPU processing is at least tolerable.
 Unlike built-in xfade transitions the custom ffmpeg C code in [xfade-easing.h](src/xfade-easing.h) deploys a single pixel iterator for all extended transition functions which in turn operate on all planes at once.
 And it does not require `-filter_complex_threads 1`.
 
-Performance-wise, custom expressions are slower by a factor of 41 (median), 47 (mean) with a huge standard deviation of 26!
+Performance-wise, custom expressions are slower by a factor of 47 (mean) with a huge standard deviation of 26!
 
 Other faster ways to use GL Transitions with FFmpeg are:
 - [gl-transition-scripts](https://www.npmjs.com/package/gl-transition-scripts) includes a Node.js CLI script `gl-transition-render` which can render multiple GL Transitions and images for FFmpeg processing
@@ -1224,7 +1226,7 @@ The plots above in [Standard easings](#standard-easings-robert-penner) show test
 
 ### Generating demo videos
 
-Videos are generated using the `-v` option and customised with the `-b`,`-r`,`-f`,`-g`,`-z`,`-d`,`-i`,`-l`,`-j`,`-n`,`-u`,`-k` options.
+Videos are generated using the `-v` option and customised with the `-b`,`-r`,`-f`,`-g`,`-z`,`-d`,`-i`,`-l`,`-j`,`-n`,`-u`,`-k`,`-o` options.
 
 > [!NOTE]
 > all transition effect demos on this page are animated GIFs regardless of the commands shown
