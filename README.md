@@ -82,11 +82,13 @@ The second line is the  transition expression $t(e(P))$ (`wipedown`) which loads
 The semicolon token combines expressions.
 
 > [!NOTE]
-> ffmpeg option `-filter_complex_threads 1` is required because ffmpeg expression variables (the `st()` & `ld()` functions) are shared between slice processing jobs and therefore not thread-safe, consequently processing is slower
+> ffmpeg option `-filter_complex_threads 1` is required because ffmpeg expression state variables (the `st()` & `ld()` functions) are shared between slice processing jobs and therefore not thread-safe, consequently processing is slower
 
 ### Getting the expressions
 
-In this example you can copy the easing expression from file [easings-inline.txt](expr/easings-inline.txt) and the transition expression from [transitions-rgb24-inline.txt](expr/transitions-rgb24-inline.txt) or [transitions-yuv420p-inline.txt](expr/transitions-yuv420p-inline.txt).
+In this example you can copy the easing expression from file [xfade-easings-inline.txt](expr/xfade-easings-inline.txt)
+and the transition expression from [eased-transitions-rgb24-inline.txt](expr/eased-transitions-rgb24-inline.txt)
+or [eased-transitions-yuv420p-inline.txt](expr/eased-transitions-yuv420p-inline.txt).
 Those contain inline expressions for CLI use.
 
 Alternatively use the [CLI script](#cli-script):
@@ -102,7 +104,9 @@ dumps the xfade `expr` parameter:
 
 Some expressions are very long, so using a filtergraph script keeps things manageable and readable.
 
-For this same example you can copy the easing expression from file [easings-script.txt](expr/easings-script.txt) and the transition expression from [transitions-rgb24-script.txt](expr/transitions-rgb24-script.txt) or [transitions-yuv420p-script.txt](expr/transitions-yuv420p-script.txt).
+For this same example you can copy the easing expression from file [xfade-easings-script.txt](expr/xfade-easings-script.txt)
+and the transition expression from [eased-transitions-rgb24-script.txt](expr/eased-transitions-rgb24-script.txt)
+or [eased-transitions-yuv420p-script.txt](expr/eased-transitions-yuv420p-script.txt).
 Those contain multiline expressions for script use (but the inline expressions work too).
 
 Alternatively use [xfade-easing.sh](#cli-script) with expansion specifiers `expr='%n%X'` (see [Usage](#usage)):
@@ -186,14 +190,14 @@ This format is condensed into a single line stripped of whitespace.
 
 *Example*: `elastic out` easing (leaves progress in `st(0)`)
 ```
-st(0,cos(20*(1-P)*PI/3)/2^(10*(1-P)))
+st(0,cos((1-P)*20.944)/2^(10*(1-P)))
 ```
 
 ### Script, for -/filter_complex
 
 This format is best for expressions that are too unwieldy for inline ffmpeg commands.
 
-*Example*: `gl_rotate_scale_fade` transition (expects progress in `ld(0)` (cf. [rotate_scale_fade.glsl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/rotate_scale_fade.glsl))
+*Example*: `gl_rotate_scale_fade` transition (expects eased progress in `ld(0)`) (cf. [rotate_scale_fade.glsl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/rotate_scale_fade.glsl))
 ```
 st(1, 0.5);
 st(2, 0.5);
@@ -204,10 +208,9 @@ st(6, 1 - Y / H - ld(2));
 st(7, hypot(ld(5), ld(6)));
 st(5, ld(5) / ld(7));
 st(6, ld(6) / ld(7));
-st(0, 1 - P);
 st(8, 2 * abs(ld(0) - 0.5));
 st(8, ld(7) / (ld(4) * (1 - ld(8)) + ld(8)));
-st(3, 2 * PI * ld(3) * ld(0));
+st(3, 2 * PI * ld(3) * (1 - ld(0)));
 st(4, sin(ld(3)));
 st(3, cos(ld(3)));
 st(7, ld(5) * ld(3) - ld(6) * ld(4));
@@ -219,22 +222,22 @@ if(between(ld(1), 0, 1) * between(ld(2), 0, 1),
  st(2, (1 - ld(2)) * H);
  st(3, ifnot(PLANE, a0(ld(1),ld(2)), ifnot(1-PLANE, a1(ld(1),ld(2)), ifnot(2-PLANE, a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
  st(4, ifnot(PLANE, b0(ld(1),ld(2)), ifnot(1-PLANE, b1(ld(1),ld(2)), ifnot(2-PLANE, b2(ld(1),ld(2)), b3(ld(1),ld(2))))));
- ld(3) * (1 - ld(0)) + ld(4) * ld(0),
+ ld(4) * (1 - ld(0)) + ld(3) * ld(0),
  st(1, 0.15);
- gte(ld(1),0) * max(ld(1), eq(PLANE,3)) * 255
+ if(3-PLANE, max(ld(1), 0), gte(ld(1), 0)) * 255
 )
 ```
 
 ### Uneased, for transitions without easing
 
-These use `P` directly for progress instead of `ld(0)`. They are especially useful for non-xfade transitions where custom expressions are always needed.
+These use `P` directly for progress instead of `ld(0)`.
 
 *Example*: `gl_WaterDrop` transition (cf. [WaterDrop.glsl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/WaterDrop.glsl))
 
 ```
 st(1, 30);
 st(2, 30);
-st(3, 1 - ld(0));
+st(3, 1 - P);
 st(4, X / W - 0.5);
 st(5, 0.5 - Y / H);
 st(6, hypot(ld(4), ld(5)));
@@ -355,7 +358,7 @@ To ease other filters, store a normalised input value in `st(0,…)`, append the
 Here’s the `zoom` option expression for the zoompan filter:
 ```
 zoom='st(0, clip((time - 1) / 3, 0, 1));
-        st(0, 1 - cos(20 * ld(0) * PI / 3) / 2^(10 * ld(0)));
+        st(0, 1 - cos(ld(0) * 20.944) / 2^(10 * ld(0)));
       lerp(1, 3, ld(0))'
 ```
 The first line stores a 3 second duration delayed by 1 second normalised to a value between 0 and 1.  
@@ -591,10 +594,12 @@ However GL Transition and Xfade APIs are broadly similar and non-complex algorit
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | GL width and height are normalised <br/> `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
 | texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | GL colour values are normalised <br/> GL function runs for every pixel <br/> xfade `expr` runs for each component (plane) of every pixel |
 | plane data | normalised RGBA | GBRA or YUVA unsigned integer | xfade bit depth depends on pixel format |
+| precision | single | double | (float type) |
 
-Note that like GL Transitions, the custom ffmpeg variant operates on
+The custom ffmpeg variant, like GL Transitions, operates on single precision
 [unit interval](https://en.wikipedia.org/wiki/Unit_interval)
-coordinate and colour data, processing all planes simultaneously.
+coordinate and colour data, processing all planes together.
+It does not use SIMD (Single Instruction Multiple Data) vector processing – it seems none of ffmpeg does – but heavy use is made of inline code for compiler hints.
 
 To make the transpiled code easier to follow,
 original variable names from the GLSL and xfade source code are retained in
@@ -629,7 +634,7 @@ gl_randomsquares) # (case)
     _make 'st(1, floor(ld(1) * X / W));'
     _make 'st(2, floor(ld(2) * (1 - Y / H)));'
     _make 'st(4, frand(ld(1), ld(2), 4));' # r
-    _make 'st(4, ld(4) - ((1 - P) * (1 + ld(3))));'
+    _make 'st(4, ld(4) - (1 - P) * (1 + ld(3)));'
     _make 'st(4, smoothstep(0, -ld(3), ld(4), 4));' # m
     _make 'mix(A, B, ld(4))'
     ;;
@@ -662,7 +667,7 @@ typedef struct XTransition {
     ...
 } XTransition;
 ```
-And the transition delegate is:
+And the extended transitions delegate is:
 ```c
 static void xtransition_transition(AVFilterContext *ctx,
                                    const AVFrame *a, const AVFrame *b,
@@ -984,7 +989,7 @@ This demonstrates the additional `trkMat` parameter which tracks the Tardis alph
 then Gallifrey’s Citadel when the transition ends, both planets being opaque images.  
 (trkMat is only availble in the custom ffmpeg variant)
 
-Transition `gl_StereoViewer` also has a `trkMat` parameter for foreground cutout effects.
+Transition `gl_StereoViewer` also has a `trkMat` parameter for clean cutout effects.
 
 See also the example under [Transition `gl_SimpleBookCurl`](#transition-gl_simplebookcurl)
 which overlays a transparent transition.
@@ -1081,10 +1086,10 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.3.2 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.3.3 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
-Also creates easing graphs, videos, presentations and slideshows.
+Also creates easing graphs, demo videos, presentations and slideshows.
 See https://github.com/scriptituk/xfade-easing
 Usage: xfade-easing.sh [options] [image/video inputs]
 Options:
