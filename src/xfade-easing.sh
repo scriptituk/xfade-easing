@@ -2728,10 +2728,11 @@ Options:
     -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for PDF/EPS)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: animated gif, mkv (FFV1 lossless), mp4 (x264), webm, from file extension
+       formats: animated gif, mkv (FFV1), mp4 (H264), webm (VP9), raw, from file extension
        if - then format is the null muxer (no output)
-       if -f format has alpha then mkv and webm generate transparent video output
+       if -f format has alpha then mkv,webm,raw generate transparent video output
        for gifs see -g; if gifsicle is available then gifs will be optimised
+       raw decode: ffmpeg -f rawvideo -pixel_format f -framerate r -video_size s -i ...
     -o additional ffmpeg options, e.g. -o '-movflags +faststart' for MP4 Faststart
     -r video framerate (default: ${VIDEOFPS}fps)
     -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
