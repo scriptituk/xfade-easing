@@ -205,7 +205,7 @@ static float rp_bounce(const XFadeEasingContext *k, float t)
     float c, s = (t < P5f) ? 1 : -1;
     if (mode == EASE_IN) t = 1 - t;
     else if (mode == EASE_INOUT) t = (1 - t - t) * s;
-         if (t < 4.f / 11.f)                    c = 0;
+    if (t < 4.f / 11.f)                         c = 0;
     else if (t < 8.f / 11.f)  t -= 6.f / 11.f,  c = 3.f / 4.f;
     else if (t < 10.f / 11.f) t -= 9.f / 11.f,  c = 15.f / 16.f;
     else                      t -= 21.f / 22.f, c = 63.f / 64.f;
@@ -418,8 +418,9 @@ static inline vec4 gbr2yuv(vec4 c)
 static inline vec4 yuv2gbr(vec4 c)
 {
     // inverse BT.601 matrix
-    static const float Bu = 255./224*1.772, Rv = 255./224*1.402,
-                       Gy = 255./219, Gu = -0.114/0.587*Bu, Gv = -0.299/0.587*Rv;
+    #define BU 255./224*1.772
+    #define RV 255./224*1.402
+    static const float Bu = BU, Rv = RV, Gy = 255./219, Gu = -0.114/0.587*BU, Gv = -0.299/0.587*RV;
     c = sub4(c, Od);
     float y = c.p0 * Gy; // Y G=B=R
     return VEC4(y + c.p1 * Gu + c.p2 * Gv, y + c.p1 * Bu, y + c.p2 * Rv, c.p3);
@@ -550,7 +551,7 @@ static inline uint16_t *line2(const AVFrame *f, int p, int y) { return (uint16_t
 #define getToColor(...) _getToColorVA(__VA_ARGS__, _getToColor2, _getToColor1)(__VA_ARGS__)
 
 // get from/to colour at pixel point
-static vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_xfade.c getpix()
+static av_noinline vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_xfade.c getpix()
 {
     const XFadeEasingContext *k = e->k;
     const XFadeContext *s = k->s;
@@ -648,7 +649,7 @@ static inline void var(const XFadeEasingContext *k, int argi, double value)
 }
 
 // set parameter arg or default value during initialisation
-static __attribute__ ((noinline)) void arg(
+static av_noinline void arg(
         const XFadeEasingContext *k,
         int argi,
         const char *type,
@@ -1102,11 +1103,10 @@ static vec4 gl_EdgeTransition(const XTransition *e) // by Woohyun Kim
     vec4 a[2]; // adjacent mix colours
     for (int k = 0; k < 2; k++) {
         vec4 c[9]; // adjacent pixel array for c[4]: 0 3 6
-        for (int i = 0; i < 3; i++) {             // 1 4 7
-            for (int j = 0; j < 3; j++) {         // 2 5 8
-                vec2 p = add2(e->p, mul2f(VEC2(i - 1, j - 1), edgeThickness));
-                c[i * 3 + j] = k ? getToColor(p) : getFromColor(p);
-            }
+        for (int i = 0; i < 9; i++) {             // 1 4 7
+            ivec2 j = { i / 3, i % 3 };           // 2 5 8
+            vec2 p = add2(e->p, mul2f(VEC2(j.x - 1, j.y - 1), edgeThickness));
+            c[i] = k ? getToColor(p) : getFromColor(p);
         }
         vec4 dx = add3(abs3(mul3f(sub3(c[7], c[1]), 2)), add3(abs3(sub3(c[2], c[6])), abs3(sub3(c[8], c[0]))));
         vec4 dy = add3(abs3(mul3f(sub3(c[3], c[5]), 2)), add3(abs3(sub3(c[6], c[8])), abs3(sub3(c[0], c[2]))));
@@ -1480,8 +1480,7 @@ static vec4 gl_PolkaDotsCurtain(const XTransition *e) // by bobylito
     ARG2(vec2, center, 0, 0)
     INIT_END
     vec2 p = fract2(mul2f(e->p, dots));
-    vec2 c = { P5f, P5f };
-    return (distance2(p, c) < e->progress / distance2(e->p, center)) ? e->b : e->a;
+    return (distance2(p, vec2f(P5f)) < e->progress / distance2(e->p, center)) ? e->b : e->a;
 }
 
 static vec4 gl_powerKaleido(const XTransition *e) // by Boundless
