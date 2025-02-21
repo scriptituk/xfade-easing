@@ -1,4 +1,4 @@
-#!/opt/local/bin/bash
+#!/usr/bin/env bash
 
 # FFmpeg XFade easing and extensions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
 # GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
@@ -13,7 +13,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.3.3
+export VERSION=3.4.0
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -112,10 +112,7 @@ _heredoc() { # delimiter
 
 # check dependency
 _dep() { # dep
-    local a=$(compgen -c $1) d
-    for d in $a; do
-        test $d == $1 && return 0
-    done
+    command -v $1 > /dev/null 2>&1 && return 0
     return $ERROR
 }
 
@@ -2086,7 +2083,7 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_Swirl) # by Sergey Kosarevsky
-        _make 'st(1, 1);' # Radius
+        _make "st(1, ${a[0]:-1});" # radius
         _make 'st(2, 1 - P);' # T
         _make 'st(3, X / W - 0.5);' # UV.x
         _make 'st(4, 0.5 - Y / H);' # UV.y
