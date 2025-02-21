@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2025-02-21
+
+### Added
+
+- Windows build guidelines using new repos
+  - [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) to make FFmpeg with xfade-easing patch
+  - [msys2-vcvars](https://github.com/scriptituk/msys2-vcvars) to ingest MSVC environment variables into Msys2
+- `gl_Swirl` transition: added `radius` parameter
+
+### Changed
+
+- C code optimisations
+
+### Fixed
+
+- remove warnings compiling `xfade-easing.h` with MSVC
+
 ## [3.3.3] - 2025-01-23
 
 ### Changed
