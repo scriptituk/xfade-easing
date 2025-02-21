@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
+#==========================================================================================
 # FFmpeg XFade easing and extensions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
-# GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
-#
-# This is a port of standard easing equations and CSS easing functions for the FFmpeg XFade filter
+# GitHub: https://github.com/scriptituk/xfade-easing   September 2023   MIT Licence
+#==========================================================================================
+
+# A port of standard easing equations and CSS easing functions for the FFmpeg XFade filter
 # It also ports extended transitions, notably GLSL transitions, for use with or without easing
 #
 # See https://github.com/scriptituk/xfade-easing for documentation or use the -H option
