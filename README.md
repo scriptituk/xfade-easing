@@ -11,7 +11,7 @@ The easing expressions can be used for [other filters](#easing-other-filters) be
 
 There are 2 variants:
 1. **custom ffmpeg** build with added xfade `easing` and `reverse` options
-2. **custom expressions** for use with standard ffmpeg build
+2. **custom expressions** for use with standard ffmpeg
 
 Xfade is a FFmpeg video transition filter with many built-in transitions and an expression evaluator for custom transitions.
 However the progress rate is linear, starting and stopping abruptly and proceeding at constant speed,
@@ -22,7 +22,8 @@ Example usage:
 * **custom ffmpeg**:
 set the new `easing` option to the easing name, with optional CSS-easing arguments,
 and the `transition` option to the transition name, with optional customisation arguments,
-and if required the new `reverse` option (see [reversing](#reversing-xfade-effects) for values).  
+and the `reverse` option to reverse the easing and/or transition effect
+(see [reversing](#reversing-xfade-effects)).  
 *Example* (quartic-out,radial):  
 `xfade=duration=3:offset=10:easing=quartic-out:transition=radial`  
 *Example* (CSS,GL,reversed):  
@@ -39,7 +40,7 @@ Pre-generated [expressions](expr) can be copied verbatim from supplied files.
 A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, visual media sequences and more.
 It also facilitates generic ffmpeg filter easing – see [Easing other filters](#easing-other-filters).
 
-The **custom ffmpeg** variant is fast with a simple API and no restrictions.
+The **custom ffmpeg** variant has backward compatible xfade arguments, is fast with a simple C&nbsp;API and no restrictions.
 Installation involves a [few patches](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) to a single ffmpeg C source file, with no dependencies.
 The **custom expression** variant is convenient but clunky
 – see [Performance](#custom-expression-performance) –
@@ -137,14 +138,12 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex scr
 ### Implementation
 
 For simplicity, native xfade-easing is a [header-only](https://en.wikipedia.org/wiki/Header-only) implementation
-in [xfade-easing.h](src/xfade-easing.h) which hooks into
+in [xfade-easing.h](src/xfade-easing.h) patched into
 [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) at an optimal place.
 It comprises static functions only, sharing internal linkage with the vf_xfade.c compilation unit,
-so no makefile changes are necessary.
+so no Makefile changes are necessary.
 
-### Building ffmpeg
-
-This is easy:
+### Building – Mac and Linux
 
 1. check the [Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide) and [generic instructions](https://trac.ffmpeg.org/wiki/CompilationGuide/Generic) for any prerequisites, e.g. macOS requires Xcode
 1. get the ffmpeg source tree:  
@@ -154,7 +153,7 @@ use latest stable release at [Download Source Code](https://ffmpeg.org/download.
    - download [patched vf_xfade.c](src/vf_xfade.c) which works with latest stable ffmpeg release
    - or use patch file (latest stable release only):
      - download [vf_xfade.patch](src/vf_xfade.patch) to ffmpeg source root
-     - run `patch -buN -p0 -i vf_xfade.patch` (saves backup as `vf_xfade.c.orig`)
+     - run `patch -b -u -N -p0 -i vf_xfade.patch` (saves backup as `vf_xfade.c.orig`)
      - remove `vf_xfade.patch`
    - or patch manually, [click here](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html), only 9 small changes  
 1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
@@ -172,10 +171,54 @@ the fix for `ld: warning: text-based stub file are out of sync` warnings [is her
 1. if required run `make install` or point `PATH` to the ffmpeg source root
 1. test using `ffmpeg -hide_banner --help filter=xfade`: the `xfade AVOptions` should include `easing` and `reverse`
 
+### Building – Windows
+
+#### Cross compiling
+
+Cross compiling using [ffmpeg-windows-build-helpers](https://github.com/rdp/ffmpeg-windows-build-helpers)
+on Linux is the method I have had most success with.
+It built a static feature-rich ffmpeg.exe with xfade-easing on a [VirtualBox](https://www.virtualbox.org/)
+Ubuntu client running on Macos,
+but attempting the same process natively on Macos failed – needs investigation.
+
+#### Native compiling
+
+My repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) has a Bash script to build ffmpeg with xfade-easing under MSYS2 in two dispositions:
+
+- minimal static build (x264 + zlib) using
+  - MSVC toolchain under MSYS2 MSYS environment  
+    based on [Roxlu’s guide](https://www.roxlu.com/2019/062/compiling-ffmpeg-with-x264-on-windows-10-using-msvc)
+  - ClangCL toolchain under MSYS2 MSYS environment  
+    requires Visual Studio [Clang components](https://learn.microsoft.com/en-us/cpp/build/clang-support-msbuild#install-1)
+- larger dynamic build using
+  - gcc toolchain under MSYS2 UCRT64 environment (ucrt, libstdc++)
+  - clang toolchain under MSYS2 CLANG64 environment (ucrt, libc++)
+  - gcc toolchain under MSYS2 MINGW64 environment (msvcrt, libstdc++) – not recommended
+  - clang toolchain under MSYS2 CLANG32 environment (ucrt, libc++) – 32-bit
+
+  these use dynamically-linked `pacman` external components, creating a 7-Zip archive of all non-Windows binaries.
+
+Native Msys2 Windows build using [media-autobuild_suite](https://github.com/m-ab-s/media-autobuild_suite)
+is also possible but it broke for me.
+Both that and [ffmpeg-windows-build-helpers](https://github.com/rdp/ffmpeg-windows-build-helpers)
+are complex scripts promoted by the FFmpeg team.
+
+I have not explored WSL and Cygwin.
+
+### Building – other platforms
+
+Please see the [FFmpeg Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide).
+
+### Binary distribution
+
+FFmpeg contains x264 and other components which require compliance with the GPL.
+Therefore I am unable to distribute binary executables of ffmpeg with xfade-easing.
+
 ### Testing
 
-The custom FFmpeg version has been built and tested on Mac with `clang` and Ubuntu Linux with `gcc`.
-Any advice on building for Windows would be appreciated.
+The custom FFmpeg version has been built and tested on Macos with `clang`,
+Ubuntu Linux and Msys2 with `gcc` and `clang`,
+and Windows with `MSVC` (Microsoft Visual C++).
 
 ---
 
@@ -494,12 +537,11 @@ The list shows the transition names, customisation parameters and defaults, and 
 | gl_StereoViewer<sup>*</sup> | `zoom=0.9`<br>`radius=0.25`<br>`flip=0`<br>`background=0`<br>`trkMat=0` | Ted Schundler |
 | gl_Stripe_Wipe<sup>*</sup> | `nlayers=3`<br>`layerSpread=0.5`<br>`color1=0x3319CCFF`<br>`color2=0x66CCFFFF`<br>`shadowIntensity=0.7`<br>`shadowSpread=0`<br>`angle=0` | Boundless |
 | gl_swap | `reflection=0.4`<br>`perspective=0.2`<br>`depth=3`<br>`background=0` | gre |
-| gl_Swirl |  | Sergey Kosarevsky |
+| gl_Swirl | `radius=1` | Sergey Kosarevsky |
 | gl_WaterDrop | `amplitude=30`<br>`speed=30` | Paweł Płóciennik |
 | gl_windowblinds |  | Fabien Benetou |
 
 <sup>*</sup> native build only
-
 #### GLSL gallery
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
@@ -599,7 +641,7 @@ However GL Transition and Xfade APIs are broadly similar and non-complex algorit
 The custom ffmpeg variant, like GL Transitions, operates on single precision
 [unit interval](https://en.wikipedia.org/wiki/Unit_interval)
 coordinate and colour data, processing all planes together.
-It does not use SIMD (Single Instruction Multiple Data) vector processing – it seems none of ffmpeg does – but heavy use is made of inline code for compiler hints.
+It does not use SIMD (Single Instruction Multiple Data) vector processing but heavy use is made of inline code for compiler hints.
 
 To make the transpiled code easier to follow,
 original variable names from the GLSL and xfade source code are retained in
@@ -1086,7 +1128,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.3.3 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.4.0 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
