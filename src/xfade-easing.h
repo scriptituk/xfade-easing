@@ -957,7 +957,7 @@ static vec4 gl_CrossZoom(const XTransition *e) // by rectalogic
         total += weight;
     }
     color = div3f(color, total);
-    color.p3 = mixf(e->b.p3, e->a.p3, dissolve);
+    color.p3 = mixf(e->a.p3, e->b.p3, dissolve);
     return color;
 }
 
