@@ -194,7 +194,6 @@ My repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) has a Bash 
   - gcc toolchain under MSYS2 UCRT64 environment (ucrt, libstdc++)
   - clang toolchain under MSYS2 CLANG64 environment (ucrt, libc++)
   - gcc toolchain under MSYS2 MINGW64 environment (msvcrt, libstdc++) – not recommended
-  - clang toolchain under MSYS2 CLANG32 environment (ucrt, libc++) – 32-bit
 
   these use dynamically-linked `pacman` external components, creating a 7-Zip archive of all non-Windows binaries.
 
@@ -218,7 +217,7 @@ Therefore I am unable to distribute binary executables of ffmpeg with xfade-easi
 
 The custom FFmpeg version has been built and tested on Macos with `clang`,
 Ubuntu Linux and Msys2 with `gcc` and `clang`,
-and Windows with `MSVC` (Microsoft Visual C++).
+and Windows with `MSVC` and `ClangCL`.
 
 ---
 
