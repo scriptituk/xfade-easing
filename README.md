@@ -202,7 +202,7 @@ is also possible but it broke for me.
 Both that and [ffmpeg-windows-build-helpers](https://github.com/rdp/ffmpeg-windows-build-helpers)
 are complex scripts promoted by the FFmpeg team.
 
-I have not explored WSL and Cygwin.
+I have not explored WSL or Cygwin.
 
 ### Building – other platforms
 
@@ -435,9 +435,9 @@ y='st(0, clip((t - 1) / 3, 0, 1));
 
 ### Xfade transitions
 
-The custom ffmpeg variant eases the built-in xfade transitions;
-these are provided for custom expression use with easing.
-They are converted from C-code in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c) to custom expressions.
+For the custom expression variant, xfade transitions are provided as custom expressions for use with easing,
+converted from C-code in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_xfade.c).
+The custom ffmpeg variant eases the built-in xfade transitions.
 Omitted transitions are `distance` and `hblur` which perform aggregation, so cannot be processed efficiently on a per plane-pixel basis.
 
 - `fade` `fadefast` `fadeslow`
@@ -470,12 +470,14 @@ see also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) pag
 The open collection of [GL Transitions](https://gl-transitions.com/) initiative lead by [Gaëtan Renaudeau](https://github.com/gre) (gre)
 “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
 
-Other GLSL transition sources were found on [shadertoy](https://www.shadertoy.com/) and the [Vegas Forum](https://www.vegascreativesoftware.info/us/forum/gl-transitions-gallery-sharing-place-share-the-code-here--133472/).
-All GLSL transitions adapted to the GL Transition Specification are in [glsl/](glsl/).
+Other GLSL transition sources are from [shadertoy](https://www.shadertoy.com/) and the [Vegas Forum](https://www.vegascreativesoftware.info/us/forum/gl-transitions-gallery-sharing-place-share-the-code-here--133472/).
 
 Most of the transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) and many from elsewhere
-have been here transpiled into native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing.
-The list shows the transition names, customisation parameters and defaults, and authors:
+have been transpiled into native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing.
+
+All GLSL transitions adapted to the [GL Transition Specification](https://github.com/gl-transitions/gl-transitions#gl-transition-specification-v1) are in [glsl/](glsl/).
+
+The following list shows the transition names, customisation parameters and defaults, and authors:
 
 | transition | parameters (=default) | author |
 | :--------: | :-------------------: | :----: |
@@ -545,12 +547,12 @@ The list shows the transition names, customisation parameters and defaults, and 
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
-Here are the ported GLSL transitions with default parameters and no easing supported by the custom ffmpeg variant.
+Here are the ported GLSL transitions with default parameters, without easing, supported by the custom ffmpeg variant.
 Check [above](#ported-glsl-transitions) for the dozen or so that are not supported by the custom expression variant.
 
 See also the [GL Transitions Gallery](https://gl-transitions.com/gallery)
 which lacks many recent contributor transitions plus even more stacking up as
-[Pull requests](https://github.com/gl-transitions/gl-transitions/pulls) –
+[pull requests](https://github.com/gl-transitions/gl-transitions/pulls) –
 which is why I have not added my bundle.
 
 ![GL gallery](assets/gl-gallery.gif)
@@ -807,7 +809,7 @@ A by-product effect is a wipe transition in any direction, achieved by setting `
 (custom ffmpeg only)
 
 This is adapted from `gl_SimplePageCurl` to clamp the curl to the virtual ‘spine’ at the horizontal centre,
-then to flatten the radius to zero, using built-in easing to appear more realistic.  
+then flatten the radius to zero, using built-in easing to appear more realistic.  
 It takes the following parameters:
 - `angle` may be any 360° angle
   (horizontal east is 0°, curl direction is `angle - π/2` anticlockwise);
@@ -870,7 +872,7 @@ These conventions are adopted:
 - colour values are interpreted according to sign, magnitude and syntax:
   - values from 0.0 (black) to 1.0 (white) inclusive are an opaque shade of grey
   - values from -0.0 (black) to -1.0 (white) are a transparent shade of grey  
-    (-0, negative zero, is recognised; -1 to -2 exclusive is clipped to -1)
+    (-0, negative zero, is recognised; -1 to -2 exclusive get clamped to -1)
   - values -2 or less truncate towards zero to integers and select a [texture](#textures)
     (default -2)
   - values that match the ffmpeg [Color syntax](https://ffmpeg.org/ffmpeg-utils.html#Color)
@@ -1039,7 +1041,7 @@ which overlays a transparent transition.
 
 ## Reversing xfade effects
 
-(custom ffmpeg only but works on built-in xfade transitions)
+(custom ffmpeg only)
 
 The generic xfade `reverse` option reverses the transition and/or easing effects.
 It takes a bitmapped number:
@@ -1127,7 +1129,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.4.0 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.4.1 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
@@ -1286,10 +1288,10 @@ Videos are generated using the `-v` option and customised with the `-b`,`-r`,`-f
 Input media is serialised according to the expression
 $L=NI+(N-1)D$
 where
-L is the total video length (option `-l`);
-I is the individual display time (option `-i`);
-D is the transition duration (option `-d`);
-N is the number of inputs.
+$L$ is the total video length (option `-l`);
+$I$ is the individual display time (option `-i`);
+$D$ is the transition duration (option `-d`);
+$N$ is the number of inputs.
 Transition offsets are spaced accordingly.
 Depending on option `-j` and the input media length, pre and post padding is added by frame cloning to ensure enough frames are available for transition processing.
 See [Usage](#usage) for the precedence of options `-l`, `-i`, `-d`.
