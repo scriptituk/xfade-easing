@@ -368,7 +368,7 @@ static inline vec2 rot2(vec2 p, float a) // clockwise
 }
 static inline bool between2(vec2 p, float min, float max)
 {
-    return p.x >= min && p.x <= max && p.y >= min && p.y <= max;
+    return fminf(p.x, p.y) >= min && fmaxf(p.x, p.y) <= max;
 }
 static inline bool betweenUI2(vec2 p) { return between2(p, 0, 1); }
 
@@ -385,7 +385,7 @@ static inline vec4 vec3f(float f) { return VEC3(f, f, f); }
 static inline vec4 add3f(vec4 c, float f) { return VEC3(c.p0 + f, c.p1 + f, c.p2 + f); }
 static inline vec4 sub3f(vec4 c, float f) { return VEC3(c.p0 - f, c.p1 - f, c.p2 - f); }
 static inline vec4 mul3f(vec4 c, float f) { return VEC3(c.p0 * f, c.p1 * f, c.p2 * f); }
-static inline vec4 div3f(vec4 c, float f) { return VEC3(c.p0 / f, c.p1 / f, c.p2 / f); }
+static inline vec4 div3f(vec4 c, float f) { return mul3f(c, 1 / f); }
 static inline vec4 add3(vec4 a, vec4 b) { return VEC3(a.p0 + b.p0, a.p1 + b.p1, a.p2 + b.p2); }
 static inline vec4 sub3(vec4 a, vec4 b) { return VEC3(a.p0 - b.p0, a.p1 - b.p1, a.p2 - b.p2); }
 static inline vec4 cpl3(vec4 c) { return VEC3(1 - c.p0, 1 - c.p1, 1 - c.p2); } // complement unit interval
@@ -536,7 +536,7 @@ static vec4 blend(const XTransition *e, vec4 b, vec4 f, BlendMode mode) { // bg,
 // see https://stackoverflow.com/questions/1914115/converting-color-value-from-float-0-1-to-byte-0-255
 static inline int scaleUI(float val, int max) { return av_clip(val * max + P5f, 0, max); } // trunc rounded
 
-// get line of plane data at y
+// get pointer to line of plane data at y
 static inline uint8_t *line1(const AVFrame *f, int p, int y) { return f->data[p] + y * f->linesize[p]; }
 static inline uint16_t *line2(const AVFrame *f, int p, int y) { return (uint16_t*) line1(f, p, y); }
 
@@ -621,7 +621,7 @@ static vec4 colourArg(const XTransition *e, double value)
     return c;
 }
 
-// simple slice caching of transition constants
+// simple caching of transition constants
 #define INIT if (!e->k->init)
 #define INIT_BEGIN int argi = 0;
 #define INIT_END INIT return (vec4){{0}};
@@ -3011,7 +3011,7 @@ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-// This is refactored WebKit C++ code from UnitBezier.h shrunk, optimised and reduced precision to float
+// This is refactored WebKit C++ code from UnitBezier.h shrunk, optimised and precision reduced to float
 // WebKit: https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/graphics/UnitBezier.h
 // called by https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/animation/TimingFunction.cpp
 // see also:
