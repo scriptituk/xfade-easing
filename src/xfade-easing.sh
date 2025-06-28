@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.4.0
+export VERSION=3.4.1
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
