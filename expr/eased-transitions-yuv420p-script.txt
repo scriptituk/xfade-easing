@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.4.0
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.4.2
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Eased transition expressions (yuv420p), script for -/filter_complex filterchains
@@ -644,7 +644,7 @@ st(2, ld(2) / ld(4));
 st(3, ld(3) / ld(4));
 st(4, (ld(2) + ld(3)) / 2);
 st(4, ld(2) * X / W + ld(3) * (1 - Y / H) - (ld(4) - 0.5 + (1 - ld(0)) * (1 + ld(1))));
-st(1, 1 - st(1, clip((ld(4) + ld(1)) / (0 + ld(1)), 0, 1)) * ld(1) * (3 - 2 * ld(1)));
+st(1, 1 - st(1, clip((ld(4) + ld(1)) / ld(1), 0, 1)) * ld(1) * (3 - 2 * ld(1)));
 st(2, X / W - 0.5);
 st(3, 0.5 - Y / H);
 st(4, (ld(2) * (1 - ld(1)) + 0.5) * W);
@@ -726,6 +726,9 @@ GL_EDGETRANSITION
 NATIVE
 
 GL_EXPONENTIAL_SWISH
+NATIVE
+
+GL_FADECOLOR
 NATIVE
 
 GL_FANIN
@@ -931,6 +934,23 @@ st(1, B * (1 - ld(0)) + A * ld(0));
 st(2, ld(8) * (1 - ld(0)) + ld(7) * ld(0));
 st(3, 1 - 2 * abs(ld(0) - 0.5));
 ld(1) * (1 - ld(3)) + ld(2) * ld(3)
+
+GL_LINEARBLUR
+st(1, 0.1);
+st(1, ld(1) * (0.5 - abs(ld(0) - 0.5)));
+st(2, 0);
+st(3, 0);
+st(4, -1);
+while(lt(st(4, ld(4) + 1), 6),
+ st(6, X + (ld(4) / 6 - 0.5) * ld(1) * W);
+ st(5, -1);
+ while(lt(st(5, ld(5) + 1), 6),
+  st(7, Y - (ld(5) / 6 - 0.5) * ld(1) * H);
+  st(2, ld(2) + ifnot(PLANE, a0(ld(6),ld(7)), ifnot(1-PLANE, a1(ld(6),ld(7)), ifnot(2-PLANE, a2(ld(6),ld(7)), a3(ld(6),ld(7))))));
+  st(3, ld(3) + ifnot(PLANE, b0(ld(6),ld(7)), ifnot(1-PLANE, b1(ld(6),ld(7)), ifnot(2-PLANE, b2(ld(6),ld(7)), b3(ld(6),ld(7))))))
+ )
+);
+ld(3) / 36 * (1 - ld(0)) + ld(2) / 36 * ld(0)
 
 GL_LISSAJOUS_TILES
 NATIVE
@@ -1328,7 +1348,7 @@ st(3, ld(3) / ld(6));
 st(4, ld(4) / ld(6));
 st(6, ld(3) / 2 + ld(4) / 2);
 st(6, ld(3) * X / W + ld(4) * (1 - Y / H) - (ld(6) - 0.5 + (1 - ld(0)) * (1 + ld(5))));
-st(6, st(6, clip((ld(6) + ld(5)) / (0 + ld(5)), 0, 1)) * ld(6) * (3 - 2 * ld(6)));
+st(6, st(6, clip((ld(6) + ld(5)) / ld(5), 0, 1)) * ld(6) * (3 - 2 * ld(6)));
 st(1, X / W * ld(1));
 st(2, (1 - Y / H) * ld(2));
 st(1, ld(1) - floor(ld(1)));
@@ -1481,3 +1501,11 @@ st(2, if(mod(floor((1 - Y / H) * 100 * ld(1)), 2), ld(1) * 1.5, ld(1)));
 st(3, st(3, clip((ld(1) - 0.8) / 0.2, 0, 1)) * ld(3) * (3 - 2 * ld(3)));
 st(3, clip(ld(2) * (1 - ld(3)) + ld(1) * ld(3), 0, 1));
 A * (1 - ld(3)) + B * ld(3)
+
+GL_WINDOWSLICE
+st(1, 10);
+st(2, 0.5);
+st(3, X / W - (1 - ld(0)) * (1 + ld(2)));
+st(3, st(3, clip((ld(3) + ld(2)) / ld(2), 0, 1)) * ld(3) * (3 - 2 * ld(3)));
+st(1, ld(1) * X / W);
+if(gte(ld(1) - floor(ld(1)), ld(3)), B, A)
