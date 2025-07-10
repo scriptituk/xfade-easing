@@ -167,7 +167,7 @@ export `PATH`,`LD_LIBRARY_PATH`,`LDFLAGS` environment variables to find the pack
    `./configure` will flag up any missing library packages
 1. run `make ECFLAGS=-Wno-declaration-after-statement`, it takes a while  
 the C99 code mixes declarations and statements so issues profuse compiler warnings without the `ECFLAGS` setting  
-the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/questions/51314888/ld-warning-text-based-stub-file-are-out-of-sync-falling-back-to-library-file)
+the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/a/55344565)
 1. if required run `make install` or point `PATH` to the ffmpeg source root
 1. test using `ffmpeg -hide_banner --help filter=xfade`: the `xfade AVOptions` should include `easing` and `reverse`
 
@@ -505,6 +505,7 @@ The following list shows the transition names, customisation parameters and defa
 | gl_Dreamy |  | mikolalysenko |
 | gl_EdgeTransition<sup>*</sup> | `edgeThickness=0.001`<br>`edgeBrightness=8` | Woohyun Kim |
 | gl_Exponential_Swish<sup>*</sup> | `zoom=0.8`<br>`angle=0`<br>`offset.x=0`<br>`offset.y=0`<br>`exponent=4`<br>`wrap.x=2`<br>`wrap.y=2`<br>`blur=0`<br>`background=0` | Boundless |
+| gl_fadecolor<sup>*</sup> | `color=0`<br>`colorPhase=0.4` | gre |
 | gl_FanIn | `smoothness=0.05` | Mark Craig |
 | gl_FanOut | `smoothness=0.05` | Mark Craig |
 | gl_FanUp | `smoothness=0.05` | Mark Craig |
@@ -514,6 +515,7 @@ The following list shows the transition names, customisation parameters and defa
 | gl_hexagonalize | `steps=50`<br>`horizontalHexagons=20` | Fernando Kuteken |
 | gl_InvertedPageCurl | `angle=100`<br>`radius=0.159`<br>`reverseEffect=0` | Hewlett-Packard |
 | gl_kaleidoscope | `speed=1`<br>`angle=1`<br>`power=1.5` | nwoeanhinnogaehr |
+| gl_LinearBlur | `intensity=0.1` | gre |
 | gl_Lissajous_Tiles<sup>*</sup> | `grid.x=10`<br>`grid.y=10`<br>`speed=0.5`<br>`freq.x=2`<br>`freq.y=3`<br>`offset=2`<br>`zoom=0.8`<br>`fade=3`<br>`background=0` | Boundless |
 | gl_morph<sup>*</sup> | `strength=0.1` | paniq |
 | gl_Mosaic | `endx=2`<br>`endy=-1` | Xaychru |
@@ -541,14 +543,17 @@ The following list shows the transition names, customisation parameters and defa
 | gl_Swirl | `radius=1` | Sergey Kosarevsky |
 | gl_WaterDrop | `amplitude=30`<br>`speed=30` | Paweł Płóciennik |
 | gl_windowblinds |  | Fabien Benetou |
+| gl_windowslice | `count=10`<br>`smoothness=0.5` | gre |
 
 <sup>*</sup> native build only
+
 #### GLSL gallery
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
-Here are the ported GLSL transitions with default parameters, without easing, supported by the custom ffmpeg variant.
-Check [above](#ported-glsl-transitions) for the dozen or so that are not supported by the custom expression variant.
+Here are the ported GLSL transitions with default parameters and no easing.
+They are all supported by the custom ffmpeg variant but check [above](#ported-glsl-transitions)
+for the dozen or so that are not supported by the custom expression variant.
 
 See also the [GL Transitions Gallery](https://gl-transitions.com/gallery)
 which lacks many recent contributor transitions plus even more stacking up as
@@ -635,14 +640,15 @@ However GL Transition and Xfade APIs are broadly similar and non-complex algorit
 | progress | `uniform float progress` <br/> moves from 0&nbsp;to&nbsp;1 | `P` <br/> moves from 1 to 0 | `progress ≡ 1 - P` |
 | ratio | `uniform float ratio` | `W / H` | |
 | coordinates | `vec2 uv` <br/> `uv.y == 0` is bottom <br/> `uv == vec2(1.0)` is top-right | `X`, `Y` <br/> `Y == 0` is top <br/> `(X,Y) == (W,H)` is bottom-right | GL width and height are normalised <br/> `uv.x ≡ X / W` <br/> `uv.y ≡ 1 - Y / H` |
-| texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | GL colour values are normalised <br/> GL function runs for every pixel <br/> xfade `expr` runs for each component (plane) of every pixel |
+| texture | `vec4 getFromColor(vec2 uv)` <hr/> `vec4 getToColor(vec2 uv)` | `a0(x,y)` to `a3(x,y)` <br/> or `A` for first input <hr/> `b0(x,y)` to `b3(x,y)` <br/> or `B` for second input | GL colour values are normalised <br/> GL function runs for every pixel <br/> xfade `expr` runs for every component (plane) of every pixel |
 | plane data | normalised RGBA | GBRA or YUVA unsigned integer | xfade bit depth depends on pixel format |
 | precision | single | double | (float type) |
 
 The custom ffmpeg variant, like GL Transitions, operates on single precision
 [unit interval](https://en.wikipedia.org/wiki/Unit_interval)
 coordinate and colour data, processing all planes together.
-It does not use SIMD (Single Instruction Multiple Data) vector processing but heavy use is made of inline code for compiler hints.
+SIMD (Single Instruction Multiple Data) processing is compiler-dependent
+but heavy use is made of inline code and optimisation hints.
 
 To make the transpiled code easier to follow,
 original variable names from the GLSL and xfade source code are retained in
@@ -939,7 +945,7 @@ Textures are shader effects ported from [Shadertoy](https://www.shadertoy.com/),
 mainly for transition backgrounds selected with the `background` parameter
 but any colour parameter can select a texture – see [Colour parameters](#colour-parameters).
 They are referenced by a negative index, where
-- even values show a moving texture
+- even values show a moving texture with linear progress (uneased and non-reversed)
 - odd values show a still version of its even-valued texture,
   e.g. -5 is a still of -4 at the halfway point
 
@@ -962,6 +968,9 @@ They are referenced by a negative index, where
 `gl_DirectionalScaled(direction.x=-1,direction.y=1,scale=0.1,background=-4)`
 
 ![textures](assets/texture.gif)
+
+Textures are useful for all transitions that take a `background` parameter and also for
+`gl_fadecolor`, `gl_StarWipe`.
 
 #### Blending
 
@@ -1129,7 +1138,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.4.1 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.4.2 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
