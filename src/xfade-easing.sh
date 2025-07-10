@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.4.1
+export VERSION=3.4.2
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -410,22 +410,23 @@ _fract() { # a
 # (not subexpression safe: group first)
 _smoothstep() { # edge0 edge1 x st
     [[ $# -ne 4 ]] && _error "_smoothstep expects 4 args, got $#"
-    local e n="($3 - $1)" d="($2 - $1)"
+    local c n="($3 - $1)" d="($2 - $1)"
     [[ $1 == 0 ]] && n="$3" d="$2"
+    [[ $2 == 0 ]] && d="- $1" d=${d/- -/}
     [[ "$2-$1" =~ ^[0-9.-]+$ ]] && d=$(_calc "$d")
-    e="$n / $d"
-    [[ $d == 1 ]] && e="$n"
-    e=${e//- -/+ }
-    e="st($4, clip($e, 0, 1))"
-    echo "$e * ld($4) * (3 - 2 * ld($4))"
+    c="$n / $d"
+    [[ $d == 1 ]] && c="$n"
+    c=${c//- -/+ }
+    c="st($4, clip($c, 0, 1))"
+    echo "$c * ld($4) * (3 - 2 * ld($4))"
 }
 
 # vf_xfade.c frand(x,y)
 # (not subexpression safe: group first)
 _frand() { # x y st
     [[ $# -ne 3 ]] && _error "_frand expects 3 args, got $#"
-    local e="st($3, sin($1 * 12.9898 + $2 * 78.233) * 43758.545)"
-    echo "$e - floor(ld($3))"
+    local r="st($3, sin($1 * 12.9898 + $2 * 78.233) * 43758.545)"
+    echo "$r - floor(ld($3))"
 }
 
 # get first input value
@@ -1287,6 +1288,11 @@ _gl_transition() { # transition args
 #       ${a[7]:-0} # blur
 #       ${a[8]:-0} # background
         ;;
+    gl_fadecolor) # by gre
+        _make NATIVE
+#       ${a[0]:-0} # color
+#       ${a[1]:-0.4} # colorPhase
+        ;;
     gl_FanIn) # by Mark Craig
         _make "st(1, ${a[0]:-0.05});" # smoothness
         _make 'st(2, PI * (1 - P));' # theta
@@ -1533,6 +1539,23 @@ _gl_transition() { # transition args
         _make 'st(2, mix(ld(8), ld(7), P));'
         _make 'st(3, 1 - 2 * abs(P - 0.5));'
         _make 'mix(ld(1), ld(2), ld(3))'
+        ;;
+    gl_LinearBlur) # by gre
+        _make "st(1, ${a[0]:-0.1});" # intensity
+        _make 'st(1, ld(1) * (0.5 - abs(P - 0.5)));' # disp
+        _make 'st(2, 0);' # c1
+        _make 'st(3, 0);' # c2
+        _make 'st(4, -1);' # xi
+        _make 'while(lt(st(4, ld(4) + 1), 6),'
+        _make ' st(6, X + (ld(4) / 6 - 0.5) * ld(1) * W);' # v.x
+        _make ' st(5, -1);' # yi
+        _make ' while(lt(st(5, ld(5) + 1), 6),'
+        _make '  st(7, Y - (ld(5) / 6 - 0.5) * ld(1) * H);' # v.y
+        _make '  st(2, ld(2) + a(ld(6), ld(7)));'
+        _make '  st(3, ld(3) + b(ld(6), ld(7)))'
+        _make ' )'
+        _make ');'
+        _make 'mix(ld(3) / 36, ld(2) / 36, P)'
         ;;
     gl_Lissajous_Tiles) # by Boundless
         _make NATIVE
@@ -2130,6 +2153,14 @@ _gl_transition() { # transition args
         _make 'st(3, smoothstep(0.8, 1, ld(1), 3));'
         _make 'st(3, clip(mix(ld(2), ld(1), ld(3)), 0, 1));'
         _make 'mix(A, B, ld(3))'
+        ;;
+    gl_windowslice) # by gre
+        _make "st(1, ${a[0]:-10});" # count
+        _make "st(2, ${a[1]:-0.5});" # smoothness
+        _make 'st(3, X / W - (1 - P) * (1 + ld(2)));'
+        _make 'st(3, smoothstep(-ld(2), 0, ld(3), 3));' # pr
+        _make 'st(1, ld(1) * X / W);'
+        _make 'if(step(ld(3), fract(ld(1))), B, A)'
         ;;
     test_blend)
         _make NATIVE

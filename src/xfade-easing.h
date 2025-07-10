@@ -1,8 +1,9 @@
 // FFmpeg XFade easing and extensions by Raymond Luckhurst, Scriptit UK, https://scriptit.uk
-// GitHub: owner scriptituk; repository xfade-easing; https://github.com/scriptituk/xfade-easing
+// GitHub: https://github.com/scriptituk/xfade-easing   September 2023   MIT Licence
 //
 // This is a port of standard easing equations and CSS easing functions for the FFmpeg XFade filter
 // It also ports extended transitions, notably GLSL transitions, for use with or without easing
+// It adds XFade options <easing> and <reverse> and modifies option <transition>
 //
 // See https://github.com/scriptituk/xfade-easing for documentation
 
@@ -376,6 +377,7 @@ static inline bool betweenUI2(vec2 p) { return between2(p, 0, 1); }
 
 static inline vec4 vec4f(float f) { return VEC4(f, f, f, f); }
 static inline vec4 mul4f(vec4 c, float f) { return VEC4(c.p0 * f, c.p1 * f, c.p2 * f, c.p3 * f); }
+static inline vec4 div4f(vec4 c, float f) { return mul4f(c, 1 / f); }
 static inline vec4 add4(vec4 a, vec4 b) { return VEC4(a.p0 + b.p0, a.p1 + b.p1, a.p2 + b.p2, a.p3 + b.p3); }
 static inline vec4 sub4(vec4 a, vec4 b) { return VEC4(a.p0 - b.p0, a.p1 - b.p1, a.p2 - b.p2, a.p3 - b.p3); }
 static inline vec4 mix4(vec4 a, vec4 b, float m) { return add4(mul4f(a, 1 - m), mul4f(b, m)); }
@@ -485,7 +487,7 @@ static vec4 sat3f(vec4 c, float s) { // set saturation
 
 // composite background, foreground & blended colours with alpha
 // this is the colour compositing formula from PDF32000_2008.pdf 11.3.6 but simplified
-// see https://stackoverflow.com/questions/40796852/mix-two-non-opaque-colors-with-hue-blend-mode/40962043
+// see https://stackoverflow.com/a/40962043
 static inline float comp(float c, float d, float f, float r, float b) { return fmaf(fmaf(c, d, f), r, b); }
 static vec4 composite(vec4 b, vec4 f, vec4 c) { // bg, fg, blended
     float a = f.p3 + b.p3 - f.p3 * b.p3; // resulting alpha
@@ -532,8 +534,13 @@ static vec4 blend(const XTransition *e, vec4 b, vec4 f, BlendMode mode) { // bg,
 
 // get/set pixel data --------------------------------------------------
 
+// nb_planes is always 1, 3 or 4
+// nb_planes = 1: (gray/mono) processed as YUV so set u,v to 0.5
+// nb_planes < 4: (opaque) set alpha to 1
+#define PLANED ((vec4) { .p1 = P5f, .p2 = P5f, .p3 = 1 }) // default plane data
+
 // scale unit interval to clipped integer
-// see https://stackoverflow.com/questions/1914115/converting-color-value-from-float-0-1-to-byte-0-255
+// see https://stackoverflow.com/a/46575472 Converting color value from float 0..1 to byte 0..255
 static inline int scaleUI(float val, int max) { return av_clip(val * max + P5f, 0, max); } // trunc rounded
 
 // get pointer to line of plane data at y
@@ -557,10 +564,7 @@ static av_noinline vec4 getColor(const XTransition *e, float x, float y, int nb)
     const AVFrame *f = s->xf[nb ^ (s->reverse & REVERSE_TRANSITION)];
     const int i = scaleUI(x, k->mw), j = scaleUI(1 - y, k->mh), n = k->n;
     const float mv = k->mv;
-    // nb_planes is always 1, 3 or 4
-    // nb_planes = 1: (gray/mono) processed as YUV so set u,v to 0.5
-    // nb_planes < 4: (opaque) set alpha to 1
-    vec4 c = { .p1 = P5f, .p2 = P5f, .p3 = 1 }; // default plane values
+    vec4 c = PLANED; // default plane values
     int p = 0;
     if (k->is_16)
         do
@@ -1181,6 +1185,17 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
     return comp;
 }
 
+static vec4 gl_fadecolor(const XTransition *e) // by gre
+{ // License: MIT
+    INIT_BEGIN
+    ARG4(vec4, color, 0)
+    ARG1(float, colorPhase, 0.4)
+    INIT_END
+    return mix4(mix4(color, e->a, smoothstep(1 - colorPhase, 0, e->progress)),
+                mix4(color, e->b, smoothstep(colorPhase, 1, e->progress)),
+                e->progress);
+}
+
 static vec4 gl_FanIn(const XTransition *e) // by Mark Craig
 { // License: MIT (assumed)
     INIT_BEGIN
@@ -1363,6 +1378,27 @@ static vec4 gl_kaleidoscope(const XTransition *e) // by nwoeanhinnogaehr
     vec4 m = mix4(e->a, e->b, e->progress);
     vec4 n = mix4(getFromColor(p), getToColor(p), e->progress);
     return mix4(m, n, 1 - fabsf(e->progress - P5f) * 2);
+}
+
+static vec4 gl_LinearBlur(const XTransition *e) // by gre
+{ // License: MIT
+    INIT_BEGIN
+    ARG1(float, intensity, 0.1)
+    VAR1(int, passes, 6)
+    INIT_END
+    vec4 c1 = vec4f(0), c2 = vec4f(0);
+    float disp = intensity * (P5f - fabsf(P5f - e->progress)), p = passes, p2 = passes * passes;
+    for (int xi = 0; xi < passes; xi++) {
+        float x = (xi / p - P5f) * disp + e->p.x;
+        for (int yi = 0; yi < passes; yi++) {
+            float y = (yi / p - P5f) * disp + e->p.y;
+            c1 = add4(c1, getFromColor(x, y));
+            c2 = add4(c2, getToColor(x, y));
+        }
+    }
+    c1 = div4f(c1, p2);
+    c2 = div4f(c2, p2);
+    return mix4(c1, c2, e->progress);
 }
 
 static vec4 gl_Lissajous_Tiles(const XTransition *e) // by Boundless
@@ -2024,6 +2060,16 @@ static vec4 gl_windowblinds(const XTransition *e) // by Fabien Benetou
     return mix4(e->a, e->b, clipUI(mixf(t, e->progress, smoothstep(0.8f, 1, e->progress))));
 }
 
+static vec4 gl_windowslice(const XTransition *e) // by gre
+{ // License: MIT
+    INIT_BEGIN
+    ARG1(int, count, 10)
+    ARG1(float, smoothness, 0.5)
+    INIT_END
+    float pr = smoothstep(-smoothness, 0, e->p.x - e->progress * (1 + smoothness));
+    return step(pr, fract(count * e->p.x)) ? e->b : e->a;
+}
+
 // test transitions --------------------------------------------------
 
 static vec4 test_blend(const XTransition *e)
@@ -2185,9 +2231,15 @@ static vec4 t_Water_Ripple(const XTransition *e) // by liucc09 (4cl3W4)
 
 static vec4 texture(const XTransition *e, int type)
 {
-    XTransition x;
-    if (type & 1) // odd
-        type += 1, x = *e, x.progress = P5f, e = &x;
+    XTransition x = *e;
+    e = &x;
+    if (type & 1) { // odd
+        type += 1;
+        x.progress = P5f; // midway
+    } else {
+        const XFadeContext *s = e->k->s; // from vf_xfade.c xfade_frame():
+        x.progress = clipUI((float) (s->pts - s->start_pts) / s->duration_pts); // uneased & non-reversed
+    }
     vec4 c;
     switch (type) {
         default: // fall-thru
@@ -2260,7 +2312,7 @@ static void xtransition##name##_transition(AVFilterContext *ctx,               \
         e.p.y = 1 - y / mh; /* y=0 is bottom */                                \
         for (int x = 0, p = 0; x <= k->mw; x++) {                              \
             e.p.x = x / mw;                                                    \
-            e.a = e.b = VEC4(0, P5f, P5f, 1); /* plane defaults */             \
+            e.a = e.b = PLANED; /* plane defaults */                           \
             do {                                                               \
                 e.a.p[p] = line##div(a, p, y)[x] / mv; /* from colour */       \
                 e.b.p[p] = line##div(b, p, y)[x] / mv; /* to colour */         \
@@ -2627,6 +2679,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_Dreamy")) k->xtransitionf = gl_Dreamy;
     else if (!av_strcasecmp(t, "gl_EdgeTransition")) k->xtransitionf = gl_EdgeTransition;
     else if (!av_strcasecmp(t, "gl_Exponential_Swish")) k->xtransitionf = gl_Exponential_Swish;
+    else if (!av_strcasecmp(t, "gl_fadecolor")) k->xtransitionf = gl_fadecolor;
     else if (!av_strcasecmp(t, "gl_FanIn")) k->xtransitionf = gl_FanIn;
     else if (!av_strcasecmp(t, "gl_FanOut")) k->xtransitionf = gl_FanOut;
     else if (!av_strcasecmp(t, "gl_FanUp")) k->xtransitionf = gl_FanUp;
@@ -2636,6 +2689,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_hexagonalize")) k->xtransitionf = gl_hexagonalize;
     else if (!av_strcasecmp(t, "gl_InvertedPageCurl")) k->xtransitionf = gl_InvertedPageCurl;
     else if (!av_strcasecmp(t, "gl_kaleidoscope")) k->xtransitionf = gl_kaleidoscope;
+    else if (!av_strcasecmp(t, "gl_LinearBlur")) k->xtransitionf = gl_LinearBlur;
     else if (!av_strcasecmp(t, "gl_Lissajous_Tiles")) k->xtransitionf = gl_Lissajous_Tiles;
     else if (!av_strcasecmp(t, "gl_morph")) k->xtransitionf = gl_morph;
     else if (!av_strcasecmp(t, "gl_Mosaic")) k->xtransitionf = gl_Mosaic;
@@ -2663,6 +2717,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_Swirl")) k->xtransitionf = gl_Swirl;
     else if (!av_strcasecmp(t, "gl_WaterDrop")) k->xtransitionf = gl_WaterDrop;
     else if (!av_strcasecmp(t, "gl_windowblinds")) k->xtransitionf = gl_windowblinds;
+    else if (!av_strcasecmp(t, "gl_windowslice")) k->xtransitionf = gl_windowslice;
     else if (!av_strcasecmp(t, "test_blend")) k->xtransitionf = test_blend;
     else if (!av_strcasecmp(t, "test_texture")) k->xtransitionf = test_texture;
     else return xe_error(ctx, "unknown extended transition name %s\n", t);
