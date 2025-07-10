@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.2] - 2025-07-10
+
+### Added
+
+- `gl_fadecolor` transition by gre (custom ffmpeg only)
+- `gl_LinearBlur` transition by gre
+- `gl_windowslice` transition by gre
+
+### Changed
+
+- smoothstep optimisations in custom expressions
+
+### Fixed
+
+- use uneased non-reversed progress for texture backgrounds
+
 ## [3.4.1] - 2025-06-28
 
 ### Fixed
