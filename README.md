@@ -180,6 +180,7 @@ on Linux is the method I have had most success with.
 It built a static feature-rich ffmpeg.exe with xfade-easing on a [VirtualBox](https://www.virtualbox.org/)
 Ubuntu client running on Macos,
 but attempting the same process natively on Macos failed – needs investigation.
+You need to follow steps 2-4 above first and use the `--ffmpeg-source-dir` option.
 
 #### Native compiling
 
@@ -485,7 +486,7 @@ The following list shows the transition names, customisation parameters and defa
 | gl_Bars | `vertical=0` | Mark Craig |
 | gl_blend<sup>*</sup> | `mode=0` | scriptituk |
 | gl_BookFlip |  | hong |
-| gl_Bounce | `shadowAlpha=0.6`<br>`shadowHeight=0.075`<br>`bounces=3`<br>`direction=0`<br>`shadowColor=0` | Adrian Purser |
+| gl_Bounce | `bounces=3`<br>`direction=0`<br>`shadowAlpha=0.6`<br>`shadowHeight=0.075`<br>`shadowColor=0` | Adrian Purser |
 | gl_BowTie<sup>*</sup> | `vertical=0` | huynx |
 | gl_ButterflyWaveScrawler<sup>*</sup> | `amplitude=1`<br>`waves=30`<br>`colorSeparation=0.3` | mandubian |
 | gl_cannabisleaf |  | Flexi23 |
@@ -535,6 +536,7 @@ The following list shows the transition names, customisation parameters and defa
 | gl_SimplePageCurl | `angle=80`<br>`radius=0.15`<br>`roll=0`<br>`reverseEffect=0`<br>`greyBack=0`<br>`opacity=0.8`<br>`shadow=0.2` | Andrew Hung |
 | gl_Slides | `type=0`<br>`slideIn=0` | Mark Craig |
 | gl_squareswire | `squares.x=10`<br>`squares.y=10`<br>`direction.x=1.0`<br>`direction.y=-0.5`<br>`smoothness=1.6` | gre |
+| gl_StageCurtains<sup>*</sup> | `color=0xB04040FF`<br>`bumps=15`<br>`drop=0.1` | scriptituk |
 | gl_StarWipe | `borderThickness=0.01`<br>`starRotation=0.75`<br>`borderColor=1` | Ben Lucas |
 | gl_static_wipe | `upToDown=1`<br>`maxSpan=0.5` | Ben Lucas |
 | gl_StereoViewer<sup>*</sup> | `zoom=0.9`<br>`radius=0.25`<br>`flip=0`<br>`background=0`<br>`trkMat=0` | Ted Schundler |
@@ -1138,7 +1140,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.4.2 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.5.0 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
@@ -1331,6 +1333,10 @@ creates a stunning [Lissajous](https://en.wikipedia.org/wiki/Lissajous_curve) ef
 - `xfade-easing.sh -t 'gl_cube(,,,,-23)' -e 'cubic-bezier(0.5,0.9,0.5,0.1)' -v cube.mp4 -b 1 BBC_Test_Card_C.png BBC_Test_Card_J.png`
 creates a reversed cube GL transition against a [texture](#textures) background with cubic-bezier easing that slows down the middle movement  
 ![gl_cube](assets/cube.gif)
+
+- `xfade-easing.sh -t 'gl_StageCurtains(Purple,30,0.05)' -v stage.mp4 -l 10 -d 8 hamlet-players.png hamlet-yorick.png hamlet-fight.png`
+creates a slow stage curtain effect GL transition with default linear easing showcasing three scenes from Hamlet  
+![gl_stage](assets/stage.gif)
 
 - `xfade-easing.sh -t 'gl_angular(270,1)' -e exponential -v multiple.mp4 -n -k h -l 20 street.png road.png flowers.png bird.png barley.png`
 creates a video of the angular GL transition with parameter `startingAngle=270` (south) and `clockwise=1` (an added parameter) for 5 inputs with fast exponential easing  
