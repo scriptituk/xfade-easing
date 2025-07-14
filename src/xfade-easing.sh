@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.4.2
+export VERSION=3.5.0
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -957,29 +957,29 @@ _gl_transition() { # transition args
         _make ')'
         ;;
     gl_Bounce) # by Adrian Purser
-        _make "st(1, ${a[0]:-0.6});" # shadowAlpha
-        _make "st(2, ${a[1]:-0.075});" # shadowHeight
-        _make "st(3, ${a[2]:-3});" # bounces
-        _make "st(4, ${a[3]:-0});" # direction
+        _make "st(1, ${a[0]:-3});" # bounces
+        _make "st(2, ${a[1]:-0});" # direction
+        _make "st(3, ${a[2]:-0.6});" # shadowAlpha
+        _make "st(4, ${a[3]:-0.075});" # shadowHeight
         _make "st(5, ${a[4]:-0});" # shadowColor
         _make 'st(6, 1 - P);' # progress
-        _make 'st(3, ld(6) * PI * ld(3));' # phase
-        _make 'st(3, abs(cos(ld(3))) * (1 - sin(ld(6) * PI / 2)));' # p
-        _make 'if(gt(ld(4), 1), st(3, 1 - ld(3)));'
+        _make 'st(1, ld(6) * PI * ld(1));' # phase
+        _make 'st(1, abs(cos(ld(1))) * (1 - sin(ld(6) * PI / 2)));' # p
+        _make 'if(gt(ld(2), 1), st(1, 1 - ld(1)));'
         _make 'st(7, X / W);'
         _make 'st(8, 1 - Y / H);'
-        _make 'st(4, 8 - mod(ld(4), 2));'
-        _make 'st(3, ld(ld(4)) - ld(3));' # d
-        _make 'if(gt(ld(3), 0),'
-        _make ' if(gt(ld(3), ld(2)),'
+        _make 'st(2, 8 - mod(ld(2), 2));'
+        _make 'st(1, ld(ld(2)) - ld(1));' # d
+        _make 'if(gt(ld(1), 0),'
+        _make ' if(gt(ld(1), ld(4)),'
         _make '  B,'
         _make '  st(6, smoothstep(0.95, 1, ld(6), 6));'
-        _make '  st(2, (ld(3) / ld(2) - 1) * ld(1) + 1);'
-        _make '  st(2, mix(ld(2), 1, ld(6)));'
-        _make '  st(1, colour(ld(5)));'
-        _make '  mix(ld(1), B, ld(2))'
+        _make '  st(4, (ld(1) / ld(4) - 1) * ld(3) + 1);'
+        _make '  st(4, mix(ld(4), 1, ld(6)));'
+        _make '  st(3, colour(ld(5)));'
+        _make '  mix(ld(3), B, ld(4))'
         _make ' ),'
-        _make ' st(ld(4), 1 + ld(3));'
+        _make ' st(ld(2), 1 + ld(1));'
         _make ' st(7, ld(7) * W);'
         _make ' st(8, (1 - ld(8)) * H);'
         _make ' a(ld(7), ld(8))'
@@ -1988,6 +1988,12 @@ _gl_transition() { # transition args
         _make 'st(5, ld(6) / 2);' # squaremin
         _make 'st(6, 1 - ld(5));' # squaremax
         _make 'if(between(ld(1), ld(5), ld(6)) * between(ld(2), ld(5), ld(6)), B, A)'
+        ;;
+    gl_StageCurtains) # by scriptituk
+        _make NATIVE
+#       ${a[0]:-0xB04040FF} # color
+#       ${a[1]:-15} # bumps
+#       ${a[2]:-0.1} # drop
         ;;
     gl_StarWipe) # by Ben Lucas
         _make "st(1, ${a[0]:-0.01});" # borderThickness
