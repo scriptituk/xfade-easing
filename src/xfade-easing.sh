@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.5.0
+export VERSION=3.5.1
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -1116,7 +1116,7 @@ _gl_transition() { # transition args
         _make 'st(2, ld(0) * (1 - ld(1)));' # persp2
         _make 'st(5, (ld(7) - ld(0)) / (1 - ld(0)));' # fromP.x
         _make 'st(6, (ld(8) - ld(2) * ld(5) / 2) / (1 - ld(2) * ld(5)));' # fromP.y
-        _make 'st(2, 1 - (mix(ld(0) * ld(0), 1, ld(1))));' # persp2
+        _make 'st(2, 1 - ld(1) - ld(0) * ld(2));' # persp2
         _make 'st(1, ld(7) / ld(0));' # toP.x
         _make 'st(2, (ld(8) - ld(2) * (1 - ld(1)) / 2) / (1 - ld(2) * (1 - ld(1))));' # toP.y
         _make 'ifnot(st(0, -between(ld(5), 0, 1) * between(ld(6), 0, 1)),' # inBounds(fromP)
