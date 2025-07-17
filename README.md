@@ -23,18 +23,19 @@ Example usage:
 set the new `easing` option to the easing name, with optional CSS-easing arguments,
 and the `transition` option to the transition name, with optional customisation arguments,
 and the `reverse` option to reverse the easing and/or transition effect
-(see [reversing](#reversing-xfade-effects)).  
-*Example* (quartic-out,radial):  
-`xfade=duration=3:offset=10:easing=quartic-out:transition=radial`  
-*Example* (CSS,GL,reversed):  
-`xfade=duration=3:offset=10:easing='cubic-bezier(0.12,0.57,0.63,0.21)'`  
-`:transition='gl_cube(floating=5,unzoom=0.8,background=SlateGray)':reverse=1`  
+(see [reversing](#reversing-xfade-effects)). \
+*Example* (quartic-out,radial): \
+`xfade=duration=3:offset=10:easing=quartic-out:transition=radial` \
+*Example* (CSS,GL,reversed): \
+`xfade=duration=3:offset=10:easing='cubic-bezier(0.12,0.57,0.63,0.21)'` \
+`:transition='gl_cube(floating=5,unzoom=0.8,background=SlateGray)':reverse=1`
+
 * **custom expression**:
 set the xfade `transition` option to `custom` and the `expr` option to the concatenation of a standard easing expression and a transition expression
-(this variant does not support CSS easings or reversed effects).  
-*Example* (quartic-out,radial):  
-`xfade=duration=3:offset=10:transition=custom:expr='st(0,P^4);`  
-`st(1,atan2(X-W/2,Y-H/2)-(ld(0)-0.5)*PI*2.5); st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1))); B*ld(1)+A*(1-ld(1))'`  
+(this variant does not support CSS easings or reversed effects). \
+*Example* (quartic-out,radial): \
+`xfade=duration=3:offset=10:transition=custom:expr='st(0,P^4);` \
+`st(1,atan2(X-W/2,Y-H/2)-(ld(0)-0.5)*PI*2.5); st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1))); B*ld(1)+A*(1-ld(1))'` \
 Pre-generated [expressions](expr) can be copied verbatim from supplied files.
 
 A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, visual media sequences and more.
@@ -64,7 +65,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex "
     xfade=duration=3:offset=1:easing=cubic-in-out:transition=wipedown
     " output.mp4
 ```
-Easing mode `in-out` is the default mode; the above is equivalent to `easing=cubic`.  
+Easing mode `in-out` is the default mode; the above is equivalent to `easing=cubic`. \
 The default easing is `linear` (none).
 
 ### CLI command (for custom expression use)
@@ -77,8 +78,8 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -filter_complex "
     '" output.mp4
 ```
 
-Here, the `expr` parameter is shown on two lines for clarity.  
-The first line is the easing expression $e(P)$ (`cubic in-out`) which stores its calculated progress value in `st(0)`.  
+Here, the `expr` parameter is shown on two lines for clarity. \
+The first line is the easing expression $e(P)$ (`cubic in-out`) which stores its calculated progress value in `st(0)`. \
 The second line is the  transition expression $t(e(P))$ (`wipedown`) which loads its eased progress value from `ld(0)` instead of `P`.
 The semicolon token combines expressions.
 
@@ -146,8 +147,8 @@ so no Makefile changes are necessary.
 ### Building – Mac and Linux
 
 1. check the [Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide) and [generic instructions](https://trac.ffmpeg.org/wiki/CompilationGuide/Generic) for any prerequisites, e.g. macOS requires Xcode
-1. get the ffmpeg source tree:  
-use latest stable release at [Download Source Code](https://ffmpeg.org/download.html) then extract the .xz archive:  
+1. get the ffmpeg source tree: \
+use latest stable release at [Download Source Code](https://ffmpeg.org/download.html) then extract the .xz archive: \
 `tar -xJf ffmpeg-x.x.x.tar.xz` or use `xz`/`gunzip`/etc.
 1. `cd ffmpeg` and patch libavfilter/vf_xfade.c:
    - download [patched vf_xfade.c](src/vf_xfade.c) which works with latest stable ffmpeg release
@@ -155,18 +156,18 @@ use latest stable release at [Download Source Code](https://ffmpeg.org/download.
      - download [vf_xfade.patch](src/vf_xfade.patch) to ffmpeg source root
      - run `patch -b -u -N -p0 -i vf_xfade.patch` (saves backup as `vf_xfade.c.orig`)
      - remove `vf_xfade.patch`
-   - or patch manually, [click here](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html), only 9 small changes  
-1. download [xfade-easing.h](src/xfade-easing.h) to libavfilter/
-1. install required library packages:  
+   - or patch manually, [click here](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html), only 9 small changes
+1. download [xfade-easing.h](src/xfade-easing.h) to `libavfilter/`
+1. install required library packages: \
 use a package management tool AptGet/MacPorts/Homebrew/etc.
 (if you install ffmpeg itself then its dependencies also get installed ready for the custom build);
 export `PATH`,`LD_LIBRARY_PATH`,`LDFLAGS` environment variables to find the package components
-1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`)  
+1. run `./configure` with any `--prefix` and other options (drawtext requires `--enable-libfreetype` `--enable-libharfbuzz` `--enable-libfontconfig`) \
    to replicate an existing configuration run `ffmpeg -hide_banner -buildconf` and copy-paste the options
-   (I maintain a conf file and source that)  
+   (I maintain a conf file and source that) \
    `./configure` will flag up any missing library packages
-1. run `make ECFLAGS=-Wno-declaration-after-statement`, it takes a while  
-the C99 code mixes declarations and statements so issues profuse compiler warnings without the `ECFLAGS` setting  
+1. run `make ECFLAGS=-Wno-declaration-after-statement`, it takes a while \
+the C99 code mixes declarations and statements so issues profuse compiler warnings without the `ECFLAGS` setting \
 the fix for `ld: warning: text-based stub file are out of sync` warnings [is here](https://stackoverflow.com/a/55344565)
 1. if required run `make install` or point `PATH` to the ffmpeg source root
 1. test using `ffmpeg -hide_banner --help filter=xfade`: the `xfade AVOptions` should include `easing` and `reverse`
@@ -187,9 +188,9 @@ You need to follow steps 2-4 above first and use the `--ffmpeg-source-dir` optio
 My repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) has a Bash script to build ffmpeg with xfade-easing under MSYS2 in two dispositions:
 
 - minimal static build (x264 + zlib) using
-  - MSVC toolchain under MSYS2 MSYS environment  
+  - MSVC toolchain under MSYS2 MSYS environment \
     based on [Roxlu’s guide](https://www.roxlu.com/2019/062/compiling-ffmpeg-with-x264-on-windows-10-using-msvc)
-  - ClangCL toolchain under MSYS2 MSYS environment  
+  - ClangCL toolchain under MSYS2 MSYS environment \
     requires Visual Studio [Clang components](https://learn.microsoft.com/en-us/cpp/build/clang-support-msbuild#install-1)
 - larger dynamic build using
   - gcc toolchain under MSYS2 UCRT64 environment (ucrt, libstdc++)
@@ -404,9 +405,9 @@ zoom='st(0, clip((time - 1) / 3, 0, 1));
         st(0, 1 - cos(ld(0) * 20.944) / 2^(10 * ld(0)));
       lerp(1, 3, ld(0))'
 ```
-The first line stores a 3 second duration delayed by 1 second normalised to a value between 0 and 1.  
-The last line scales the result to zoom between 1x and 3x.  
-The middle line performs `elastic-out` easing, obtained from [generic-easings-script.txt](expr/generic-easings-script.txt), or  
+The first line stores a 3 second duration delayed by 1 second normalised to a value between 0 and 1. \
+The last line scales the result to zoom between 1x and 3x. \
+The middle line performs `elastic-out` easing, obtained from [generic-easings-script.txt](expr/generic-easings-script.txt), or \
 `xfade-easing.sh -e elastic-out -s %G -x -`
 
 The [zoompan filter](https://ffmpeg.org/ffmpeg-filters.html#zoompan) can produce impressive [Ken Burns effects](https://www.epidemicsound.com/blog/ken-burns-effect/) when `zoom`, `x`, `y` are all dynamic.
@@ -627,7 +628,7 @@ etc.
 - this implementation provides a `background` parameter for all GL Transitions that show a black background during their transition, e.g. `gl_cube` and `gl_doorway`, see [Colour parameters](#colour-parameters) and [Backgrounds](#backgrounds).
 
 *Example*: `gl_InvertedPageCurl` 30° with uncurl
-(useful for sheet music with repeats)  
+(useful for sheet music with repeats) \
 `'gl_InvertedPageCurl(30,0.15,0)'` and `'gl_InvertedPageCurl(30,0.15,1)'` concatenated
 
 ![gl_InvertedPageCurl(30)](assets/flipchart.gif)
@@ -770,7 +771,7 @@ The Hewlett-Packard accreditation by Sergey Kosarevsky is obscure but preserved 
 This is adapted from the elegant
 [simple page curl effect ](https://www.shadertoy.com/view/ls3cDB) by Andrew Hung
 who also provides an excellent [shader breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
-to demystify the deformation effect.  
+to demystify the deformation effect. \
 It is more versatile than `gl_InvertedPageCurl` and takes the following parameters:
 - `angle` may be any 360° angle
   (horizontal east is 0°, curl direction is `angle - 90°` anticlockwise);
@@ -790,16 +791,16 @@ The main differences from `gl_InvertedPageCurl` are:
 - back of turning page rendered in colour or greyscale with variable opacity
 - smaller default radius of 0.15, not 1/2π
 
-*Example*: using `gl_SimplePageCurl` to emulate `gl_InvertedPageCurl`  
-`'gl_InvertedPageCurl(30)'` vs `'gl_SimplePageCurl(24.8,0.159,1,0,1,0.8,0.1)'`  
+*Example*: using `gl_SimplePageCurl` to emulate `gl_InvertedPageCurl` \
+`'gl_InvertedPageCurl(30)'` vs `'gl_SimplePageCurl(24.8,0.159,1,0,1,0.8,0.1)'` \
 these parameters factor in the aspect ratio (5:4 here), 1/2π radius, roll effect, greyscale overleaf, and shadowing.
 
 ![gl_PageCurl](assets/curl.gif)
 
 There is barely any noticeable difference,
-which confirms Mr Hung’s observation that complex mathematics is unjustified:
-scalar product projections and simple trigonometry are sufficient.
-However `gl_SimplePageCurl` takes twice as long to process as`gl_InvertedPageCurl`.
+which confirms Mr Hung’s remark that complex mathematics isn’t needed:
+just simple trigonometry and scalar product projections.
+However `gl_SimplePageCurl` takes longer to process than `gl_InvertedPageCurl`.
 
 *Example*: `gl_SimplePageCurl` with various `angle` and `roll` options
 (Abstract and Renaissance art by Kandinsky and Titian)
@@ -817,7 +818,7 @@ A by-product effect is a wipe transition in any direction, achieved by setting `
 (custom ffmpeg only)
 
 This is adapted from `gl_SimplePageCurl` to clamp the curl to the virtual ‘spine’ at the horizontal centre,
-then flatten the radius to zero, using built-in easing to appear more realistic.  
+then flatten the radius to zero, using built-in easing to appear more realistic. \
 It takes the following parameters:
 - `angle` may be any 360° angle
   (horizontal east is 0°, curl direction is `angle - π/2` anticlockwise);
@@ -841,18 +842,18 @@ For the custom expression variant which cannot take named parameters,
 customisation parameters are ignored and resort to defaults.
 
 For the custom ffmpeg variant which can take named parameters,
-a common background colour or transparency or texture can be set using `background`, e.g.:  
-`'gl_random(background=black)'` renders a black background (the default)  
-`'gl_random(background=white)'` renders a white background  
-`'gl_random(background=gray@0.5)'` renders a semi-transparent grey background  
-`'gl_random(background=-1)'` renders a transparent background  
-`'gl_random(background=-10)'` renders the [texture](#textures) -10 (a rainbow effect)
-and for even more randomness:  
-`'gl_random(background=random)'` renders a [random background colour](https://github.com/scriptituk/ffmpeg-colours) picked by ffmpeg  
+a common background colour or transparency or texture can be set using `background`, e.g.: \
+`'gl_random(background=black)'` renders a black background (the default) \
+`'gl_random(background=white)'` renders a white background \
+`'gl_random(background=gray@0.5)'` renders a semi-transparent grey background \
+`'gl_random(background=-1)'` renders a transparent background \
+`'gl_random(background=-10)'` renders the [texture](#textures) -10 (a rainbow effect) \
+and for even more randomness: \
+`'gl_random(background=random)'` renders a [random background colour](https://github.com/scriptituk/ffmpeg-colours) picked by ffmpeg \
 These affect transitions that take a `background` parameter and have no effect on those that do not.
 
-*Example*: (7 random transitions)  
-`xfade-easing.sh -X -t gl_random -v left.mp4 gl*.png` (left, custom expression)  
+*Example*: (7 random transitions) \
+`xfade-easing.sh -X -t gl_random -v left.mp4 gl*.png` (left, custom expression) \
 `xfade-easing.sh -t 'gl_random(background=random)' -v right.mp4 gl*.png` (right, custom ffmpeg)
 
 ![gl_random)](assets/gl_random.gif)
@@ -878,14 +879,14 @@ If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-scr
 
 These conventions are adopted:
 - colour values are interpreted according to sign, magnitude and syntax:
-  - values from 0.0 (black) to 1.0 (white) inclusive are an opaque shade of grey
-  - values from -0.0 (black) to -1.0 (white) are a transparent shade of grey  
-    (-0, negative zero, is recognised; -1 to -2 exclusive get clamped to -1)
-  - values -2 or less (as integer) select a [texture](#textures)
-    (default -2)
   - values that match the ffmpeg [Color syntax](https://ffmpeg.org/ffmpeg-utils.html#Color)
     are treated as RGBA colour components packed into 32 bits,
-    these are values greater than 1 (as integer) and named ffmpeg colours
+    these are values greater than 1 (integers) and ffmpeg colour names
+  - values from 0.0 (black) to 1.0 (white) inclusive are an opaque shade of grey
+  - values from -0.0 (black) to -1.0 (white) are a transparent shade of grey \
+    (-0, negative zero, is recognised; -1 to -2 exclusive get clamped to -1)
+  - values -2 or less (integers) select a [texture](#textures)
+    (default -2)
 - all background colour parameters are named `background`
   (most GL Transition backgrounds are named differently)
 
@@ -893,12 +894,12 @@ Consequently a value of exactly 1 is rendered white but 2 (RGBA `#00000002`) is 
 To get R=0,G=0,B=1 specify the colour using hexadecimal notation, `#000001`.
 
 The custom expression variant only suports transparent white and opaque grey values, -1 and 0.0 to 1.0,
-it does not support colour or textures.  
+it does not support colour or textures. \
 e.g. `gl_swap(, , , 0.67)` for 67% grey background (other parameters take default values).
 
 The custom ffmpeg variant supports the full [Color](https://ffmpeg.org/ffmpeg-utils.html#Color) syntax
-including named colours and variable alpha,  
-e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue, color2=ffd700)`  
+including named colours and variable alpha, \
+e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue, color2=ffd700)`
 
 Colour value examples:
 - `CornflowerBlue` (a standard X11 colour name, see [ffmpeg colour names](https://github.com/scriptituk/ffmpeg-colours))
@@ -918,8 +919,8 @@ Colour value examples:
 
 Avoid decimal numbers above 1, e.g. 255 is not blue but opaque black (RGB `#000000FF`).
 
-*Example*: `gl_StarWipe` transitions with `Lime` and `-15` (still diamond pattern) border colours  
-`gl_StarWipe(borderThickness=0.1, borderColor=Lime)` (left)  
+*Example*: `gl_StarWipe` transitions with `Lime` and `-15` (still diamond pattern) border colours \
+`gl_StarWipe(borderThickness=0.1, borderColor=Lime)` (left) \
 `gl_StarWipe(borderThickness=0.1, borderColor=-15)` (right)
 
 ![star](assets/star.gif)
@@ -956,22 +957,22 @@ They are referenced by a negative index, where
 - odd values show a still version of its even-valued texture,
   e.g. -5 is a still of -4 at the halfway point
 
--2,-3: [Natural vignetting](https://www.shadertoy.com/view/4lSXDm) by ApoorvaJ  
--4,-5: [glowingMarblingBlack](https://www.shadertoy.com/view/WtdXR8) by nasana  
--6,-7: [Monochrome Hyperbola](https://www.shadertoy.com/view/Xtf3WN) by MichaelPohoreski  
--8,-9: [Skyline in 132 chars](https://www.shadertoy.com/view/MtXSR7) by GregRostami  
--10,-11: [simple rainbow formula](https://www.shadertoy.com/view/4l2cDm) by Jodie  
--12,-13: [simple plasma](https://www.shadertoy.com/view/ldBGRR) by Kastor  
--14,-15: [diamond pattern](https://www.shadertoy.com/view/ltX3W4) by rcread  
--16,-17: [Glowing thing](https://www.shadertoy.com/view/4lB3DG) by denzen  
--18,-19: [cinetunnel](https://www.shadertoy.com/view/WdycRw) by tomviolin  
--20,-21: [spring time](https://www.shadertoy.com/view/XllGDH) by bergi  
--22,-23: [Skyline4](https://www.shadertoy.com/view/XlsXRM) by FabriceNeyret2  
--24,-25: [Water Ripple](https://www.shadertoy.com/view/4cl3W4) by liucc09  
+-2,-3: [Natural vignetting](https://www.shadertoy.com/view/4lSXDm) by ApoorvaJ \
+-4,-5: [glowingMarblingBlack](https://www.shadertoy.com/view/WtdXR8) by nasana \
+-6,-7: [Monochrome Hyperbola](https://www.shadertoy.com/view/Xtf3WN) by MichaelPohoreski \
+-8,-9: [Skyline in 132 chars](https://www.shadertoy.com/view/MtXSR7) by GregRostami \
+-10,-11: [simple rainbow formula](https://www.shadertoy.com/view/4l2cDm) by Jodie \
+-12,-13: [simple plasma](https://www.shadertoy.com/view/ldBGRR) by Kastor \
+-14,-15: [diamond pattern](https://www.shadertoy.com/view/ltX3W4) by rcread \
+-16,-17: [Glowing thing](https://www.shadertoy.com/view/4lB3DG) by denzen \
+-18,-19: [cinetunnel](https://www.shadertoy.com/view/WdycRw) by tomviolin \
+-20,-21: [spring time](https://www.shadertoy.com/view/XllGDH) by bergi \
+-22,-23: [Skyline4](https://www.shadertoy.com/view/XlsXRM) by FabriceNeyret2 \
+-24,-25: [Water Ripple](https://www.shadertoy.com/view/4cl3W4) by liucc09
 
 ![texture](assets/textures.gif)
 
-*Example*: `gl_DirectionalScaled` transition with `glowingMarblingBlack` background texture and sinusoidal easing  
+*Example*: `gl_DirectionalScaled` transition with `glowingMarblingBlack` background texture and sinusoidal easing \
 `gl_DirectionalScaled(direction.x=-1,direction.y=1,scale=0.1,background=-4)`
 
 ![textures](assets/texture.gif)
@@ -1001,11 +1002,11 @@ It is poorly documented and the implementation in
 [vf_blend_init.h](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_blend_init.h),
 [blend_modes.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/blend_modes.c)
 is quite basic: it does not render standard blending as above because it seems to be designed for premultiplied alpha,
-achieved for RGB using  
-`geq="r='r(X,Y)*alpha(X,Y)/255':g='g(X,Y)*alpha(X,Y)/255':b='b(X,Y)*alpha(X,Y)/255'"`  
+achieved for RGB using \
+`geq="r='r(X,Y)*alpha(X,Y)/255':g='g(X,Y)*alpha(X,Y)/255':b='b(X,Y)*alpha(X,Y)/255'"` \
 before `blend`.
 
-*Example*: four `all_mode` blend options for `gl_StereoViewer` transitions with 50% grey transparency  
+*Example*: four `all_mode` blend options for `gl_StereoViewer` transitions with 50% grey transparency \
 `gl_StereoViewer(zoom=0.6,radius=0.3,flip=1,background=-0.5)`
 
 ![blending](assets/blend.gif)
@@ -1015,7 +1016,7 @@ before `blend`.
 The expression files in [expr/](expr) cater for RGBA and YUVA transparency formats in 4 planes
 as well as opaque RGB and YUV in 3 planes and mono/gray in 1 plane.
 
-For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-v -f ` options with an alpha format, e.g. `rgba`/`yuva420p`, and .mkv filename extension.
+For lossless intermediate video content with alpha channel support use the [xfade-easing.sh](#cli-script) `-v -f ` options with an alpha format, e.g. `rgba` or `yuva420p`, and .mkv filename extension.
 
 For lossy video with alpha use an alpha format and the .webm extension.
 Note: webm encoding is extremely slow and webm alpha is not widely supported.
@@ -1045,7 +1046,7 @@ ffmpeg -i gallifrey.png -i alpha.mkv -filter_complex '[0]scale=250:-2[b]; [b][1]
 ![alpha](assets/alpha.gif)
 
 This demonstrates the additional `trkMat` parameter which tracks the Tardis alpha value to expose Skaro behind,
-then Gallifrey’s Citadel when the transition ends, both planets being opaque images.  
+then Gallifrey’s Citadel when the transition ends, both planets being opaque images. \
 (trkMat is only availble in the custom ffmpeg variant)
 
 Transition `gl_StereoViewer` also has a `trkMat` parameter for clean cutout effects.
@@ -1062,10 +1063,10 @@ which overlays a transparent transition.
 The generic xfade `reverse` option reverses the transition and/or easing effects.
 It takes a bitmapped number:
 
-- `0` no reverse (default)  
-- `1` swap the inputs and reverse the transition effect  
-- `2` reverse the easing effect  
-- `3` swap the inputs and reverse the transition and easing effects  
+- `0` no reverse (default)
+- `1` swap the inputs and reverse the transition effect
+- `2` reverse the easing effect
+- `3` swap the inputs and reverse the transition and easing effects
 
 It is necessary to swap the inputs during the reversed transition to match the inputs before and after the transition,
 i.e. during the `offset` time and after the `offset`+`duration` time.
@@ -1075,7 +1076,7 @@ The script has a `-b` option to pass reverse values through to xfade for the cus
 Most standard xfade transitions have reversed equivalents, e.g. `wipeleft` and `wiperight`, but few GLSL transitions do.
 Unlike standard easings, CSS easings also have no mirror-image reversal mode.
 
-*Example*: using the same CSS Linear coefficients [as above](#linear-easing)  
+*Example*: using the same CSS Linear coefficients [as above](#linear-easing) \
 easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'`, transition: `gl_FanUp`, reverse: `0`–`3`
 
 ![reverse effect](assets/reverse.gif)
@@ -1105,9 +1106,9 @@ the time to process a 3-second transition of HD720 (1280x720) 3-plane media (rgb
 - up to 45 seconds for an eased xfade transition
 - 15s to 2 minutes for most ported GLSL transitions
 
-For greyscale (single plane), subtract two thirds.  
-For an alpha plane, add a third.  
-For 2017‑19 Macs double it.  
+For greyscale (single plane), subtract two thirds. \
+For an alpha plane, add a third. \
+For 2017‑19 Macs double it. \
 For 2013‑16 Macs triple it.
 
 Mac model performance varies enormously so these vintage dates are only approximate.
@@ -1246,13 +1247,13 @@ Notes:
 
 Expr code is generated using the `-x` option and customised with the `-s`,`-a`,`-f` options.
 
-- `xfade-easing.sh -t slideright -e quadratic -x -`  
+- `xfade-easing.sh -t slideright -e quadratic -x -` \
 prints expr for slideright transition with quadratic-in-out easing to stdout
-- `xfade-easing.sh -t coverup -e quartic-in -x coverup_quartic-in.txt`  
+- `xfade-easing.sh -t coverup -e quartic-in -x coverup_quartic-in.txt` \
 prints expr for coverup transition with quartic-in easing to file coverup_quartic-in.txt
-- `xfade-easing.sh -t coverup -e quartic-in -x %t_%e.txt`  
+- `xfade-easing.sh -t coverup -e quartic-in -x %t_%e.txt` \
 ditto, using expansion specifiers in file name
-- `xfade-easing.sh -t rectcrop -e exponential-out -s "\$expr['%t+%e'] = '%n%X';" -x exprs.php -a`  
+- `xfade-easing.sh -t rectcrop -e exponential-out -s "\$expr['%t+%e'] = '%n%X';" -x exprs.php -a` \
 appends the following to file exprs.php:
 ```php
 $expr['rectcrop+exponential-out'] = '
@@ -1264,7 +1265,7 @@ if(lt(abs(X - W / 2), ld(1) * W) * lt(abs(Y - H / 2), ld(1) * H),
  ifnot(3-PLANE, 255)
 )';
 ```
-- `xfade-easing.sh -t gl_polar_function -s "expr='%n%X'" -x fc-script.txt`  
+- `xfade-easing.sh -t gl_polar_function -s "expr='%n%X'" -x fc-script.txt` \
 This is not eased, therefore the expr written to fc-script.txt uses progress `P` directly:
 ```shell
 expr='
@@ -1283,9 +1284,9 @@ Plots are generated using the `-p` option and customised with the `-m`,`-q`,`-c`
 
 Plot data is logged using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
 
-- `xfade-easing.sh -e elastic -p plot-%e.pdf`  
+- `xfade-easing.sh -e elastic -p plot-%e.pdf` \
 creates a PDF file plot-elastic.pdf of elastic easing
-- `xfade-easing.sh -q 'Bounce Easing' -m in=bounce-in,out=bounce-out,in-out=bounce -p %e.png -c 500x`  
+- `xfade-easing.sh -q 'Bounce Easing' -m in=bounce-in,out=bounce-out,in-out=bounce -p %e.png -c 500x` \
 creates image file bounce.png of the bounce easing scaled to 500px wide with title and legends:
 
 ![bounce plot](assets/bounce.png)
@@ -1315,53 +1316,53 @@ See [Usage](#usage) for the precedence of options `-l`, `-i`, `-d`.
 #### Examples
 
 - `xfade-easing.sh -t hlwind -e quintic-in -v windy.gif`
-creates an animated GIF image of the hlwind transition with quintic-in easing using default built-in images  
+creates an animated GIF image of the hlwind transition with quintic-in easing using default built-in images \
 ![hlwind quintic-in](assets/windy.gif)
 
 - `xfade-easing.sh -t fadeblack -e circular -v maths.mp4 dot.png cross.png`
 creates a MP4 video of the fadeblack transition with circular easing using specified inputs
-(credit: [Math & Science Tutor](https://www.video-tutor.net/))  
+(credit: [Math & Science Tutor](https://www.video-tutor.net/)) \
 ![gl_perlin](assets/maths.gif)
 
 - `xfade-easing.sh -t coverdown -e bounce-out -v %t-%e.mp4 wallace.png shaun.png`
-creates a video of the coverdown transition with bounce-out easing using expansion specifiers for the output file name  
+creates a video of the coverdown transition with bounce-out easing using expansion specifiers for the output file name \
 ![coverdown bounce-out](assets/coverdown-bounce-out.gif)
 
 - `xfade-easing.sh -t 'gl_polar_function(25)' -v paradise.mkv -n -u 1.2 islands.png rainbow.png`
-creates a lossless (FFV1) video (e.g. for further processing) of an uneased polar_function GL transition with 25 segments annotated in enlarged text  
+creates a lossless (FFV1) video (e.g. for further processing) of an uneased polar_function GL transition with 25 segments annotated in enlarged text \
 ![gl_polar_function=25](assets/paradise.gif)
 
 - `xfade-easing.sh -t 'gl_Lissajous_Tiles(16,20,0.3,9,3,1,0.8,3,Lavender)' -e quadratic -v lissajous.mp4 titian.png kandinsky.png`
-creates a stunning [Lissajous](https://en.wikipedia.org/wiki/Lissajous_curve) effect quadratic-eased against a Lavender background demonstrating extensive use of transition parameters  
+creates a stunning [Lissajous](https://en.wikipedia.org/wiki/Lissajous_curve) effect quadratic-eased against a Lavender background demonstrating extensive use of transition parameters \
 ![gl_Lissajous_Tiles](assets/lissajous.gif)
 
 - `xfade-easing.sh -t 'gl_cube(,,,,-23)' -e 'cubic-bezier(0.5,0.9,0.5,0.1)' -v cube.mp4 -b 1 BBC_Test_Card_C.png BBC_Test_Card_J.png`
-creates a reversed cube GL transition against a [texture](#textures) background with cubic-bezier easing that slows down the middle movement  
+creates a reversed cube GL transition against a [texture](#textures) background with cubic-bezier easing that slows down the middle movement \
 ![gl_cube](assets/cube.gif)
 
 - `xfade-easing.sh -t 'gl_StageCurtains(Purple,30,0.05)' -v stage.mp4 -l 10 -d 8 hamlet-players.png hamlet-yorick.png hamlet-fight.png`
-creates a slow stage curtain effect GL transition with default linear easing showcasing three scenes from Hamlet  
+creates a slow stage curtain effect GL transition with default linear easing showcasing three scenes from Hamlet \
 ![gl_stage](assets/stage.gif)
 
 - `xfade-easing.sh -t 'gl_angular(270,1)' -e exponential -v multiple.mp4 -n -k h -l 20 street.png road.png flowers.png bird.png barley.png`
-creates a video of the angular GL transition with parameter `startingAngle=270` (south) and `clockwise=1` (an added parameter) for 5 inputs with fast exponential easing  
+creates a video of the angular GL transition with parameter `startingAngle=270` (south) and `clockwise=1` (an added parameter) for 5 inputs with fast exponential easing \
 ![gl_angular=0 exponential](assets/multiple.gif)
 
 - `xfade-easing.sh -t gl_BookFlip -e quartic-out -v book.mp4 -f gray -z 248x -n -k h,2,black,1 alice12.png alice34.png`
-creates a simple greyscale page turn with quartic-out easing for a more realistic effect.  
+creates a simple greyscale page turn with quartic-out easing for a more realistic effect. \
 ![gl_BookFlip quartic out](assets/book.gif)
 
 - `xfade-easing.sh -t circlecrop -e sinusoidal -v home-away.mp4 -l 10 -d 8 -z 246x -k h,4,LightSkyBlue,2 -n phone.png beach.png`
-creates a 10s video with a slow 8s circlecrop xfade transition with sinusoidal easing, horizontally stacked with a 4px `LightSkyBlue` gap (see [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)) and 2px padding  
+creates a 10s video with a slow 8s circlecrop xfade transition with sinusoidal easing, horizontally stacked with a 4px `LightSkyBlue` gap (see [Color](https://ffmpeg.org/ffmpeg-utils.html#Color)) and 2px padding \
 ![circlecrop sinusoidal](assets/home-away.gif)
 
 - `xfade-easing.sh -t gl_InvertedPageCurl -e cubic-in -v score.mp4 -f gray -i 2 -d 3 -z 480x -k 1,0,0xD8D8D8,10 fugue1.png fugue2.png fugue3.png`
-a 3s page curl effect, static for 2s, with cubic-in easing using greyscale format (`-k 1,0,colour,padding` creates a border)  
-![gl_InvertedPageCurl quadratic ](assets/score.gif)  
+a 3s page curl effect, static for 2s, with cubic-in easing using greyscale format (`-k 1,0,colour,padding` creates a border) \
+![gl_InvertedPageCurl quadratic ](assets/score.gif) \
 🎹 I play [this Bach fugue](https://youtu.be/5IGKLtCrUt0?t=1m17s) on my YouTube channel [digitallegro](https://www.youtube.com/@digitallegro/videos) but the GL InvertedPageCurl there was generated by [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat)
 
 - `xfade-easing.sh -t 'gl_PolkaDotsCurtain(10,0.5,0)' -e 'cubic-bezier(0.4,1.2,0.6,-1.1)' -v life.mp4 -l 7 -d 5 -z 500x -f yuv420p -r 30 balloons.png fruits.png`
-a GL transition with arguments and cubic-bezier easing, running at 30fps for 7 seconds, processing in YUV (Y'CbCr) colour space throughout  
+a GL transition with arguments and cubic-bezier easing, running at 30fps for 7 seconds, processing in YUV (Y'CbCr) colour space throughout \
 ![gl_PolkaDotsCurtain quadratic ](assets/life.gif)
 
 ---
