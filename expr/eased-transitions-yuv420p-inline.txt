@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.5.0
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.5.1
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Eased transition expressions (yuv420p), inline for -filter_complex filterchains
@@ -217,7 +217,7 @@ GL_CROSSZOOM
 NATIVE
 
 GL_CUBE
-st(1,0.7);st(2,0.3);st(3,0.4);st(4,3);st(0,1-ld(0));st(2,ld(2)*2*(0.5-abs(0.5-ld(0))));st(7,X/W*(1+ld(2))-ld(2)/2);st(8,(1-Y/H)*(1+ld(2))-ld(2)/2);st(2,ld(0)*(1-ld(1)));st(5,(ld(7)-ld(0))/(1-ld(0)));st(6,(ld(8)-ld(2)*ld(5)/2)/(1-ld(2)*ld(5)));st(2,1-(ld(0)*ld(0)*(1-ld(1))+ld(1)));st(1,ld(7)/ld(0));st(2,(ld(8)-ld(2)*(1-ld(1))/2)/(1-ld(2)*(1-ld(1))));ifnot(st(0,-between(ld(5),0,1)*between(ld(6),0,1)),ifnot(st(0,between(ld(1),0,1)*between(ld(2),0,1)),st(2,ld(2)*-1.2-ld(4)/100);ifnot(st(0,2*between(ld(1),0,1)*between(ld(2),0,1)),st(6,ld(6)*-1.2-ld(4)/100);st(0,-2*between(ld(5),0,1)*between(ld(6),0,1)))));st(4,0);st(4,ifnot(PLANE,max(ld(4)*255,0),if(3-PLANE,127,gte(ld(4),0)*255)));if(ld(0),if(lt(ld(0),0),st(1,ld(5));st(2,ld(6)));st(5,ld(1)*W);st(6,(1-ld(2))*H);if(lt(ld(0),0),st(1,ifnot(PLANE,a0(ld(5),ld(6)),ifnot(1-PLANE,a1(ld(5),ld(6)),ifnot(2-PLANE,a2(ld(5),ld(6)),a3(ld(5),ld(6)))))),st(1,ifnot(PLANE,b0(ld(5),ld(6)),ifnot(1-PLANE,b1(ld(5),ld(6)),ifnot(2-PLANE,b2(ld(5),ld(6)),b3(ld(5),ld(6)))))));if(eq(abs(ld(0)),2),st(3,ld(3)*(1-ld(2)));ld(4)*(1-ld(3))+ld(1)*ld(3),ld(1)),ld(4))
+st(1,0.7);st(2,0.3);st(3,0.4);st(4,3);st(0,1-ld(0));st(2,ld(2)*2*(0.5-abs(0.5-ld(0))));st(7,X/W*(1+ld(2))-ld(2)/2);st(8,(1-Y/H)*(1+ld(2))-ld(2)/2);st(2,ld(0)*(1-ld(1)));st(5,(ld(7)-ld(0))/(1-ld(0)));st(6,(ld(8)-ld(2)*ld(5)/2)/(1-ld(2)*ld(5)));st(2,1-ld(1)-ld(0)*ld(2));st(1,ld(7)/ld(0));st(2,(ld(8)-ld(2)*(1-ld(1))/2)/(1-ld(2)*(1-ld(1))));ifnot(st(0,-between(ld(5),0,1)*between(ld(6),0,1)),ifnot(st(0,between(ld(1),0,1)*between(ld(2),0,1)),st(2,ld(2)*-1.2-ld(4)/100);ifnot(st(0,2*between(ld(1),0,1)*between(ld(2),0,1)),st(6,ld(6)*-1.2-ld(4)/100);st(0,-2*between(ld(5),0,1)*between(ld(6),0,1)))));st(4,0);st(4,ifnot(PLANE,max(ld(4)*255,0),if(3-PLANE,127,gte(ld(4),0)*255)));if(ld(0),if(lt(ld(0),0),st(1,ld(5));st(2,ld(6)));st(5,ld(1)*W);st(6,(1-ld(2))*H);if(lt(ld(0),0),st(1,ifnot(PLANE,a0(ld(5),ld(6)),ifnot(1-PLANE,a1(ld(5),ld(6)),ifnot(2-PLANE,a2(ld(5),ld(6)),a3(ld(5),ld(6)))))),st(1,ifnot(PLANE,b0(ld(5),ld(6)),ifnot(1-PLANE,b1(ld(5),ld(6)),ifnot(2-PLANE,b2(ld(5),ld(6)),b3(ld(5),ld(6)))))));if(eq(abs(ld(0)),2),st(3,ld(3)*(1-ld(2)));ld(4)*(1-ld(3))+ld(1)*ld(3),ld(1)),ld(4))
 
 GL_DIAMOND
 st(1,0.05);st(2,1-ld(0));st(3,abs(X/W-0.5)+abs(0.5-Y/H));if(lt(ld(3),ld(2)),B,if(gt(ld(3),ld(2)+ld(1)),A,st(1,(ld(3)-ld(2))/ld(1));B*(1-ld(1))+A*ld(1)))
