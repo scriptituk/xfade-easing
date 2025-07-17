@@ -306,7 +306,7 @@ These ease `ld(0)` instead of `P` - see [Easing other filters](#easing-other-fil
 
 ### Standard easings (Robert Penner)
 
-This implementation derives from [Michael Pohoreski’s](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single argument version of [Robert Penner’s](http://robertpenner.com/easing/) easing functions, further optimised by me for the peculiarities of xfade.
+This implementation derives from [Michael Pohoreski’s](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single argument version of [Robert Penner’s](https://robertpenner.com/easing/) easing functions, further optimised by me for the peculiarities of xfade.
 
 - `quadratic`
 - `cubic`
@@ -762,7 +762,7 @@ This is transpiled from the
 [InvertedPageCurl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/InvertedPageCurl.glsl)
 GL Transition which originated from the
 [WebVfx WebGL pagecurl shader](https://webvfx.rectalogic.com/examples_2transition-shader-pagecurl_8html-example.html)
-which is itself based on code by [Calyptus Life AB](http://blog.calyptus.eu/) which seems no longer available.
+which is itself based on code by [Calyptus Life AB](https://blog.calyptus.eu/) which seems no longer available.
 The Hewlett-Packard accreditation by Sergey Kosarevsky is obscure but preserved here.
 
 #### Transition `gl_SimplePageCurl`
@@ -881,10 +881,11 @@ These conventions are adopted:
   - values from 0.0 (black) to 1.0 (white) inclusive are an opaque shade of grey
   - values from -0.0 (black) to -1.0 (white) are a transparent shade of grey  
     (-0, negative zero, is recognised; -1 to -2 exclusive get clamped to -1)
-  - values -2 or less truncate towards zero to integers and select a [texture](#textures)
+  - values -2 or less (as integer) select a [texture](#textures)
     (default -2)
   - values that match the ffmpeg [Color syntax](https://ffmpeg.org/ffmpeg-utils.html#Color)
     are treated as RGBA colour components packed into 32 bits,
+    these are values greater than 1 (as integer) and named ffmpeg colours
 - all background colour parameters are named `background`
   (most GL Transition backgrounds are named differently)
 
@@ -928,10 +929,14 @@ Avoid decimal numbers above 1, e.g. 255 is not blue but opaque black (RGB `#0000
 Many transitions reveal areas which are not painted, exposing a background instead.
 Unlike GL Transitions which show a black background,
 this implementation provides a `background` parameter which takes a [colour value](#colour-parameters) –
-a [RGBA colour](https://ffmpeg.org/ffmpeg-utils.html#Color) or a [texture](#textures) or transparent
+grey or [RGBA colour](https://ffmpeg.org/ffmpeg-utils.html#Color) or [texture](#textures) or transparent
 (the custom expression variant only suports grey and transparent).
+
 Transparent background transitions make for good
 [overlay](https://ffmpeg.org/ffmpeg-filters.html#overlay-1) effects.
+Alternatively, use opaque
+[chroma-key](https://ffmpeg.org/ffmpeg-filters.html#chromakey-1) compositing backgrounds,
+commonly `#00B140` for green-screen and `#0047BB` or `#0827F5` for blue-screen.
 
 #### Textures
 
@@ -1140,7 +1145,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.5.0 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.5.1 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
@@ -1366,7 +1371,7 @@ a GL transition with arguments and cubic-bezier easing, running at 30fps for 7 s
 - [FFmpeg Xfade filter](https://ffmpeg.org/ffmpeg-filters.html#xfade) reference documentation
 - [FFmpeg Wiki Xfade page](https://trac.ffmpeg.org/wiki/Xfade) with gallery
 - [FFmpeg Expression Evaluation](https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation) reference documentation
-- [Robert Penner’s Easing Functions](http://robertpenner.com/easing/) the original, from 2001
+- [Robert Penner’s Easing Functions](https://robertpenner.com/easing/) the original, from 2001
 - [Michael Pohoreski’s Easing Functions](https://github.com/Michaelangel007/easing#tldr-shut-up-and-show-me-the-code) single oarameter versions of Penner’s Functions
 - [CSS Easing Functions Level 2](https://drafts.csswg.org/css-easing-2/) W3C Editor’s Draft
 - [GL Transitions homepage](https://gl-transitions.com) and [Gallery](https://gl-transitions.com/gallery) and [Editor](https://gl-transitions.com/editor)
