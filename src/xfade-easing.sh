@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.5.1
+export VERSION=3.5.2
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -1991,7 +1991,7 @@ _gl_transition() { # transition args
         ;;
     gl_StageCurtains) # by scriptituk
         _make NATIVE
-#       ${a[0]:-0xB04040FF} # color
+#       ${a[0]:-0xCC1A33FF} # color
 #       ${a[1]:-15} # bumps
 #       ${a[2]:-0.1} # drop
         ;;

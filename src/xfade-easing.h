@@ -1918,7 +1918,7 @@ static vec4 gl_squareswire(const XTransition *e) // by gre
 static vec4 gl_StageCurtains(const XTransition *e) // by scriptituk
 { // License: MIT
     INIT_BEGIN
-    ARG4(Colour, color, 0xB04040FF)
+    ARG4(Colour, color, 0xCC1A33FF)
     ARG1(int, bumps, 15)
     ARG1(float, drop, 0.1)
     INIT_END
