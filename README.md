@@ -537,7 +537,7 @@ The following list shows the transition names, customisation parameters and defa
 | gl_SimplePageCurl | `angle=80`<br>`radius=0.15`<br>`roll=0`<br>`reverseEffect=0`<br>`greyBack=0`<br>`opacity=0.8`<br>`shadow=0.2` | Andrew Hung |
 | gl_Slides | `type=0`<br>`slideIn=0` | Mark Craig |
 | gl_squareswire | `squares.x=10`<br>`squares.y=10`<br>`direction.x=1.0`<br>`direction.y=-0.5`<br>`smoothness=1.6` | gre |
-| gl_StageCurtains<sup>*</sup> | `color=0xB04040FF`<br>`bumps=15`<br>`drop=0.1` | scriptituk |
+| gl_StageCurtains<sup>*</sup> | `color=0xCC1A33FF`<br>`bumps=15`<br>`drop=0.1` | scriptituk |
 | gl_StarWipe | `borderThickness=0.01`<br>`starRotation=0.75`<br>`borderColor=1` | Ben Lucas |
 | gl_static_wipe | `upToDown=1`<br>`maxSpan=0.5` | Ben Lucas |
 | gl_StereoViewer<sup>*</sup> | `zoom=0.9`<br>`radius=0.25`<br>`flip=0`<br>`background=0`<br>`trkMat=0` | Ted Schundler |
@@ -982,7 +982,7 @@ Textures are useful for all transitions that take a `background` parameter and a
 
 #### Blending
 
-Blending is compositing image layers in various ways taking transparency into account,
+Blending involves compositing image layers according to a blending function and opacity formula,
 whereas normal transition colour mixing performs simple linear interpolation in all planes determined by a weight factor.
 
 One exception is the `gl_blend` transition (custom ffmpeg only)
@@ -1146,7 +1146,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.5.1 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.5.2 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
