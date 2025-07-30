@@ -3,7 +3,7 @@
 // License: MIT
 // inspired by Cheap Curtains by Panoptics at https://www.shadertoy.com/view/MsKGW3
 
-uniform vec3 color; // = vec3(0.7, 0.2, 0.2)
+uniform vec3 color; // = vec3(0.8, 0.1, 0.2)
 uniform int bumps; // = 15
 uniform float drop; // = 0.1
 
