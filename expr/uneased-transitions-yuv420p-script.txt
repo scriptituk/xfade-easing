@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.5.1
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.5.2
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Uneased transition expressions (yuv420p), script for -/filter_complex filterchains
