@@ -4,7 +4,7 @@
 
 ## Summary
 
-This project is a port of standard easing equations, [CSS easings](#css-easings) and many [GLSL transitions](#ported-glsl-transitions) for use in tandem with easing or alone.
+This project is a port of standard easing equations, [CSS easings](#css-easings) and many [ported GLSL transitions](#ported-glsl-transitions) for use in tandem with easing or alone.
 The easing expressions can be used for [other filters](#easing-other-filters) besides xfade.
 
 <img src="assets/xfade-easing.gif" alt="Summary" align="right">
@@ -21,12 +21,12 @@ Easing inserts a progress envelope to smooth transitions in a natural way.
 Example usage:
 * **custom ffmpeg**:
 set the new `easing` option to the easing name, with optional CSS-easing arguments,
-and the `transition` option to the transition name, with optional customisation arguments,
+and the `transition` option to the transition name, with optional transition arguments,
 and the `reverse` option to reverse the easing and/or transition effect
 (see [reversing](#reversing-xfade-effects)). \
-*Example* (quartic-out,radial): \
+*Example* (quartic-out, radial): \
 `xfade=duration=3:offset=10:easing=quartic-out:transition=radial` \
-*Example* (CSS,GL,reversed): \
+*Example* (CSS-easing, ported-GLSL transition, reversed): \
 `xfade=duration=3:offset=10:easing='cubic-bezier(0.12,0.57,0.63,0.21)'` \
 `:transition='gl_cube(floating=5,unzoom=0.8,background=SlateGray)':reverse=1`
 
@@ -38,8 +38,8 @@ set the xfade `transition` option to `custom` and the `expr` option to the conca
 `st(1,atan2(X-W/2,Y-H/2)-(ld(0)-0.5)*PI*2.5); st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1))); B*ld(1)+A*(1-ld(1))'` \
 Pre-generated [expressions](expr) can be copied verbatim from supplied files.
 
-A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, visual media sequences and more.
-It also facilitates generic ffmpeg filter easing – see [Easing other filters](#easing-other-filters).
+A [CLI wrapper script](#cli-script) is provided to generate custom expressions, test videos, slideshows and more.
+It also facilitates generic easing of ffmpeg filters – see [Easing other filters](#easing-other-filters).
 
 The **custom ffmpeg** variant has backward compatible xfade arguments, is fast with a simple C&nbsp;API and no restrictions.
 Installation involves a [few patches](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) to a single ffmpeg C source file, with no dependencies.
@@ -47,8 +47,6 @@ The **custom expression** variant is convenient but clunky
 – see [Performance](#custom-expression-performance) –
 and runs on plain vanilla ffmpeg but with restrictions:
 it doesn’t support CSS easings, certain transitions, the [reverse](#reversing-xfade-effects) feature, full colour or textures.
-
-At present extended transitions are limited to ported GLSL transitions but more effects may be added downstream.
 
 ---
 
