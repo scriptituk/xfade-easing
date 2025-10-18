@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.5.2
+export VERSION=3.6.0
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -479,7 +479,11 @@ _mix() { # a b mix xf
 # (not subexpression safe: group first)
 _dot() { # x1 y1 x2 y2
     [[ $# -ne 4 ]] && _error "_dot expects 4 args, got $#"
-    echo "$1 * $3 + $2 * $4"
+    local x1="$1" y1="$2" x2="$3" y2="$4" s=0
+    [[ $y1 =~ ^- ]] && s=$((s^1)) y1=${y1/-/}
+    [[ $y2 =~ ^- ]] && s=$((s^1)) y2=${y2/-/}
+    [[ $s -eq 0 ]] && s=+ || s=-
+    echo "$x1 * $x2 $s $y1 * $y2"
 }
 
 # step function
@@ -1134,10 +1138,10 @@ _gl_transition() { # transition args
         _make ' if(lt(ld(0), 0), st(1, ld(5)); st(2, ld(6)));'
         _make ' st(5, ld(1) * W);'
         _make ' st(6, (1 - ld(2)) * H);'
-        _make ' if(lt(ld(0), 0),'
-        _make '  st(1, a(ld(5), ld(6))),'
-        _make '  st(1, b(ld(5), ld(6)))'
-        _make ' );'
+        _make ' st(1, if(lt(ld(0), 0),'
+        _make '  a(ld(5), ld(6)),'
+        _make '  b(ld(5), ld(6))'
+        _make ' ));'
         _make ' if(eq(abs(ld(0)), 2),'
         _make '  st(3, ld(3) * (1 - ld(2)));'
         _make '  mix(ld(4), ld(1), ld(3)),'
@@ -2101,10 +2105,10 @@ _gl_transition() { # transition args
         _make ' if(lt(ld(0), 0), st(2, ld(5)); st(3, ld(6)));'
         _make ' st(5, ld(2) * W);'
         _make ' st(6, (1 - ld(3)) * H);'
-        _make ' if(lt(ld(0), 0),'
-        _make '  st(2, a(ld(5), ld(6))),'
-        _make '  st(2, b(ld(5), ld(6)))'
-        _make ' );'
+        _make ' st(2, if(lt(ld(0), 0),'
+        _make '  a(ld(5), ld(6)),'
+        _make '  b(ld(5), ld(6))'
+        _make ' ));'
         _make ' if(eq(abs(ld(0)), 2),'
         _make '  st(1, ld(1) * (1 - ld(3)));'
         _make '  mix(ld(4), ld(2), ld(1)),'
@@ -2115,14 +2119,15 @@ _gl_transition() { # transition args
         ;;
     gl_Swirl) # by Sergey Kosarevsky
         _make "st(1, ${a[0]:-1});" # radius
-        _make 'st(2, 1 - P);' # T
+        _make "st(2, ${a[1]:-1});" # clockwise
         _make 'st(3, X / W - 0.5);' # UV.x
         _make 'st(4, 0.5 - Y / H);' # UV.y
         _make 'st(5, hypot(ld(3), ld(4)));' # Dist
         _make 'if(lt(ld(5), ld(1)),'
         _make ' st(1, (ld(1) - ld(5)) / ld(1));' # Percent
-        _make ' st(5, if(lte(ld(2), 0.5), ld(2), 1 - ld(2)) * 2);' # A
+        _make ' st(5, 1 - 2 * abs(P - 0.5));' # A
         _make ' st(1, ld(1) * ld(1) * ld(5) * 8 * PI);' # Theta
+        _make ' ifnot(ld(2), st(1, -ld(1)));'
         _make ' st(5, sin(ld(1)));' # S
         _make ' st(6, cos(ld(1)));' # C
         _make ' st(1, dot(ld(3), ld(4), ld(6), -ld(5)));'
@@ -2133,7 +2138,7 @@ _gl_transition() { # transition args
         _make 'st(4, (0.5 - ld(4)) * H);' # UV.y
         _make 'st(5, a(ld(3), ld(4)));' # C0
         _make 'st(6, b(ld(3), ld(4)));' # C1
-        _make 'mix(ld(5), ld(6), ld(2))'
+        _make 'mix(ld(6), ld(5), P)'
         ;;
     gl_WaterDrop) # by Paweł Płóciennik
         _make "st(1, ${a[0]:-30});" # amplitude
@@ -2144,10 +2149,8 @@ _gl_transition() { # transition args
         _make 'st(6, hypot(ld(4), ld(5)));' # dist
         _make 'st(7, if(lte(ld(6), ld(3)),'
         _make ' st(1, sin(ld(6) * ld(1) - ld(3) * ld(2)));'
-        _make ' st(4, ld(4) * ld(1));' # offset.x
-        _make ' st(5, ld(5) * ld(1));' # offset.y
-        _make ' st(4, X + ld(4) * W);'
-        _make ' st(5, Y - ld(5) * H);'
+        _make ' st(4, X + ld(4) * ld(1) * W);' # offset.x
+        _make ' st(5, Y - ld(5) * ld(1) * H);' # offset.y
         _make ' a(ld(4), ld(5)),'
         _make ' A'
         _make '));'
@@ -2509,8 +2512,8 @@ BEGIN {
     # https://eepower.com/resistor-guide/resistor-standards-and-codes/resistor-color-code/
     split("993300,ff0000,ff9900,fdee00,99cc00,3366ff,7030a0,8c8c8c", lc, ",") # Aureolin yellow
 }
-$1 != "[warning]" || $2 !~ /^[-0-9]/ { next } # non-data
-$2 ~ /^-1\.0+$/ { # start of data pair
+$0 !~ /\[warning\]/ || $NF !~ /^[-0-9]/ { next } # non-data
+$NF ~ /^-1\.0+$/ { # start of data pair
     if (FILENAME != fn) { # new file
         fn = FILENAME
         leg = (++plot <= plots) ? legend[plot] : ""
@@ -2518,11 +2521,11 @@ $2 ~ /^-1\.0+$/ { # start of data pair
     col = "p" # progress
     next
 }
-$2 ~ /^[-0-9.]+$/ { # data
+$NF ~ /^[-0-9.]+$/ { # data
     if (col == "p")
-        p = int($2 * 100 + 0.5) # (always integral anyway)
+        p = int($NF * 100 + 0.5) # (always integral anyway)
     else
-        val[leg,p] = +$2
+        val[leg,p] = +$NF
     col = "e" # easing
 }
 END {

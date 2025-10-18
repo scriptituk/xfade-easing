@@ -1453,7 +1453,7 @@ static vec4 gl_Lissajous_Tiles(const XTransition *e) // by Boundless
     VAR1(float, z, zoom / 2)
     INIT_END
     vec4 c = colour(e, background);
-    float k = 1. - powf(fabsf(1 - e->progress * 2), 3); // transition curve
+    float k = 1 - powf(fabsf(1 - e->progress * 2), 3); // transition curve
     float l = e->progress * e->progress * (fade + 1) * 2 - fade;
     vec2 i = { e->progress * speed * 6, offset + 1 };
     i.y *= i.x;
@@ -2099,15 +2099,16 @@ static vec4 gl_Swirl(const XTransition *e) // by Sergey Kosarevsky
 { // License: MIT
     INIT_BEGIN
     ARG1(float, radius, 1)
+    ARG1(bool, clockwise, 1)
     INIT_END
     float T = e->progress;
     vec2 UV = sub2f(e->p, P5f);
     float Dist = length2(UV);
     if ( Dist < radius ) {
         float Percent = 1 - Dist / radius;
-        float A = ((T <= P5f) ? T : 1 - T) * 2;
+        float A = 1 - fabsf(T - P5f) * 2;
         float Theta = Percent * Percent * A * 8 * M_PIf;
-        UV = rot2(UV, -Theta);
+        UV = rot2(UV, clockwise ? -Theta : Theta);
     }
     UV = add2f(UV, P5f);
     return mix4(getFromColor(UV), getToColor(UV), T);
@@ -2171,7 +2172,7 @@ static vec4 t_cinetunnel(const XTransition *e) // by tomviolin (WdycRw)
 {
     vec2 v = sub2f(e->p, P5f);
     float d = length2(v), a = -atn2(v) * 6, s = e->progress * 6; // speed
-    float r = (sinf(a + M_TAUf * 2. / 3 + 4 / d + s) * P5f + P5f) * d * 2;
+    float r = (sinf(a + M_TAUf * 2.f / 3 + 4 / d + s) * P5f + P5f) * d * 2;
     float g  = (sinf(a + M_TAUf / 3 + 4 / d + s) * P5f + P5f) * d * 2;
     float b = (sinf(a + 4 / d + s) * P5f + P5f) * d * 2;
     float w = (sinf(a * 4 + M_TAUf / 3 + 3 / d + s) * P5f + P5f) * sinf(a * 7);
