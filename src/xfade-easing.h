@@ -2101,17 +2101,16 @@ static vec4 gl_Swirl(const XTransition *e) // by Sergey Kosarevsky
     ARG1(float, radius, 1)
     ARG1(bool, clockwise, 1)
     INIT_END
-    float T = e->progress;
     vec2 UV = sub2f(e->p, P5f);
     float Dist = length2(UV);
-    if ( Dist < radius ) {
+    if (Dist < radius) {
         float Percent = 1 - Dist / radius;
-        float A = 1 - fabsf(T - P5f) * 2;
+        float A = 1 - fabsf(e->progress - P5f) * 2;
         float Theta = Percent * Percent * A * 8 * M_PIf;
         UV = rot2(UV, clockwise ? -Theta : Theta);
     }
     UV = add2f(UV, P5f);
-    return mix4(getFromColor(UV), getToColor(UV), T);
+    return mix4(getFromColor(UV), getToColor(UV), e->progress);
 }
 
 static vec4 gl_WaterDrop(const XTransition *e) // by Paweł Płóciennik
