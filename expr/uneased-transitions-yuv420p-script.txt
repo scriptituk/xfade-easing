@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.5.2
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.5.3
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Uneased transition expressions (yuv420p), script for -/filter_complex filterchains
@@ -585,10 +585,10 @@ if(ld(0),
  if(lt(ld(0), 0), st(1, ld(5)); st(2, ld(6)));
  st(5, ld(1) * W);
  st(6, (1 - ld(2)) * H);
- if(lt(ld(0), 0),
-  st(1, ifnot(PLANE, a0(ld(5),ld(6)), ifnot(1-PLANE, a1(ld(5),ld(6)), ifnot(2-PLANE, a2(ld(5),ld(6)), a3(ld(5),ld(6)))))),
-  st(1, ifnot(PLANE, b0(ld(5),ld(6)), ifnot(1-PLANE, b1(ld(5),ld(6)), ifnot(2-PLANE, b2(ld(5),ld(6)), b3(ld(5),ld(6))))))
- );
+ st(1, if(lt(ld(0), 0),
+  ifnot(PLANE, a0(ld(5),ld(6)), ifnot(1-PLANE, a1(ld(5),ld(6)), ifnot(2-PLANE, a2(ld(5),ld(6)), a3(ld(5),ld(6))))),
+  ifnot(PLANE, b0(ld(5),ld(6)), ifnot(1-PLANE, b1(ld(5),ld(6)), ifnot(2-PLANE, b2(ld(5),ld(6)), b3(ld(5),ld(6)))))
+ ));
  if(eq(abs(ld(0)), 2),
   st(3, ld(3) * (1 - ld(2)));
   ld(4) * (1 - ld(3)) + ld(1) * ld(3),
@@ -1446,10 +1446,10 @@ if(ld(0),
  if(lt(ld(0), 0), st(2, ld(5)); st(3, ld(6)));
  st(5, ld(2) * W);
  st(6, (1 - ld(3)) * H);
- if(lt(ld(0), 0),
-  st(2, ifnot(PLANE, a0(ld(5),ld(6)), ifnot(1-PLANE, a1(ld(5),ld(6)), ifnot(2-PLANE, a2(ld(5),ld(6)), a3(ld(5),ld(6)))))),
-  st(2, ifnot(PLANE, b0(ld(5),ld(6)), ifnot(1-PLANE, b1(ld(5),ld(6)), ifnot(2-PLANE, b2(ld(5),ld(6)), b3(ld(5),ld(6))))))
- );
+ st(2, if(lt(ld(0), 0),
+  ifnot(PLANE, a0(ld(5),ld(6)), ifnot(1-PLANE, a1(ld(5),ld(6)), ifnot(2-PLANE, a2(ld(5),ld(6)), a3(ld(5),ld(6))))),
+  ifnot(PLANE, b0(ld(5),ld(6)), ifnot(1-PLANE, b1(ld(5),ld(6)), ifnot(2-PLANE, b2(ld(5),ld(6)), b3(ld(5),ld(6)))))
+ ));
  if(eq(abs(ld(0)), 2),
   st(1, ld(1) * (1 - ld(3)));
   ld(4) * (1 - ld(1)) + ld(2) * ld(1),
@@ -1460,17 +1460,18 @@ if(ld(0),
 
 GL_SWIRL
 st(1, 1);
-st(2, 1 - P);
+st(2, 1);
 st(3, X / W - 0.5);
 st(4, 0.5 - Y / H);
 st(5, hypot(ld(3), ld(4)));
 if(lt(ld(5), ld(1)),
  st(1, (ld(1) - ld(5)) / ld(1));
- st(5, if(lte(ld(2), 0.5), ld(2), 1 - ld(2)) * 2);
+ st(5, 1 - 2 * abs(P - 0.5));
  st(1, ld(1) * ld(1) * ld(5) * 8 * PI);
+ ifnot(ld(2), st(1, -ld(1)));
  st(5, sin(ld(1)));
  st(6, cos(ld(1)));
- st(1, ld(3) * ld(6) + ld(4) * -ld(5));
+ st(1, ld(3) * ld(6) - ld(4) * ld(5));
  st(4, ld(3) * ld(5) + ld(4) * ld(6));
  st(3, ld(1))
 );
@@ -1478,7 +1479,7 @@ st(3, (ld(3) + 0.5) * W);
 st(4, (0.5 - ld(4)) * H);
 st(5, ifnot(PLANE, a0(ld(3),ld(4)), ifnot(1-PLANE, a1(ld(3),ld(4)), ifnot(2-PLANE, a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
 st(6, ifnot(PLANE, b0(ld(3),ld(4)), ifnot(1-PLANE, b1(ld(3),ld(4)), ifnot(2-PLANE, b2(ld(3),ld(4)), b3(ld(3),ld(4))))));
-ld(5) * (1 - ld(2)) + ld(6) * ld(2)
+ld(6) * (1 - P) + ld(5) * P
 
 GL_WATERDROP
 st(1, 30);
@@ -1489,10 +1490,8 @@ st(5, 0.5 - Y / H);
 st(6, hypot(ld(4), ld(5)));
 st(7, if(lte(ld(6), ld(3)),
  st(1, sin(ld(6) * ld(1) - ld(3) * ld(2)));
- st(4, ld(4) * ld(1));
- st(5, ld(5) * ld(1));
- st(4, X + ld(4) * W);
- st(5, Y - ld(5) * H);
+ st(4, X + ld(4) * ld(1) * W);
+ st(5, Y - ld(5) * ld(1) * H);
  ifnot(PLANE, a0(ld(4),ld(5)), ifnot(1-PLANE, a1(ld(4),ld(5)), ifnot(2-PLANE, a2(ld(4),ld(5)), a3(ld(4),ld(5))))),
  A
 ));
