@@ -33,7 +33,7 @@ and the `reverse` option to reverse the easing and/or transition effect
 * **custom expression**:
 set the xfade `transition` option to `custom` and the `expr` option to the concatenation of a standard easing expression and a transition expression
 (this variant does not support CSS easings or reversed effects). \
-*Example* (quartic-out,radial): \
+*Example* (quartic-out, radial): \
 `xfade=duration=3:offset=10:transition=custom:expr='st(0,P^4);` \
 `st(1,atan2(X-W/2,Y-H/2)-(ld(0)-0.5)*PI*2.5); st(1,st(1,clip(ld(1),0,1))*ld(1)*(3-2*ld(1))); B*ld(1)+A*(1-ld(1))'` \
 Pre-generated [expressions](expr) can be copied verbatim from supplied files.
@@ -239,35 +239,29 @@ st(0,cos((1-P)*20.944)/2^(10*(1-P)))
 
 This format is best for expressions that are too unwieldy for inline ffmpeg commands.
 
-*Example*: `gl_rotate_scale_fade` transition (expects eased progress in `ld(0)`) (cf. [rotate_scale_fade.glsl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/rotate_scale_fade.glsl))
+*Example*: `gl_Swirl` transition (expects eased progress in `ld(0)`) (cf. [Swirl.glsl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/Swirl.glsl))
 ```
-st(1, 0.5);
-st(2, 0.5);
-st(3, 1);
-st(4, 8);
-st(5, X / W - ld(1));
-st(6, 1 - Y / H - ld(2));
-st(7, hypot(ld(5), ld(6)));
-st(5, ld(5) / ld(7));
-st(6, ld(6) / ld(7));
-st(8, 2 * abs(ld(0) - 0.5));
-st(8, ld(7) / (ld(4) * (1 - ld(8)) + ld(8)));
-st(3, 2 * PI * ld(3) * (1 - ld(0)));
-st(4, sin(ld(3)));
-st(3, cos(ld(3)));
-st(7, ld(5) * ld(3) - ld(6) * ld(4));
-st(6, ld(5) * ld(4) + ld(6) * ld(3));
-st(1, ld(1) + ld(7) * ld(8));
-st(2, ld(2) + ld(6) * ld(8));
-if(between(ld(1), 0, 1) * between(ld(2), 0, 1),
- st(1, ld(1) * W);
- st(2, (1 - ld(2)) * H);
- st(3, ifnot(PLANE, a0(ld(1),ld(2)), ifnot(1-PLANE, a1(ld(1),ld(2)), ifnot(2-PLANE, a2(ld(1),ld(2)), a3(ld(1),ld(2))))));
- st(4, ifnot(PLANE, b0(ld(1),ld(2)), ifnot(1-PLANE, b1(ld(1),ld(2)), ifnot(2-PLANE, b2(ld(1),ld(2)), b3(ld(1),ld(2))))));
- ld(4) * (1 - ld(0)) + ld(3) * ld(0),
- st(1, 0.15);
- if(3-PLANE, max(ld(1), 0), gte(ld(1), 0)) * 255
-)
+st(1, 1);
+st(2, 1);
+st(3, X / W - 0.5);
+st(4, 0.5 - Y / H);
+st(5, hypot(ld(3), ld(4)));
+if(lt(ld(5), ld(1)),
+ st(1, (ld(1) - ld(5)) / ld(1));
+ st(5, 1 - 2 * abs(ld(0) - 0.5));
+ st(1, ld(1) * ld(1) * ld(5) * 8 * PI);
+ ifnot(ld(2), st(1, -ld(1)));
+ st(5, sin(ld(1)));
+ st(6, cos(ld(1)));
+ st(1, ld(3) * ld(6) - ld(4) * ld(5));
+ st(4, ld(3) * ld(5) + ld(4) * ld(6));
+ st(3, ld(1))
+);
+st(3, (ld(3) + 0.5) * W);
+st(4, (0.5 - ld(4)) * H);
+st(5, ifnot(PLANE, a0(ld(3),ld(4)), ifnot(1-PLANE, a1(ld(3),ld(4)), ifnot(2-PLANE, a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
+st(6, ifnot(PLANE, b0(ld(3),ld(4)), ifnot(1-PLANE, b1(ld(3),ld(4)), ifnot(2-PLANE, b2(ld(3),ld(4)), b3(ld(3),ld(4))))));
+ld(6) * (1 - ld(0)) + ld(5) * ld(0)
 ```
 
 ### Uneased, for transitions without easing
@@ -479,15 +473,17 @@ All GLSL transitions adapted to the [GL Transition Specification](https://github
 
 The following list shows the transition names, customisation parameters and defaults, and authors:
 
+#### GLSL gallery
+
 | transition | parameters (=default) | author |
 | :--------: | :-------------------: | :----: |
 | gl_angular | `startingAngle=90`<br>`clockwise=0` | Fernando Kuteken |
 | gl_Bars | `vertical=0` | Mark Craig |
-| gl_blend<sup>*</sup> | `mode=0` | scriptituk |
+| gl_blend<sup>※</sup> | `mode=0` | scriptituk |
 | gl_BookFlip |  | hong |
 | gl_Bounce | `bounces=3`<br>`direction=0`<br>`shadowAlpha=0.6`<br>`shadowHeight=0.075`<br>`shadowColor=0` | Adrian Purser |
-| gl_BowTie<sup>*</sup> | `vertical=0` | huynx |
-| gl_ButterflyWaveScrawler<sup>*</sup> | `amplitude=1`<br>`waves=30`<br>`colorSeparation=0.3` | mandubian |
+| gl_BowTie<sup>※</sup> | `vertical=0` | huynx |
+| gl_ButterflyWaveScrawler<sup>※</sup> | `amplitude=1`<br>`waves=30`<br>`colorSeparation=0.3` | mandubian |
 | gl_cannabisleaf |  | Flexi23 |
 | gl_chessboard | `grid=8` | lql |
 | gl_CornerVanish |  | Mark Craig |
@@ -495,7 +491,7 @@ The following list shows the transition names, customisation parameters and defa
 | gl_crosshatch | `center.x=0.5`<br>`center.y=0.5`<br>`threshold=3`<br>`fadeEdge=0.1` | pthrasher |
 | gl_CrossOut | `smoothness=0.05` | Mark Craig |
 | gl_crosswarp |  | Eke Péter |
-| gl_CrossZoom<sup>*</sup> | `strength=0.4`<br>`centerFrom.x=0.25`<br>`centerFrom.y=0.5`<br>`centerTo.x=0.75`<br>`centerTo.y=0.5` | rectalogic |
+| gl_CrossZoom<sup>※</sup> | `strength=0.4`<br>`centerFrom.x=0.25`<br>`centerFrom.y=0.5`<br>`centerTo.x=0.75`<br>`centerTo.y=0.5` | rectalogic |
 | gl_cube | `persp=0.7`<br>`unzoom=0.3`<br>`reflection=0.4`<br>`floating=3`<br>`background=0` | gre |
 | gl_Diamond | `smoothness=0.05` | Mark Craig |
 | gl_DirectionalScaled | `direction.x=0`<br>`direction.y=1`<br>`scale=0.7`<br>`background=0` | Thibaut Foussard |
@@ -503,21 +499,21 @@ The following list shows the transition names, customisation parameters and defa
 | gl_doorway | `reflection=0.4`<br>`perspective=0.4`<br>`depth=3`<br>`background=0` | gre |
 | gl_DoubleDiamond | `smoothness=0.05` | Mark Craig |
 | gl_Dreamy |  | mikolalysenko |
-| gl_EdgeTransition<sup>*</sup> | `edgeThickness=0.001`<br>`edgeBrightness=8` | Woohyun Kim |
-| gl_Exponential_Swish<sup>*</sup> | `zoom=0.8`<br>`angle=0`<br>`offset.x=0`<br>`offset.y=0`<br>`exponent=4`<br>`wrap.x=2`<br>`wrap.y=2`<br>`blur=0`<br>`background=0` | Boundless |
-| gl_fadecolor<sup>*</sup> | `color=0`<br>`colorPhase=0.4` | gre |
+| gl_EdgeTransition<sup>※</sup> | `edgeThickness=0.001`<br>`edgeBrightness=8` | Woohyun Kim |
+| gl_Exponential_Swish<sup>※</sup> | `zoom=0.8`<br>`angle=0`<br>`offset.x=0`<br>`offset.y=0`<br>`exponent=4`<br>`wrap.x=2`<br>`wrap.y=2`<br>`blur=0`<br>`background=0` | Boundless |
+| gl_fadecolor<sup>※</sup> | `color=0`<br>`colorPhase=0.4` | gre |
 | gl_FanIn | `smoothness=0.05` | Mark Craig |
 | gl_FanOut | `smoothness=0.05` | Mark Craig |
 | gl_FanUp | `smoothness=0.05` | Mark Craig |
 | gl_Flower | `smoothness=0.05`<br>`rotation=360` | Mark Craig |
-| gl_GridFlip<sup>*</sup> | `size.x=4`<br>`size.y=4`<br>`pause=0.1`<br>`dividerWidth=0.05`<br>`randomness=0.1`<br>`background=0` | TimDonselaar |
+| gl_GridFlip<sup>※</sup> | `size.x=4`<br>`size.y=4`<br>`pause=0.1`<br>`dividerWidth=0.05`<br>`randomness=0.1`<br>`background=0` | TimDonselaar |
 | gl_heart |  | gre |
 | gl_hexagonalize | `steps=50`<br>`horizontalHexagons=20` | Fernando Kuteken |
 | gl_InvertedPageCurl | `angle=100`<br>`radius=0.159`<br>`reverseEffect=0` | Hewlett-Packard |
 | gl_kaleidoscope | `speed=1`<br>`angle=1`<br>`power=1.5` | nwoeanhinnogaehr |
 | gl_LinearBlur | `intensity=0.1` | gre |
-| gl_Lissajous_Tiles<sup>*</sup> | `grid.x=10`<br>`grid.y=10`<br>`speed=0.5`<br>`freq.x=2`<br>`freq.y=3`<br>`offset=2`<br>`zoom=0.8`<br>`fade=3`<br>`background=0` | Boundless |
-| gl_morph<sup>*</sup> | `strength=0.1` | paniq |
+| gl_Lissajous_Tiles<sup>※</sup> | `grid.x=10`<br>`grid.y=10`<br>`speed=0.5`<br>`freq.x=2`<br>`freq.y=3`<br>`offset=2`<br>`zoom=0.8`<br>`fade=3`<br>`background=0` | Boundless |
+| gl_morph<sup>※</sup> | `strength=0.1` | paniq |
 | gl_Mosaic | `endx=2`<br>`endy=-1` | Xaychru |
 | gl_perlin | `scale=4`<br>`smoothness=0.01` | Rich Harris |
 | gl_pinwheel | `speed=2` | Mr Speaker |
@@ -531,24 +527,22 @@ The following list shows the transition names, customisation parameters and defa
 | gl_RotateScaleVanish | `fadeInSecond=1`<br>`reverseEffect=0`<br>`reverseRotation=0`<br>`background=0`<br>`trkMat=0` | Mark Craig |
 | gl_rotateTransition |  | haiyoucuv |
 | gl_rotate_scale_fade | `centre.x=0.5`<br>`centre.y=0.5`<br>`rotations=1`<br>`scale=8`<br>`background=0.15` | Fernando Kuteken |
-| gl_SimpleBookCurl<sup>*</sup> | `angle=150`<br>`radius=0.1`<br>`shadow=0.2` | scriptituk |
+| gl_SimpleBookCurl<sup>※</sup> | `angle=150`<br>`radius=0.1`<br>`shadow=0.2` | scriptituk |
 | gl_SimplePageCurl | `angle=80`<br>`radius=0.15`<br>`roll=0`<br>`reverseEffect=0`<br>`greyBack=0`<br>`opacity=0.8`<br>`shadow=0.2` | Andrew Hung |
 | gl_Slides | `type=0`<br>`slideIn=0` | Mark Craig |
 | gl_squareswire | `squares.x=10`<br>`squares.y=10`<br>`direction.x=1.0`<br>`direction.y=-0.5`<br>`smoothness=1.6` | gre |
-| gl_StageCurtains<sup>*</sup> | `color=0xCC1A33FF`<br>`bumps=15`<br>`drop=0.1` | scriptituk |
+| gl_StageCurtains<sup>※</sup> | `color=0xCC1A33FF`<br>`bumps=15`<br>`drop=0.1` | scriptituk |
 | gl_StarWipe | `borderThickness=0.01`<br>`starRotation=0.75`<br>`borderColor=1` | Ben Lucas |
 | gl_static_wipe | `upToDown=1`<br>`maxSpan=0.5` | Ben Lucas |
-| gl_StereoViewer<sup>*</sup> | `zoom=0.9`<br>`radius=0.25`<br>`flip=0`<br>`background=0`<br>`trkMat=0` | Ted Schundler |
-| gl_Stripe_Wipe<sup>*</sup> | `nlayers=3`<br>`layerSpread=0.5`<br>`color1=0x3319CCFF`<br>`color2=0x66CCFFFF`<br>`shadowIntensity=0.7`<br>`shadowSpread=0`<br>`angle=0` | Boundless |
+| gl_StereoViewer<sup>※</sup> | `zoom=0.9`<br>`radius=0.25`<br>`flip=0`<br>`background=0`<br>`trkMat=0` | Ted Schundler |
+| gl_Stripe_Wipe<sup>※</sup> | `nlayers=3`<br>`layerSpread=0.5`<br>`color1=0x3319CCFF`<br>`color2=0x66CCFFFF`<br>`shadowIntensity=0.7`<br>`shadowSpread=0`<br>`angle=0` | Boundless |
 | gl_swap | `reflection=0.4`<br>`perspective=0.2`<br>`depth=3`<br>`background=0` | gre |
-| gl_Swirl | `radius=1` | Sergey Kosarevsky |
+| gl_Swirl | `radius=1`<br>`clockwise=1` | Sergey Kosarevsky |
 | gl_WaterDrop | `amplitude=30`<br>`speed=30` | Paweł Płóciennik |
 | gl_windowblinds |  | Fabien Benetou |
 | gl_windowslice | `count=10`<br>`smoothness=0.5` | gre |
 
-<sup>*</sup> native build only
-
-#### GLSL gallery
+<sup>※</sup> native build only
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
 
@@ -623,6 +617,7 @@ etc.
   - `reverseEffect` produces an uncurl effect (custom ffmpeg only)
 - `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay – see Dr Who example under [Transparency](#transparency)
 - `gl_StereoViewer` (custom ffmpeg only) has an additional `flip` parameter to flip the split angles, a `background` parameter and a `trkMat` parameter
+- `gl_Swirl` has an additional `clockwise` parameter to change direction
 - this implementation provides a `background` parameter for all GL Transitions that show a black background during their transition, e.g. `gl_cube` and `gl_doorway`, see [Colour parameters](#colour-parameters) and [Backgrounds](#backgrounds).
 
 *Example*: `gl_InvertedPageCurl` 30° with uncurl
@@ -1144,7 +1139,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.5.2 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.6.0 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
