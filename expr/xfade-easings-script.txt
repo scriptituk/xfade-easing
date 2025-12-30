@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.5.3
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.1
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Xfade easing expressions, script for -/filter_complex filterchains
@@ -114,7 +114,7 @@ st(0,
     7.5625 * (P - 0.545455)^2 + 0.75,
     if(lt(P, 0.909091),
      7.5625 * (P - 0.818182)^2 + 0.9375,
-     7.5625 * (P - 0.954545)^2 + 0.954545
+     7.5625 * (P - 0.954545)^2 + 0.984375
     )
    )
   )
@@ -130,7 +130,7 @@ st(0,
     7.5625 * (ld(0) - 0.545455)^2 + 0.75,
     if(lt(ld(0), 0.909091),
      7.5625 * (ld(0) - 0.818182)^2 + 0.9375,
-     7.5625 * (ld(0) - 0.954545)^2 + 0.954545
+     7.5625 * (ld(0) - 0.954545)^2 + 0.984375
     )
    )
   )
@@ -147,7 +147,7 @@ st(0,
     7.5625 * (ld(0) - 0.545455)^2 + 0.75,
     if(lt(ld(0), 0.909091),
      7.5625 * (ld(0) - 0.818182)^2 + 0.9375,
-     7.5625 * (ld(0) - 0.954545)^2 + 0.954545
+     7.5625 * (ld(0) - 0.954545)^2 + 0.984375
     )
    )
   )
