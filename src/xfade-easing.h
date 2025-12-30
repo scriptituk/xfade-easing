@@ -1446,28 +1446,27 @@ static vec4 gl_Lissajous_Tiles(const XTransition *e) // by Boundless
     ARG1(float, offset, 2)
     ARG1(float, zoom, 0.8)
     ARG1(float, fade, 3)
+    ARG1(float, power, 3)
     ARG4(Colour, background, 0)
-    VAR1(int, n, grid.x * grid.y)
     VAR2(vec2, r, 1.f / grid.x, 1.f / grid.y)
     VAR2(vec2, f, freq.x * M_TAUf, freq.y * M_TAUf)
-    VAR1(float, z, zoom / 2)
     INIT_END
     vec4 c = colour(e, background);
-    float k = 1 - powf(fabsf(1 - e->progress * 2), 3); // transition curve
+    float k = 1 - powf(fabsf(1 - e->progress * 2), power); // transition curve
     float l = e->progress * e->progress * (fade + 1) * 2 - fade;
-    vec2 i = { e->progress * speed * 6, offset + 1 };
-    i.y *= i.x;
-    for (int h = 0; h < n; h++) {
-        vec2 g = { h % grid.x, h / grid.x }; // integer division
-        vec2 t = mul2(g, r); // tile
-        float a = t.x * r.y + t.y;
-        vec2 p = add2(mul2f(f, a), i);
-        p = VEC2(cosf(p.x), sinf(p.y));
-        p = sub2f(add2(add2(add2(e->p, t), mul2f(r, P5f)), mul2f(p, z)), P5f);
-        p = add2(mul2f(p, k), mul2f(e->p, (1 - k)));
-        if (betweenf(p.x, t.x, t.x + r.x) && betweenf(p.y, t.y, t.y + r.y)) { // mask for each tile
-            float m = clipUI(a * fade + l);
-            c = mix4(getFromColor(p), getToColor(p), m);
+    vec2 s = vec2f(e->progress * speed * 6), t;
+    s.y *= offset + 1;
+    for (int j = 0; j < grid.y; j++) {
+        t.y = j * r.y; // tile.y
+        for (int i = 0; i < grid.x; i++) {
+            t.x = i * r.x; // tile.x
+            float a = t.x * r.y + t.y;
+            vec2 p = add2(mul2f(f, a), s);
+            p = mul2f(VEC2(cosf(p.x), sinf(p.y)), zoom);
+            p = add2(add2(e->p, t), mul2f(sub2f(add2(p, r), 1), P5f));
+            p = mix2(e->p, p, k);
+            if (betweenf(p.x, t.x, t.x + r.x) && betweenf(p.y, t.y, t.y + r.y)) // mask for each tile
+                c = mix4(getFromColor(p), getToColor(p), clipUI(fade * a + l));
         }
     }
     return c;

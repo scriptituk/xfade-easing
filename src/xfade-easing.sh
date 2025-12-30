@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.6.0
+export VERSION=3.6.1
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -575,7 +575,7 @@ _rp_easing() { # easing mode
         ;;
     bounce)
         local D3_4=0.75 D4_11=$(_calc 4/11) D6_11=$(_calc 6/11) D8_11=$(_calc 8/11) D9_11=$(_calc 9/11)
-        local D10_11=$(_calc 10/11) D15_16=$(_calc 15/16) D21_22=$(_calc 21/22) D63_64=$(_calc 21/22)
+        local D10_11=$(_calc 10/11) D15_16=$(_calc 15/16) D21_22=$(_calc 21/22) D63_64=$(_calc 63/64)
         local D121_16=$(_calc 121/16)
         _make ''
         _make " if(lt(T, $D4_11),"
@@ -1571,7 +1571,8 @@ _gl_transition() { # transition args
 #       ${a[5]:-2} # offset
 #       ${a[6]:-0.8} # zoom
 #       ${a[7]:-3} # fade
-#       ${a[8]:-0} # background
+#       ${a[8]:-3} # power
+#       ${a[9]:-0} # background
         ;;
     gl_morph) # by paniq
         _make NATIVE
@@ -2423,6 +2424,8 @@ EOT
         enc="-c:v libvpx-vp9 -b:v 1800k -minrate 900k -maxrate 2610k -tile-columns 2 -g 240 -threads 4 -quality good -crf 31 -pix_fmt $pf -r $fps"
     elif [[ $path =~ .mp4 ]]; then # x264 - see https://trac.ffmpeg.org/wiki/Encode/H.264
         enc="-c:v libx264 -preset medium -tune stillimage -pix_fmt yuv420p -r $fps"
+    elif [[ $path =~ .y4m ]]; then # yuv4mpeg - see https://linux.die.net/man/5/yuv4mpeg
+        enc="-pix_fmt yuv420p -r $fps -f yuv4mpegpipe"
     elif [[ $path =~ .raw ]]; then # to decode: -f rawvideo -pixel_format $pf -framerate $fps -video_size WxH -i ...
         enc="-c:v rawvideo -pix_fmt $pf -r $fps -s $size -f rawvideo"
     else
@@ -2767,8 +2770,8 @@ Options:
     -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for PDF/EPS)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: animated gif, mkv (FFV1), mp4 (H264), webm (VP9), raw, from file extension
-       if - then format is the null muxer (no output)
+       formats: animated gif, mkv (FFV1), mp4 (H264), webm (VP9), y4m (yuv4mpeg), raw
+       from file extension; if filename is - then format is the null muxer (no output)
        if -f format has alpha then mkv,webm,raw generate transparent video output
        for gifs see -g; if gifsicle is available then gifs will be optimised
        raw decode: ffmpeg -f rawvideo -pixel_format f -framerate r -video_size s -i ...
