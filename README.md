@@ -172,6 +172,29 @@ the fix for `ld: warning: text-based stub file are out of sync` warnings [is her
 
 ### Building – Windows
 
+#### Native compiling
+
+My repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) has a Bash script to build ffmpeg easily with xfade-easing under MSYS2 in two dispositions:
+
+- minimal static build (x264 + zlib) using
+  - MSVC toolchain under MSYS2 MSYS environment \
+    based on [Roxlu’s guide](https://www.roxlu.com/2019/062/compiling-ffmpeg-with-x264-on-windows-10-using-msvc)
+  - clang-cl toolchain under MSYS2 MSYS environment \
+    requires Visual Studio [Clang components](https://learn.microsoft.com/en-us/cpp/build/clang-support-msbuild#install-1)
+- larger dynamic build using
+  - gcc toolchain under MSYS2 UCRT64 environment (ucrt, libstdc++)
+  - clang toolchain under MSYS2 CLANG64 environment (ucrt, libc++)
+  - gcc toolchain under MSYS2 MINGW64 environment (msvcrt, libstdc++) – not recommended
+
+  these use dynamically-linked external components, creating a 7-Zip archive of all non-Windows binaries.
+
+Native Msys2 Windows build using [media-autobuild_suite](https://github.com/m-ab-s/media-autobuild_suite)
+is also possible but it broke for me.
+Both that and [ffmpeg-windows-build-helpers](https://github.com/rdp/ffmpeg-windows-build-helpers)
+are complex scripts promoted by the FFmpeg team.
+
+I have not explored WSL or Cygwin.
+
 #### Cross compiling
 
 Cross compiling using [ffmpeg-windows-build-helpers](https://github.com/rdp/ffmpeg-windows-build-helpers)
@@ -180,29 +203,6 @@ It built a static feature-rich ffmpeg.exe with xfade-easing on a [VirtualBox](ht
 Ubuntu client running on Macos,
 but attempting the same process natively on Macos failed – needs investigation.
 You need to follow steps 2-4 above first and use the `--ffmpeg-source-dir` option.
-
-#### Native compiling
-
-My repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) has a Bash script to build ffmpeg with xfade-easing under MSYS2 in two dispositions:
-
-- minimal static build (x264 + zlib) using
-  - MSVC toolchain under MSYS2 MSYS environment \
-    based on [Roxlu’s guide](https://www.roxlu.com/2019/062/compiling-ffmpeg-with-x264-on-windows-10-using-msvc)
-  - ClangCL toolchain under MSYS2 MSYS environment \
-    requires Visual Studio [Clang components](https://learn.microsoft.com/en-us/cpp/build/clang-support-msbuild#install-1)
-- larger dynamic build using
-  - gcc toolchain under MSYS2 UCRT64 environment (ucrt, libstdc++)
-  - clang toolchain under MSYS2 CLANG64 environment (ucrt, libc++)
-  - gcc toolchain under MSYS2 MINGW64 environment (msvcrt, libstdc++) – not recommended
-
-  these use dynamically-linked `pacman` external components, creating a 7-Zip archive of all non-Windows binaries.
-
-Native Msys2 Windows build using [media-autobuild_suite](https://github.com/m-ab-s/media-autobuild_suite)
-is also possible but it broke for me.
-Both that and [ffmpeg-windows-build-helpers](https://github.com/rdp/ffmpeg-windows-build-helpers)
-are complex scripts promoted by the FFmpeg team.
-
-I have not explored WSL or Cygwin.
 
 ### Building – other platforms
 
@@ -217,7 +217,7 @@ Therefore I am unable to distribute binary executables of ffmpeg with xfade-easi
 
 The custom FFmpeg version has been built and tested on Macos with `clang`,
 Ubuntu Linux and Msys2 with `gcc` and `clang`,
-and Windows with `MSVC` and `ClangCL`.
+and Windows with `MSVC` and `clang-cl`.
 
 ---
 
@@ -473,8 +473,6 @@ All GLSL transitions adapted to the [GL Transition Specification](https://github
 
 The following list shows the transition names, customisation parameters and defaults, and authors:
 
-#### GLSL gallery
-
 | transition | parameters (=default) | author |
 | :--------: | :-------------------: | :----: |
 | gl_angular | `startingAngle=90`<br>`clockwise=0` | Fernando Kuteken |
@@ -512,7 +510,7 @@ The following list shows the transition names, customisation parameters and defa
 | gl_InvertedPageCurl | `angle=100`<br>`radius=0.159`<br>`reverseEffect=0` | Hewlett-Packard |
 | gl_kaleidoscope | `speed=1`<br>`angle=1`<br>`power=1.5` | nwoeanhinnogaehr |
 | gl_LinearBlur | `intensity=0.1` | gre |
-| gl_Lissajous_Tiles<sup>※</sup> | `grid.x=10`<br>`grid.y=10`<br>`speed=0.5`<br>`freq.x=2`<br>`freq.y=3`<br>`offset=2`<br>`zoom=0.8`<br>`fade=3`<br>`background=0` | Boundless |
+| gl_Lissajous_Tiles<sup>※</sup> | `grid.x=10`<br>`grid.y=10`<br>`speed=0.5`<br>`freq.x=2`<br>`freq.y=3`<br>`offset=2`<br>`zoom=0.8`<br>`fade=3`<br>`power=3`<br>`background=0` | Boundless |
 | gl_morph<sup>※</sup> | `strength=0.1` | paniq |
 | gl_Mosaic | `endx=2`<br>`endy=-1` | Xaychru |
 | gl_perlin | `scale=4`<br>`smoothness=0.01` | Rich Harris |
@@ -545,6 +543,8 @@ The following list shows the transition names, customisation parameters and defa
 <sup>※</sup> native build only
 
 <!-- GL pics at https://github.com/gre/gl-transition-libs/tree/master/packages/website/src/images/raw -->
+
+#### GLSL gallery
 
 Here are the ported GLSL transitions with default parameters and no easing.
 They are all supported by the custom ffmpeg variant but check [above](#ported-glsl-transitions)
@@ -1077,7 +1077,7 @@ easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'`, transition: `gl_FanUp`, reverse:
 There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
 Reversing is also particurly useful for
 `squeezeh`, `squeezev`,
-`gl_BookFlip`, `gl_BowTie`, `gl_cube`, `gl_doorway`, `gl_heart`, `gl_pinwheel`, `gl_rotateTransition`, `gl_Slides`, `gl_Swirl`, `gl_swap`.
+`gl_BookFlip`, `gl_BowTie`, `gl_cube`, `gl_doorway`, `gl_heart`, `gl_pinwheel`, `gl_rotateTransition`, `gl_Slides`, `gl_Swirl`, `gl_swap`, `gl_windowslice`.
 
 This is a powerful feature that considerably increases the number of transitions available.
 
@@ -1139,7 +1139,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.6.0 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.6.1 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
@@ -1179,8 +1179,8 @@ Options:
     -c canvas size for easing plot (default: 640x480, scaled to inches for PDF/EPS)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: animated gif, mkv (FFV1), mp4 (H264), webm (VP9), raw, from file extension
-       if - then format is the null muxer (no output)
+       formats: animated gif, mkv (FFV1), mp4 (H264), webm (VP9), y4m (yuv4mpeg), raw
+       from file extension; if filename is - then format is the null muxer (no output)
        if -f format has alpha then mkv,webm,raw generate transparent video output
        for gifs see -g; if gifsicle is available then gifs will be optimised
        raw decode: ffmpeg -f rawvideo -pixel_format f -framerate r -video_size s -i ...
@@ -1325,7 +1325,7 @@ creates a video of the coverdown transition with bounce-out easing using expansi
 creates a lossless (FFV1) video (e.g. for further processing) of an uneased polar_function GL transition with 25 segments annotated in enlarged text \
 ![gl_polar_function=25](assets/paradise.gif)
 
-- `xfade-easing.sh -t 'gl_Lissajous_Tiles(16,20,0.3,9,3,1,0.8,3,Lavender)' -e quadratic -v lissajous.mp4 titian.png kandinsky.png`
+- `xfade-easing.sh -t 'gl_Lissajous_Tiles(16,20,0.3,9,3,1,0.8,3,2,Lavender)' -e quadratic -v lissajous.mp4 titian.png kandinsky.png`
 creates a stunning [Lissajous](https://en.wikipedia.org/wiki/Lissajous_curve) effect quadratic-eased against a Lavender background demonstrating extensive use of transition parameters \
 ![gl_Lissajous_Tiles](assets/lissajous.gif)
 
@@ -1333,7 +1333,7 @@ creates a stunning [Lissajous](https://en.wikipedia.org/wiki/Lissajous_curve) ef
 creates a reversed cube GL transition against a [texture](#textures) background with cubic-bezier easing that slows down the middle movement \
 ![gl_cube](assets/cube.gif)
 
-- `xfade-easing.sh -t 'gl_StageCurtains(Purple,30,0.05)' -v stage.mp4 -l 10 -d 8 hamlet-players.png hamlet-yorick.png hamlet-fight.png`
+- `xfade-easing.sh -t 'gl_StageCurtains(Purple,30,0.05)' -v stage.mp4 -i 1 -d 5 hamlet-players.png hamlet-yorick.png hamlet-fight.png`
 creates a slow stage curtain effect GL transition with default linear easing showcasing three scenes from Hamlet \
 ![gl_stage](assets/stage.gif)
 
