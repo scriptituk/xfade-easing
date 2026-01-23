@@ -11,7 +11,7 @@ The easing expressions can be used for [other filters](#easing-other-filters) be
 
 There are 2 variants:
 1. **custom ffmpeg** build with added xfade `easing` and `reverse` options
-2. **custom expressions** for use with standard ffmpeg
+2. **custom expressions** for use with standard ffmpeg (see [performance](#performance))
 
 Xfade is a FFmpeg video transition filter with many built-in transitions and an expression evaluator for custom transitions.
 However the progress rate is linear, starting and stopping abruptly and proceeding at constant speed,
@@ -44,7 +44,7 @@ It also facilitates generic easing of ffmpeg filters – see [Easing other filte
 The **custom ffmpeg** variant has backward compatible xfade arguments, is fast with a simple C&nbsp;API and no restrictions.
 Installation involves a [few patches](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html) to a single ffmpeg C source file, with no dependencies.
 The **custom expression** variant is convenient but clunky
-– see [Performance](#custom-expression-performance) –
+– see [performance](#custom-expression-performance) –
 and runs on plain vanilla ffmpeg but with restrictions:
 it doesn’t support CSS easings, certain transitions, the [reverse](#reversing-xfade-effects) feature, full colour or textures.
 
@@ -174,7 +174,7 @@ the fix for `ld: warning: text-based stub file are out of sync` warnings [is her
 
 #### Native compiling
 
-My repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) has a Bash script to build ffmpeg easily with xfade-easing under MSYS2 in two dispositions:
+My repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) has a Bash script to build ffmpeg easily with (or without) xfade-easing under MSYS2 in two dispositions:
 
 - minimal static build (x264 + zlib) using
   - MSVC toolchain under MSYS2 MSYS environment \
@@ -210,8 +210,8 @@ Please see the [FFmpeg Compilation Guide](https://trac.ffmpeg.org/wiki/Compilati
 
 ### Binary distribution
 
-FFmpeg contains x264 and other components which require compliance with the GPL.
-Therefore I am unable to distribute binary executables of ffmpeg with xfade-easing.
+FFmpeg contains x264 and other components which require compliance with the GPL,
+therefore I am unable to distribute binary executables of ffmpeg with xfade-easing.
 
 ### Testing
 
@@ -628,7 +628,7 @@ etc.
 
 #### Porting
 
-GLSL shader code runs on the GPU in real time unlike ffmpeg.
+GLSL shader code runs on the GPU in real time, unlike ffmpeg.
 However GL Transition and Xfade APIs are broadly similar and non-complex algorithms are easily ported using simple vector resolution.
 
 | context | GL Transitions | Xfade filter | notes |
@@ -1014,11 +1014,6 @@ For lossless intermediate video content with alpha channel support use the [xfad
 For lossy video with alpha use an alpha format and the .webm extension.
 Note: webm encoding is extremely slow and webm alpha is not widely supported.
 
-For animated GIFs with transparency use a non-alpha format and the `-g` option to specify the transparent colour, and the .gif extension.
-These require [gifsicle](https://www.lcdf.org/gifsicle/).
-Empirically, using an alpha format with the ffmpeg `palettegen` filter and `reserve_transparent` option does not produce faultless transparent animated GIFs, whereas post-processing the opaque image is reliable if the transparent colour is unique.
-This needs further investigation.
-
 To specify alpha in transition parameters, see [Colour parameters](#colour-parameters).
 
 *Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
@@ -1083,45 +1078,347 @@ This is a powerful feature that considerably increases the number of transitions
 
 ---
 
-## Custom expression performance
+## Performance
 
-FFmpeg incorporates a simple arithmetic expression evaluator implemented as a LL(1) recursive descent parser,
-so custom `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in
-[libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c).
-That expression is then executed for every pixel in each plane, which obviously incurs a performance hit,
-considerably exacerbated by disabling threading in order to use the `st()` and `ld()` state variables shared between slices
+### Custom expression performance
+
+FFmpeg incorporates a simple arithmetic expression evaluator implemented as a LL(1) recursive descent parser.
+Custom `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in
+[libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c)
+which is then executed for every pixel in each plane.
+The inefficiency is further exacerbated by disabling threading in order to use the `st()` and `ld()` state variables shared between slices
 (a slice is a range of frame lines processed by a thread job).
-So custom transition expressions are very slow despite the pre-parse.
+But modern CPU speeds make Xfade custom transitions a viable option, if somewhat challenging.
 
-Based on empirical timings scaled by benchmark scores ([Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks))
-the time to process a 3-second transition of HD720 (1280x720) 3-plane media (rgb24) through a null muxer on M1-M3 Macs is roughly:
+#### Interpretation of metrics
 
-- up to 45 seconds for an eased xfade transition
-- 15s to 2 minutes for most ported GLSL transitions
+The following plots show empirical processing times for a 3-second transition of 3-plane frames (rgb24) through a null muxer
+in SD (720x480) and HD (1280x720) sizes on an otherwise idle Intel 2018 Mac,
+taking the minimum times of several runs.
 
-For greyscale (single plane), subtract two thirds. \
-For an alpha plane, add a third. \
-For 2017‑19 Macs double it. \
-For 2013‑16 Macs triple it.
+Based on benchmark scores ([Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks))
+these times are representative of 2017-2020 Intel Macs,
+but scale them as follows:
 
-Mac model performance varies enormously so these vintage dates are only approximate.
+- multiply by the target pixel ratio, e.g. HD takes 2.7 times longer than SD: $1280 \times 720 \over 720 \times 480$
+- for greyscale (single plane), subtract two thirds
+- for an alpha plane, add a third
+- M4 Macs are around 2.7 times faster, M3 Macs 2 times faster, M1-M2 Macs 1.5 times faster
+- 2013-16 Macs are half as fast
+- times may be affected by GL transition arguments and pixel format
+
+Mac model performance varies enormously so timing vintage Macs is very approximate.
 Windows performance has not been measured.
 
-The slowest supported transition `gl_powerKaleido` is impractical for most purposes, taking over 15 minutes.
-The most complex transition is `gl_InvertedPageCurl` which involved considerable refactoring.
+#### GL Transition expressions
+
+![GL Transition CE times](assets/times-X-T-GL.png)
+
+<details><summary>plot data</summary>
+
+| Name | SD | HD |
+| :---: | :---: | :--- |
+|gl_Bars|10.47|27.06|
+|gl_BookFlip|14.21|36.69|
+|gl_Bounce|27.75|73.06|
+|gl_CornerVanish|6.89|17.57|
+|gl_CrazyParametricFun|57.69|156.65|
+|gl_CrossOut|16.15|42.36|
+|gl_Diamond|8.59|22.1|
+|gl_DirectionalScaled|39.77|105.64|
+|gl_DoubleDiamond|10.99|28.15|
+|gl_Dreamy|31.46|83.57|
+|gl_FanIn|12.54|32.85|
+|gl_FanOut|12.59|33.23|
+|gl_FanUp|9.99|25.61|
+|gl_Flower|29.6|77.89|
+|gl_InvertedPageCurl|47.65|126.94|
+|gl_LinearBlur|516.2|1385.06|
+|gl_Mosaic|72.47|189.77|
+|gl_PolkaDotsCurtain|22.13|58.39|
+|gl_Rolls|36.2|93.34|
+|gl_RotateScaleVanish|42.29|111.61|
+|gl_SimplePageCurl|122.08|315.73|
+|gl_Slides|18.91|49.39|
+|gl_StarWipe|48.83|122.7|
+|gl_Swirl|41.9|118.08|
+|gl_WaterDrop|21.12|56.13|
+|gl_angular|16.18|42.2|
+|gl_cannabisleaf|28.54|76.95|
+|gl_chessboard|16.89|44.15|
+|gl_crosshatch|52.07|140.25|
+|gl_crosswarp|35.92|92.72|
+|gl_cube|65.88|178.62|
+|gl_directionalwarp|62.48|166.27|
+|gl_doorway|39.93|108.59|
+|gl_heart|16.7|44.91|
+|gl_hexagonalize|66.04|172.6|
+|gl_kaleidoscope|174.98|475.29|
+|gl_perlin|90.86|239.03|
+|gl_pinwheel|11.67|30.72|
+|gl_polar_function|17.85|45.79|
+|gl_powerKaleido|532.58|1431.74|
+|gl_randomNoisex|10.23|26.4|
+|gl_randomsquares|24.21|64.17|
+|gl_ripple|35.57|94.07|
+|gl_rotateTransition|35.41|95.13|
+|gl_rotate_scale_fade|56.07|151.46|
+|gl_squareswire|50.12|134.43|
+|gl_static_wipe|53.73|143.37|
+|gl_swap|71.96|186.63|
+|gl_windowblinds|21.3|57.18|
+|gl_windowslice|16.93|43.22|
+
+</details>
+
+This shows most GL transitions take around half a minute for SD and a minute and a half for HD,
+however some take considerably longer (off-scale transitions shown in italics).
 
 See [xfade-easing.h](src/xfade-easing.h) for the C code transpiled from GLSL that helped to optimize the custom expressions.
 See the files in [glsl/](glsl/) refactored from other GLSL transition sources that were used for intermediate testing in the [GL Transition Editor](https://gl-transitions.com/editor).
 
-Using the custom ffmpeg build on M2 Macs, the slowest transition takes just 4 seconds for the same task.
-However `gl_Exponential_Swish` with blurring can take 3 minutes!
-While much slower than a GPU, CPU processing is at least tolerable.
-Unlike built-in xfade transitions the custom ffmpeg C code in [xfade-easing.h](src/xfade-easing.h) deploys a single pixel iterator for all extended transition functions which in turn operate on all planes at once.
-And it does not require `-filter_complex_threads 1`.
+#### Xfade transition expressions
 
-Performance-wise, custom expressions are slower by a factor of 47 (mean) with a huge standard deviation of 26!
+![Xfade transition CE times](assets/times-X-T-XF.png)
 
-Other faster ways to use GL Transitions with FFmpeg are:
+<details><summary>plot data</summary>
+
+| Name | SD | HD |
+| :---: | :---: | :--- |
+|circleclose|16.03|41.19|
+|circlecrop|11.6|30.27|
+|circleopen|16.12|41.54|
+|coverdown|10.38|27.2|
+|coverleft|10.17|26.53|
+|coverright|10.46|28.36|
+|coverup|10.24|26.98|
+|diagbl|11.58|29.99|
+|diagbr|12.72|31.89|
+|diagtl|11.05|28.47|
+|diagtr|11.89|30.5|
+|dissolve|9.92|25.74|
+|fade|2.41|5.72|
+|fadeblack|24.56|65.86|
+|fadefast|8.21|21.8|
+|fadegrays|34.06|92.03|
+|fadeslow|8.19|21.58|
+|fadewhite|24.34|63.91|
+|hlslice|14.96|39.14|
+|hlwind|18.86|50.53|
+|horzclose|11.17|29.09|
+|horzopen|10.9|28.32|
+|hrslice|15.86|40.73|
+|hrwind|18.24|47.72|
+|pixelize|27.83|73.49|
+|radial|13.51|35.8|
+|rectcrop|8.03|20.63|
+|revealdown|10.48|27.46|
+|revealleft|10.05|26.84|
+|revealright|10.57|27.38|
+|revealup|10.11|26.9|
+|slidedown|11.68|30.38|
+|slideleft|11.1|29.47|
+|slideright|11.57|30.82|
+|slideup|11.33|29.26|
+|smoothdown|10.57|27.7|
+|smoothleft|9.68|26.14|
+|smoothright|10.56|28.07|
+|smoothup|9.87|25.91|
+|squeezeh|6.7|17.07|
+|squeezev|6.62|17.31|
+|vdslice|15.61|40.1|
+|vdwind|18.19|47.95|
+|vertclose|11.04|29.15|
+|vertopen|11.49|28.5|
+|vuslice|14.78|39.07|
+|vuwind|18.69|49.33|
+|wipebl|3.77|9.26|
+|wipebr|4.22|10.29|
+|wipedown|2.52|5.71|
+|wipeleft|2.11|4.88|
+|wiperight|2.54|5.98|
+|wipetl|3.37|8.21|
+|wipetr|3.72|9.04|
+|wipeup|2.06|4.68|
+|zoomin|29.09|76.4|
+
+</details>
+
+These are only used when easing standard Xfade transitions.
+
+#### Easing expressions
+
+![Easing CE times](assets/times-X-E.png)
+
+<details><summary>plot data</summary>
+
+| Name | SD | HD |
+| :---: | :---: | :--- |
+|back|7.26|18.44|
+|bounce|14.18|36.07|
+|circular|6.34|15.55|
+|cuberoot|6.79|17.1|
+|cubic|6.52|16.76|
+|elastic|11.49|29.41|
+|exponential|6.44|16.44|
+|linear|2.64|6.22|
+|quadratic|4.6|11.37|
+|quartic|6.66|16.72|
+|quintic|6.53|16.75|
+|sinusoidal|5.26|13.33|
+|squareroot|4.71|12.02|
+
+</details>
+
+If easing is used these easing times must be added to the GL or Xfade transition times above.
+
+### Custom FFmpeg performance
+
+![Custom FFmpeg performance](assets/times-C.png)
+
+<details><summary>plot data</summary>
+
+| Name | SD | HD |
+| :---: | :---: | :--- |
+|circleclose|0.94|1.71|
+|circlecrop|0.7|1.19|
+|circleopen|0.94|1.72|
+|coverdown|0.49|0.54|
+|coverleft|0.73|1.18|
+|coverright|0.72|1.16|
+|coverup|0.49|0.54|
+|diagbl|0.82|1.41|
+|diagbr|0.84|1.46|
+|diagtl|0.83|1.39|
+|diagtr|0.84|1.45|
+|dissolve|0.98|1.91|
+|distance|1|1.97|
+|fade|0.5|0.58|
+|fadeblack|0.61|0.72|
+|fadefast|2|5|
+|fadegrays|1.02|1.83|
+|fadeslow|1.91|4.74|
+|fadewhite|0.61|0.72|
+|hblur|0.7|1.17|
+|hlslice|0.83|1.41|
+|hlwind|0.89|1.51|
+|horzclose|0.73|1.14|
+|horzopen|0.73|1.18|
+|hrslice|0.83|1.45|
+|hrwind|0.86|1.48|
+|pixelize|0.83|1.33|
+|radial|1.07|2.08|
+|rectcrop|0.57|0.76|
+|revealdown|0.49|0.54|
+|revealleft|0.72|1.17|
+|revealright|0.73|1.17|
+|revealup|0.5|0.54|
+|slidedown|0.51|0.56|
+|slideleft|0.73|1.17|
+|slideright|0.76|1.14|
+|slideup|0.51|0.56|
+|smoothdown|0.76|1.18|
+|smoothleft|0.81|1.3|
+|smoothright|0.81|1.33|
+|smoothup|0.73|1.17|
+|squeezeh|0.47|0.52|
+|squeezev|0.71|1.15|
+|vdslice|0.74|1.16|
+|vdwind|1.22|2.53|
+|vertclose|0.79|1.35|
+|vertopen|0.82|1.38|
+|vuslice|0.74|1.15|
+|vuwind|1.22|2.46|
+|wipebl|0.5|0.63|
+|wipebr|0.5|0.62|
+|wipedown|0.44|0.5|
+|wipeleft|0.49|0.62|
+|wiperight|0.5|0.61|
+|wipetl|0.5|0.63|
+|wipetr|0.5|0.64|
+|wipeup|0.44|0.5|
+|zoomin|0.92|1.56|
+|gl_Bars|1.25|2.78|
+|gl_BookFlip|1.28|2.74|
+|gl_Bounce|1.62|3.65|
+|gl_BowTie|1.46|3.46|
+|gl_ButterflyWaveScrawler|5.23|15.29|
+|gl_CornerVanish|1.04|2.19|
+|gl_CrazyParametricFun|2.91|7.51|
+|gl_CrossOut|1.13|2.29|
+|gl_CrossZoom|45.73|131.66|
+|gl_Diamond|1.11|2.25|
+|gl_DirectionalScaled|2.56|6.39|
+|gl_DoubleDiamond|1.11|2.35|
+|gl_Dreamy|2.41|6.2|
+|gl_EdgeTransition|9.96|31.12|
+|gl_Exponential_Swish|5.12|14.38|
+|gl_FanIn|1.23|2.67|
+|gl_FanOut|1.28|2.79|
+|gl_FanUp|1.22|2.7|
+|gl_Flower|1.78|4.13|
+|gl_GridFlip|2.15|5.28|
+|gl_InvertedPageCurl|2.02|4.83|
+|gl_LinearBlur|32.78|97.77|
+|gl_Lissajous_Tiles|84.81|235.19|
+|gl_Mosaic|2.85|7.01|
+|gl_PolkaDotsCurtain|1.38|3.07|
+|gl_Rolls|1.57|3.63|
+|gl_RotateScaleVanish|1.96|4.65|
+|gl_SimpleBookCurl|2.19|5.52|
+|gl_SimplePageCurl|1.69|3.85|
+|gl_Slides|1.25|2.59|
+|gl_StageCurtains|1.98|4.79|
+|gl_StarWipe|2.32|5.73|
+|gl_StereoViewer|2.25|5.79|
+|gl_Stripe_Wipe|2.69|6.71|
+|gl_Swirl|3.01|7.49|
+|gl_WaterDrop|1.94|4.64|
+|gl_angular|1.46|3.33|
+|gl_blend|1.76|4.44|
+|gl_cannabisleaf|3.28|8.63|
+|gl_chessboard|1.14|2.32|
+|gl_crosshatch|2.12|5.04|
+|gl_crosswarp|1.98|4.77|
+|gl_cube|1.82|4.22|
+|gl_directionalwarp|2.64|6.58|
+|gl_doorway|1.61|3.58|
+|gl_fadecolor|1.38|3.2|
+|gl_heart|1.11|2.35|
+|gl_hexagonalize|2.34|5.74|
+|gl_kaleidoscope|5.37|15.54|
+|gl_morph|1.87|4.51|
+|gl_perlin|2.89|6.98|
+|gl_pinwheel|1.48|3.42|
+|gl_polar_function|1.88|4.48|
+|gl_powerKaleido|5.45|15.51|
+|gl_randomNoisex|1.7|3.85|
+|gl_randomsquares|1.96|4.61|
+|gl_ripple|2.44|5.93|
+|gl_rotateTransition|2.27|5.44|
+|gl_rotate_scale_fade|2.52|6.32|
+|gl_squareswire|1.34|2.89|
+|gl_static_wipe|1.96|4.63|
+|gl_swap|1.71|3.78|
+|gl_windowblinds|1.27|2.65|
+|gl_windowslice|1.17|2.37|
+
+</details>
+
+This plot combines both Xfade and GL transitions.
+
+It shows most transitions take around a second for SD and 2.5 seconds for HD
+but again some take considerably longer (off-scale transitions shown in italics).
+
+Progress easing is calculated once per slice and presents no discernable performance hit.
+
+The custom ffmpeg C code in [xfade-easing.h](src/xfade-easing.h) deploys a single pixel iterator for all extended transition functions which in turn operate on all planes at once,
+and it does not require `-filter_complex_threads 1`.
+Use is made of aligned variables and inlined code snippets as compiler hints for fast SIMD vector and sincos instructions.
+
+####  Alternative GL Transitions
+
+Other, faster ways to use GL Transitions with FFmpeg are:
 - [gl-transition-scripts](https://www.npmjs.com/package/gl-transition-scripts) includes a Node.js CLI script `gl-transition-render` which can render multiple GL Transitions and images for FFmpeg processing
 - [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which requires installation and a lot of temporary storage
 - [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) is a native FFmpeg filter which requires building ffmpeg from source
@@ -1139,7 +1436,7 @@ Other faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.6.1 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg XFade easing and extensions version 3.6.2 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
@@ -1179,15 +1476,15 @@ Options:
     -c canvas size for easing plot (default: 640x480, scaled to inches for PDF/EPS)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: animated gif, mkv (FFV1), mp4 (H264), webm (VP9), y4m (yuv4mpeg), raw
+       formats: mkv (FFV1), mp4 (H264), webm (VP9), raw
+       animated formats: webp (VP8), png (APNG), gif, y4m (yuv4mpeg)
        from file extension; if filename is - then format is the null muxer (no output)
        if -f format has alpha then mkv,webm,raw generate transparent video output
-       for gifs see -g; if gifsicle is available then gifs will be optimised
+       if gifski is installed then gifs will be optimised
        raw decode: ffmpeg -f rawvideo -pixel_format f -framerate r -video_size s -i ...
     -o additional ffmpeg options, e.g. -o '-movflags +faststart' for MP4 Faststart
     -r video framerate (default: 25fps)
     -f pixel format (default: rgb24): use ffmpeg -pix_fmts for list
-    -g gif transparent colour, requires gifsicle and a non-alpha format (default: none)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z 400x scales H
     -d video transition duration (default: 3s, minimum: 0) (see note after -l)
@@ -1222,7 +1519,7 @@ Options:
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
     2. this script requires Bash 4 (2009), ffmpeg, ffprobe, gawk, gsed, seq
-       also gnuplot for plots, gifsicle for transparent animated gifs
+       also gnuplot for plots, gifski for optimised animated gifs
     3. use ffmpeg option -filter_complex_threads 1 (slower) because xfade expression
        vars used by st() & ld() are shared across slices, therefore not thread-safe
        (the custom ffmpeg build works without -filter_complex_threads 1)
@@ -1288,7 +1585,7 @@ The plots above in [Standard easings](#standard-easings-robert-penner) show test
 
 ### Generating videos
 
-Videos are generated using the `-v` option and customised with the `-b`,`-r`,`-f`,`-g`,`-z`,`-d`,`-i`,`-l`,`-j`,`-n`,`-u`,`-k`,`-o` options.
+Videos are generated using the `-v` option and customised with the `-b`,`-r`,`-f`,`-z`,`-d`,`-i`,`-l`,`-j`,`-n`,`-u`,`-k`,`-o` options.
 
 > [!NOTE]
 > all transition effect demos on this page are animated GIFs regardless of the commands shown
