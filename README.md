@@ -643,8 +643,7 @@ However GL Transition and Xfade APIs are broadly similar and non-complex algorit
 The custom ffmpeg variant, like GL Transitions, operates on single precision
 [unit interval](https://en.wikipedia.org/wiki/Unit_interval)
 coordinate and colour data, processing all planes together.
-SIMD (Single Instruction Multiple Data) processing is compiler-dependent
-but heavy use is made of inline code and optimisation hints.
+GL Transitions have been altered to work with YUV plane data as well as RGB.
 
 To make the transpiled code easier to follow,
 original variable names from the GLSL and xfade source code are retained in
