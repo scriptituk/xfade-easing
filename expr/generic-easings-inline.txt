@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.1
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.2
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Generic easing expressions, inline for -filter_complex filterchains
@@ -113,6 +113,3 @@ st(0,pow(ld(0),0.333333))
 
 CUBEROOT-IN-OUT
 st(0,if(lt(ld(0),0.5),pow(ld(0)/4,0.333333),1-pow((1-ld(0))/4,0.333333)))
-
-LINEAR
-st(0,ld(0))

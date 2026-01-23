@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.1
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.2
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Eased transition expressions (rgb24), script for -/filter_complex filterchains
@@ -366,6 +366,12 @@ if(between(ld(2), 0, H - 1),
  B,
  ifnot(PLANE, a0(X,ld(3)), ifnot(1-PLANE, a1(X,ld(3)), ifnot(2-PLANE, a2(X,ld(3)), a3(X,ld(3)))))
 )
+
+DISTANCE
+NATIVE
+
+HBLUR
+NATIVE
 
 GL_ANGULAR
 st(1, 90);
@@ -1041,51 +1047,53 @@ GL_POWERKALEIDO
 st(1, 2);
 st(2, 1.5);
 st(3, 5);
+st(0, 1 - ld(0));
 st(1, ld(1) / 10);
-st(3, ld(3) * (1 - ld(0)));
+st(3, ld(3) * ld(0));
 st(6, cos(ld(3)));
 st(7, sin(ld(3)));
 st(4, (X / W - 0.5) * W / H * ld(2));
 st(2, (0.5 - Y / H) * ld(2));
 st(5, ld(6) * ld(2) - ld(7) * ld(4));
 st(4, ld(6) * ld(4) + ld(7) * ld(2));
-st(8, 0);
-while(lte(st(8, ld(8) + 1), 10),
- st(2, 0);
- while(lt(ld(2), 2 * PI),
-  st(6, cos(ld(2)));
-  st(7, sin(ld(2)));
-  if(eq(
-    gt(asin(ld(6)), 0),
-    gt(ld(5) - ld(6) * ld(1), ld(7) / ld(6) * (ld(4) + ld(7) * ld(1)))
-   ),
-   st(4, ld(4) + ld(7) * ld(1) * 2);
-   st(5, ld(5) - ld(6) * ld(1) * 2);
-   st(9, ld(4) * ld(6) + ld(5) * ld(7));
-   st(4, 2 * ld(6) * ld(9) - ld(4));
-   st(5, 2 * ld(7) * ld(9) - ld(5))
-  );
-  st(2, ld(2) + 120 / 180 * PI)
+st(8, -1);
+while(lt(st(8, ld(8) + 1), 30),
+ ifnot(st(7, mod(ld(8), 3)),
+  st(6, 1),
+  ifnot(1-ld(7),
+   st(6, -0.5); st(7, 0.866025),
+   st(7, -0.866025)
+  )
+ );
+ if(eq(
+   not(ld(7)),
+   gt(ld(5) - ld(6) * ld(1), (ld(4) + ld(7) * ld(1)) * ld(7) / ld(6))
+  ),
+  st(4, ld(4) + ld(7) * ld(1) * 2);
+  st(5, ld(5) - ld(6) * ld(1) * 2);
+  st(2, ld(4) * ld(6) + ld(5) * ld(7));
+  st(4, ld(6) * ld(2) * 2 - ld(4));
+  st(5, ld(7) * ld(2) * 2 - ld(5))
  )
 );
 st(6, cos(-ld(3)));
 st(7, sin(-ld(3)));
 st(2, ld(6) * ld(4) + ld(7) * ld(5));
-st(5, ld(6) * ld(5) - ld(7) * ld(2));
-st(4, (ld(2) / W * H + 0.5) / 2);
+st(5, ld(6) * ld(5) - ld(7) * ld(4));
+st(4, (ld(2) * H / W + 0.5) / 2);
 st(5, (ld(5) + 0.5) / 2);
-st(4, 2 * abs(ld(4) - floor(ld(4) + 0.5)));
-st(5, 2 * abs(ld(5) - floor(ld(5) + 0.5)));
+st(4, abs(ld(4) - floor(ld(4) + 0.5)) * 2);
+st(5, abs(ld(5) - floor(ld(5) + 0.5)) * 2);
 st(1, X / W);
 st(2, 1 - Y / H);
-st(3, cos(ld(0) * PI * 2) / 2 + 0.5);
+st(3, (cos(ld(0) * PI * 2) + 1) / 2);
 st(4, ld(4) * (1 - ld(3)) + ld(1) * ld(3));
 st(5, ld(5) * (1 - ld(3)) + ld(2) * ld(3));
 st(4, ld(4) * W);
 st(5, (1 - ld(5)) * H);
 st(1, ifnot(PLANE, a0(ld(4),ld(5)), ifnot(1-PLANE, a1(ld(4),ld(5)), ifnot(2-PLANE, a2(ld(4),ld(5)), a3(ld(4),ld(5))))));
 st(2, ifnot(PLANE, b0(ld(4),ld(5)), ifnot(1-PLANE, b1(ld(4),ld(5)), ifnot(2-PLANE, b2(ld(4),ld(5)), b3(ld(4),ld(5))))));
-st(3, cos(ld(0) * PI) / 2 + 0.5);
+st(3, (cos((ld(0) - 1) * PI) + 1) / 2);
 ld(1) * (1 - ld(3)) + ld(2) * ld(3)
 
 GL_RANDOMNOISEX
