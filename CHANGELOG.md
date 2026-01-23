@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- detailed custom expression and native performance analysis in README
 - `.webp` (VP8) animated WebP output format in `xfade-easing.sh` script
 - `.png` (APNG) animated PNG output format in `xfade-easing.sh` script
 
