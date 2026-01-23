@@ -1,5 +1,5 @@
---- libavfilter/vf_xfade.c	2025-12-29 19:28:00.000000000 +0000
-+++ vf_xfade.c	2025-12-29 19:28:00.000000000 +0000
+--- libavfilter/vf_xfade.c	2026-01-23 13:23:50
++++ vf_xfade.c	2026-01-23 13:23:50
 @@ -126,6 +126,11 @@
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);
@@ -36,12 +36,13 @@
      {   "custom",    "custom transition",     0, AV_OPT_TYPE_CONST, {.i64=CUSTOM},    0, 0, FLAGS, .unit = "transition" },
      {   "fade",      "fade transition",       0, AV_OPT_TYPE_CONST, {.i64=FADE},      0, 0, FLAGS, .unit = "transition" },
      {   "wipeleft",  "wipe left transition",  0, AV_OPT_TYPE_CONST, {.i64=WIPELEFT},  0, 0, FLAGS, .unit = "transition" },
-@@ -2001,10 +2010,12 @@
+@@ -2000,11 +2009,13 @@
+ REVEALV_TRANSITION(up,   16, uint16_t, 2, -)
  REVEALV_TRANSITION(down,  8, uint8_t,  1, )
  REVEALV_TRANSITION(down, 16, uint16_t, 2, )
- 
-+#include "xfade-easing.h" // easing & extended transitions
 +
++#include "xfade-easing.h" // easing & extended transitions
+ 
  static inline double getpix(void *priv, double x, double y, int plane, int nb)
  {
      XFadeContext *s = priv;

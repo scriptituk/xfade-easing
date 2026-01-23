@@ -585,12 +585,12 @@ static inline uint16_t *line2(const AVFrame *f, int p, int y) { return (uint16_t
 #define _getToColorVA(_1,_2,NAME,...) NAME
 #define getToColor(...) _getToColorVA(__VA_ARGS__, _getToColor2, _getToColor1)(__VA_ARGS__)
 
-// get from/to colour at pixel point
+// get from or to colour at pixel point
 static av_noinline vec4 getColor(const XTransition *e, float x, float y, int nb) // cf. vf_xfade.c getpix()
 {
     const XFadeEasingContext *k = e->k;
     const XFadeContext *s = k->s;
-    const AVFrame *f = s->xf[nb ^ (s->reverse & REVERSE_TRANSITION)];
+    const AVFrame *f = s->xf[s->reverse & REVERSE_TRANSITION ^ nb];
     const int i = scaleUI(x, k->mw), j = scaleUI(1 - y, k->mh), n = k->n;
     const float mv = k->mv;
     vec4 c = PLANED; // default plane values
@@ -865,9 +865,6 @@ static vec4 gl_ButterflyWaveScrawler(const XTransition *e) // by mandubian
     vec4 texFrom = getFromColor(add2f(e->p, dp));
     texFrom.p1 = getFromColor(add2f(e->p, dp * (1 + colorSeparation))).p1;
     texFrom.p2 = getFromColor(add2f(e->p, dp * (1 - colorSeparation))).p2;
-//  if (!e->k->is_rgb)
-//      return gbr2yuv(mix4(yuv2gbr(texFrom), yuv2gbr(texTo), e->progress));
-// TODO: conversions don't make any difference; should we do RGB only?
     return mix4(texFrom, texTo, e->progress);
 }
 
@@ -988,9 +985,9 @@ static vec4 gl_CrossZoom(const XTransition *e) // by rectalogic
     float offset = frand2(e->p);
     for (int t = 0; t <= 40; t++) {
         float percent = (t + offset) * 0.025f;
-        float weight = (percent - percent * percent) * 4;
         vec2 p = add2(e->p, mul2f(toCenter, percent * strength2));
         vec4 c = mix4(getFromColor(p), getToColor(p), dissolve);
+        float weight = (1 - percent) * percent * 4;
         color = add3(color, mul3f(c, weight));
         total += weight;
     }
@@ -1139,23 +1136,34 @@ static vec4 gl_EdgeTransition(const XTransition *e) // by Woohyun Kim
     ARG1(float, edgeThickness, 0.001)
     ARG1(float, edgeBrightness, 8)
     INIT_END
-    vec4 a[2]; // adjacent mix colours
+    vec4 f, t, o;
+    if (e->k->is_rgb)
+        f = e->a, t = e->b;
+    else
+        f = yuv2gbr(e->a), t = yuv2gbr(e->b); // TODO: what if not BT.601?
+    vec4 a[2] = { f, t }; // adjacent mix colours
     for (int k = 0; k < 2; k++) {
-        vec4 c[9]; // adjacent pixel array for c[4]: 0 3 6
-        for (int i = 0; i < 9; i++) {             // 1 4 7
-            ivec2 j = { i / 3, i % 3 };           // 2 5 8
-            vec2 p = add2(e->p, mul2f(VEC2(j.x - 1, j.y - 1), edgeThickness));
-            c[i] = k ? getToColor(p) : getFromColor(p);
+        vec4 c[9]; // adjacent pixel array for e->p: 0 3 6
+        for (int i = 0; i < 9; i++) {             // 1 = 7
+            if (i != 4) {                         // 2 5 8
+                ivec2 j = { i / 3 - 1, i % 3 - 1 };
+                vec2 p = add2(e->p, mul2f(vec2i(j), edgeThickness));
+                o = k ? getToColor(p) : getFromColor(p);
+                c[i] = e->k->is_rgb ? o : yuv2gbr(o);
+            }
         }
-        vec4 dx = add3(abs3(mul3f(sub3(c[7], c[1]), 2)), add3(abs3(sub3(c[2], c[6])), abs3(sub3(c[8], c[0]))));
-        vec4 dy = add3(abs3(mul3f(sub3(c[3], c[5]), 2)), add3(abs3(sub3(c[6], c[8])), abs3(sub3(c[0], c[2]))));
-        float delta = length3(mul3f(add3(dx, dy), 0.25f * P5f));
-        a[k] = mul3f(c[4], clipUI(edgeBrightness * delta));
-        a[k].p3 = k ? e->b.p3 : e->a.p3;
+        vec4 dx = add3(mul3f(abs3(sub3(c[7], c[1])), 2), add3(abs3(sub3(c[2], c[6])), abs3(sub3(c[8], c[0]))));
+        vec4 dy = add3(mul3f(abs3(sub3(c[3], c[5])), 2), add3(abs3(sub3(c[6], c[8])), abs3(sub3(c[0], c[2]))));
+        float delta = length3(mul3f(add3(dx, dy), 0.125f));
+        a[k] = mul3f(a[k], clipUI(edgeBrightness * delta));
     }
-    vec4 start = mix4(e->a, a[0], clipUI(e->progress * 2));
-    vec4 end = mix4(a[1], e->b, clipUI(e->progress * 2 - 1));
-    return mix4(start, end, e->progress);
+    vec4 start, end;
+    if (e->progress < P5f)
+        start = mix4(f, a[0], e->progress * 2), end = a[1];
+    else
+        start = a[0], end = mix4(a[1], t, e->progress * 2 - 1);
+    o = mix4(start, end, e->progress);
+    return e->k->is_rgb ? o : gbr2yuv(o);
 }
 
 static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
@@ -1324,17 +1332,18 @@ static vec4 gl_GridFlip(const XTransition *e) // by TimDonselaar
     bool individer = fminf(minX, minY) < dividerSize;
     vec4 c = colour(e, background);
     if (e->progress < pause)
-        return mix4(c, e->a, individer ? 1 - e->progress / pause : 1);
+        return individer ? mix4(c, e->a, 1 - e->progress / pause) : e->a;
     if (1 - e->progress < pause)
-        return mix4(c, e->b, individer ? 1 - (1 - e->progress) / pause : 1);
+        return individer ? mix4(c, e->b, 1 - (1 - e->progress) / pause) : e->b;
     if (individer)
         return c;
     float r = frand2(rectanglePos) - randomness;
     float cp = smoothstep(0, 1 - r, (e->progress - pause) / (1 - pause * 2));
+    if (!step(fabsf(size.x * (e->p.x - left) - P5f), fabsf(cp - P5f)))
+        return c;
     float offset = rectangleSize.x / 2 + left;
     vec2 p = { (e->p.x - offset) / fabsf(cp - P5f) / 2 + offset, e->p.y };
-    float s = step(fabsf(size.x * (e->p.x - left) - P5f), fabsf(cp - P5f));
-    return mix4(c, mix4(getToColor(p), getFromColor(p), step(cp, P5f)), s);
+    return step(cp, P5f) ? getFromColor(p) : getToColor(p);
 }
 
 static vec4 gl_heart(const XTransition *e) // by gre
@@ -1373,7 +1382,7 @@ static vec4 gl_hexagonalize(const XTransition *e) // by Fernando Kuteken
         // pointFromHexagon
         point = VEC2(
             (rt3 * f.q + rt3 / 2 * f.r) * size + P5f,
-            (3.f / 2.f * f.r * size + P5f) * e->ratio
+            (1.5f * f.r * size + P5f) * e->ratio
         );
         return mix4(getFromColor(point), getToColor(point), e->progress);
     }
@@ -1423,11 +1432,11 @@ static vec4 gl_LinearBlur(const XTransition *e) // by gre
     VAR1(int, passes, 6)
     INIT_END
     vec4 c1 = vec4f(0), c2 = vec4f(0);
-    float disp = intensity * (P5f - fabsf(P5f - e->progress)), p = passes, p2 = passes * passes;
+    float disp = intensity * (P5f - fabsf(P5f - e->progress)), ip = 1.f / passes, p2 = passes * passes;
     for (int xi = 0; xi < passes; xi++) {
-        float x = (xi / p - P5f) * disp + e->p.x;
+        float x = (xi * ip - P5f) * disp + e->p.x;
         for (int yi = 0; yi < passes; yi++) {
-            float y = (yi / p - P5f) * disp + e->p.y;
+            float y = (yi * ip - P5f) * disp + e->p.y;
             c1 = add4(c1, getFromColor(x, y));
             c2 = add4(c2, getToColor(x, y));
         }
@@ -1561,26 +1570,30 @@ static vec4 gl_powerKaleido(const XTransition *e) // by Boundless
     ARG1(float, scale, 2)
     ARG1(float, z, 1.5)
     ARG1(float, speed, 5)
-    VAR1(float, rad, radians(120)) // change this value to get different mirror effects
     VAR1(float, dist, scale / 10)
+    VAR1(float, rt3_2, sqrtf(3) / 2)
     INIT_END
-    vec2 uv = mul2f(sub2f(e->p, P5f), e->ratio * z);
+    vec2 uv = mul2(sub2f(e->p, P5f), VEC2(e->ratio * z, z));
     float a = e->progress * speed;
-    uv = rot2(uv, a);
-    for (int iter = 0; iter < 10; iter++) {
-        for (float i = 0; i < M_TAUf; i += rad) {
-            vec2 v = cossin2(i);
-            bool b = asinf(v.x) > 0; // == glmod(i + M_PI_2f, M_TAUf) < M_PIf
-            bool d = uv.y - v.x * dist > v.y / v.x * (uv.x + v.y * dist);
-            if (b == d) {
-                vec2 p = { uv.x + v.y * dist * 2, uv.y - v.x * dist * 2 };
-                uv = sub2(mul2f(v, dot2(p, v) * 2), p);
-            }
+    uv = rot2(uv, a); // slick algo for 120 degree mirror effect only
+    for (int iter = 0; iter < 30; iter++) { // 10 * 3
+        int i = iter % 3; // 0,120,240 degree iterator
+        vec2 v;
+        if (i == 0) // 0
+            v = VEC2(1, 0); // cos(0),sin(0)
+        else if (i == 1) // 120
+            v = VEC2(-P5f, rt3_2); // cos(120|240),sin(120)
+        else // 240
+            v.y = -rt3_2; // sin(240)
+        vec2 p = mul2f(v, dist);
+        if ((v.x >= 0) == (uv.y - p.x > (uv.x + p.y) * v.y / v.x)) { // asin(v.x)>=0
+            p = add2(VEC2(p.y * 2, -p.x * 2), uv);
+            uv = sub2(mul2f(v, dot2(p, v) * 2), p);
         }
     }
     uv = rot2(uv, -a);
     uv.x /= e->ratio;
-    uv = div2f(add2f(uv, P5f), 2);
+    uv = mul2f(add2f(uv, P5f), P5f);
     uv = mul2f(abs2(sub2(uv, floor2(add2f(uv, P5f)))), 2);
     float m = (cosf(e->progress * M_TAUf) + 1) * P5f;
     vec2 uvMix = mix2(uv, e->p, m);
@@ -1657,11 +1670,12 @@ static vec4 gl_RotateScaleVanish(const XTransition *e) // by Mark Craig
     INIT_END
     float t = reverseEffect ? 1 - e->progress : e->progress;
     float theta = (reverseRotation ? -t : t) * M_TAUf;
-    vec2 c2 = rot2(VEC2((e->p.x - P5f) * e->ratio, e->p.y - P5f), theta);
+    vec2 c1 = { (e->p.x - P5f) * e->ratio, e->p.y - P5f };
     float rad = fmaxf(0.00001f, 1 - t);
-    vec2 uv2 = { c2.x / rad + e->ratio / 2, c2.y / rad + P5f };
-    uv2.x /= e->ratio;
+    vec2 c2 = div2f(rot2(c1, theta), rad);
+    vec2 uv2 = { c2.x + e->ratio * P5f, c2.y + P5f };
     vec4 col3, ColorTo = reverseEffect ? e->a : e->b;
+    uv2.x /= e->ratio;
     if (betweenUI2(uv2))
         col3 = reverseEffect ? getToColor(uv2) : getFromColor(uv2);
     else if (fadeInSecond)
@@ -1930,7 +1944,7 @@ static vec4 gl_StageCurtains(const XTransition *e) // by scriptituk
         : 10 + 1000 * exp2f(9 - 20 * e->progress);
     float xos = x + y / tt;
     float p = 1 - fabsf(e->progress - P5f) * 2;
-    vec4 c = (e->progress < 0.5) ? e->a : e->b, black = {{ 0, 0, 0, 1 }};
+    vec4 c = (e->progress < P5f) ? e->a : e->b, black = {{ 0, 0, 0, 1 }};
     if (!e->k->is_rgb)
         black.p1 = black.p2 = P5f;
     if (xos <= 0.75) {
@@ -2145,6 +2159,12 @@ static vec4 gl_windowslice(const XTransition *e) // by gre
 }
 
 // test transitions --------------------------------------------------
+
+static vec4 test_none(const XTransition *e)
+{
+    INIT_END
+    return (e->progress < P5f) ? e->a : e->b;
+}
 
 static vec4 test_blend(const XTransition *e)
 {
@@ -2793,6 +2813,7 @@ static int parse_xtransition(AVFilterContext *ctx)
     else if (!av_strcasecmp(t, "gl_WaterDrop")) k->xtransitionf = gl_WaterDrop;
     else if (!av_strcasecmp(t, "gl_windowblinds")) k->xtransitionf = gl_windowblinds;
     else if (!av_strcasecmp(t, "gl_windowslice")) k->xtransitionf = gl_windowslice;
+    else if (!av_strcasecmp(t, "test_none")) k->xtransitionf = test_none;
     else if (!av_strcasecmp(t, "test_blend")) k->xtransitionf = test_blend;
     else if (!av_strcasecmp(t, "test_texture")) k->xtransitionf = test_texture;
     else return xe_error(ctx, "unknown extended transition name %s\n", t);

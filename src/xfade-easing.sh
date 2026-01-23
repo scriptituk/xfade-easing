@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.6.1
+export VERSION=3.6.2
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -182,7 +182,6 @@ _opts() {
         o) o_ffopts=$OPTARG ;;
         r) o_vfps=$OPTARG ;;
         f) o_format=$OPTARG ;;
-        g) o_transparent=$OPTARG ;;
         z) o_vsize=$OPTARG ;;
         d) o_vtduration=$OPTARG ;;
         i) o_vtime=$OPTARG ;;
@@ -494,7 +493,7 @@ _step() { # edge x
 
 # custom expressions for standard easings
 # (by Robert Penner; single arg version by Michael Pohoreski, optimised by me)
-# xfade progress P goes backwards in time, which is clearly daft, so we cater for that last
+# xfade progress P goes backwards in time (why?) so we cater for that last
 # see http://robertpenner.com/easing/
 # see https://github.com/Michaelangel007/easing
 _rp_easing() { # easing mode
@@ -502,7 +501,7 @@ _rp_easing() { # easing mode
     case $1 in
         # note: T is time (0 to 1); R is reversed, 1 - T
     linear)
-        [[ $1 != linear ]] && return '' # CSS
+        [[ $2 = NATIVE ]] && return # CSS
         io='T'
         ;;
     quadratic)
@@ -620,13 +619,13 @@ _se_easing() { # easing mode
         i='sqrt(T)'
         o='1 - sqrt(R)'
         io='if(lt(T, 0.5), sqrt(T / 2), 1 - sqrt(R / 2))'
-    ;;
+        ;;
     cuberoot) # opposite to cubic
         local D1_3=$(_calc 1/3)
         i="1 - pow(R, $D1_3)"
         o="pow(T, $D1_3)"
         io="if(lt(T, 0.5), pow(T / 4, $D1_3), 1 - pow(R / 4, $D1_3))"
-    ;;
+        ;;
     *)
         echo '' && return
         ;;
@@ -644,11 +643,9 @@ _se_easing() { # easing mode
 _css_easing() { # easing
     local x # expr
     case $1 in
-        cubic-bezier | ease | ease-in | ease-out | ease-in-out) ;&
-        steps | step-start | step-end) ;&
-        linear)
+    cubic-bezier|ease|ease-in|ease-out|ease-in-out|steps|step-start|step-end|linear)
         x=NATIVE
-    ;;
+        ;;
     esac
     echo "$x"
 }
@@ -657,6 +654,7 @@ _css_easing() { # easing
 _easing() { # easing args
     local e="$1" m=''
     [[ -z $2 && ! $e =~ ^ease && ! $e =~ ^step && $e =~ - ]] && m=${e#*-} e=${e%%-*}
+    [[ -n $2 && $e = linear ]] && m=NATIVE
     local x=$(_rp_easing $e $m) # try standard
     [[ -z $x ]] && x=$(_se_easing $e $m) # try supplementary
     [[ -z $x ]] && x=$(_css_easing "$e") # try CSS
@@ -889,8 +887,12 @@ _xf_transition() { # transition
         _make " $s"
         _make ')'
         ;;
-#   distance) needs number of planes
-#   hblur) needs aggregation in X
+    distance) # needs number of planes
+        _make NATIVE
+        ;;
+    hblur) # needs aggregation in X
+        _make NATIVE
+        ;;
     esac
     x=$made
     echo "$x"
@@ -904,7 +906,7 @@ _gl_transition() { # transition args
     _make ''
     case $1 in
     # NOTE 1: never use P after st(0) as it will break easing
-    # NOTE 2: if st(9) is needed restore its time value as in gl_powerKaleido
+    # NOTE 2: if st(9) is needed restore its time value as in gl_InvertedPageCurl
     gl_angular) # by Fernando Kuteken
         _make "st(1, ${a[0]:-90});" # startingAngle
         _make "st(2, ${a[1]:-0});" # clockwise
@@ -1660,55 +1662,57 @@ _gl_transition() { # transition args
         _make 'if(lt(ld(1), ld(2)), B, A)'
         ;;
     gl_powerKaleido) # by Boundless
+        local SQRT3_2=$(_calc 'sqrt(3) / 2')
         _make "st(1, ${a[0]:-2});" # scale
         _make "st(2, ${a[1]:-1.5});" # z
         _make "st(3, ${a[2]:-5});" # speed
+        _make 'st(0, 1 - P);' # progress
         _make 'st(1, ld(1) / 10);' # dist
-        _make 'st(3, ld(3) * (1 - P));'
+        _make 'st(3, ld(3) * ld(0));'
         _make 'st(6, cos(ld(3)));' # rot c
         _make 'st(7, sin(ld(3)));' # rot s
         _make 'st(4, (X / W - 0.5) * W / H * ld(2));' # uv.x
         _make 'st(2, (0.5 - Y / H) * ld(2));'
         _make 'st(5, ld(6) * ld(2) - ld(7) * ld(4));' # uv.y
         _make 'st(4, ld(6) * ld(4) + ld(7) * ld(2));'
-        _make 'st(8, 0);' # iter
-        _make 'while(lte(st(8, ld(8) + 1), 10),'
-        _make ' st(2, 0);' # i
-        _make ' while(lt(ld(2), 2 * PI),'
-        _make '  st(6, cos(ld(2)));'
-        _make '  st(7, sin(ld(2)));'
-        _make '  if(eq('
-        _make '    gt(asin(ld(6)), 0),' # ts
-        _make '    gt(ld(5) - ld(6) * ld(1), ld(7) / ld(6) * (ld(4) + ld(7) * ld(1)))'
-        _make '   ),'
-        _make '   st(4, ld(4) + ld(7) * ld(1) * 2);'
-        _make '   st(5, ld(5) - ld(6) * ld(1) * 2);'
-        _make '   st(9, dot(ld(4), ld(5), ld(6), ld(7)));'
-        _make '   st(4, 2 * ld(6) * ld(9) - ld(4));'
-        _make '   st(5, 2 * ld(7) * ld(9) - ld(5))'
-        _make '  );'
-        _make '  st(2, ld(2) + 120 / 180 * PI)' # change 120 to get different mirror effects
+        _make 'st(8, -1);' # iter
+        _make 'while(lt(st(8, ld(8) + 1), 30),'
+        _make ' ifnot(st(7, mod(ld(8), 3)),'
+        _make '  st(6, 1),' # 0 degrees, ld(7)=0
+        _make '  ifnot(1-ld(7),'
+        _make "   st(6, -0.5); st(7, $SQRT3_2)," # 120 degrees
+        _make "   st(7, -$SQRT3_2)" # 240 degrees
+        _make '  )'
+        _make ' );'
+        _make ' if(eq('
+        _make '   not(ld(7)),' # ts
+        _make '   gt(ld(5) - ld(6) * ld(1), (ld(4) + ld(7) * ld(1)) * ld(7) / ld(6))'
+        _make '  ),'
+        _make '  st(4, ld(4) + ld(7) * ld(1) * 2);'
+        _make '  st(5, ld(5) - ld(6) * ld(1) * 2);'
+        _make '  st(2, dot(ld(4), ld(5), ld(6), ld(7)));'
+        _make '  st(4, ld(6) * ld(2) * 2 - ld(4));'
+        _make '  st(5, ld(7) * ld(2) * 2 - ld(5))'
         _make ' )'
         _make ');'
         _make 'st(6, cos(-ld(3)));'
         _make 'st(7, sin(-ld(3)));'
         _make 'st(2, ld(6) * ld(4) + ld(7) * ld(5));'
-        _make 'st(5, ld(6) * ld(5) - ld(7) * ld(2));'
-        _make 'st(4, (ld(2) / W * H + 0.5) / 2);'
+        _make 'st(5, ld(6) * ld(5) - ld(7) * ld(4));'
+        _make 'st(4, (ld(2) * H / W + 0.5) / 2);'
         _make 'st(5, (ld(5) + 0.5) / 2);'
-        _make 'st(4, 2 * abs(ld(4) - floor(ld(4) + 0.5)));'
-        _make 'st(5, 2 * abs(ld(5) - floor(ld(5) + 0.5)));'
+        _make 'st(4, abs(ld(4) - floor(ld(4) + 0.5)) * 2);'
+        _make 'st(5, abs(ld(5) - floor(ld(5) + 0.5)) * 2);'
         _make 'st(1, X / W);' # uv0.x
         _make 'st(2, 1 - Y / H);' # uv0.y
-        _make 'st(3, cos(P * PI * 2) / 2 + 0.5);'
+        _make 'st(3, (cos(ld(0) * PI * 2) + 1) / 2);'
         _make 'st(4, mix(ld(4), ld(1), ld(3)));' # uvMix.x
         _make 'st(5, mix(ld(5), ld(2), ld(3)));' # uvMix.y
         _make 'st(4, ld(4) * W);'
         _make 'st(5, (1 - ld(5)) * H);'
         _make 'st(1, a(ld(4), ld(5)));'
         _make 'st(2, b(ld(4), ld(5)));'
-        _make 'st(3, cos(P * PI) / 2 + 0.5);'
-        [[ -n $o_logprogress ]] && _make 'st(9,floor(time(0)));'
+        _make 'st(3, (cos((ld(0) - 1) * PI) + 1) / 2);'
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
     gl_randomNoisex) # by towrabbit
@@ -2172,12 +2176,6 @@ _gl_transition() { # transition args
         _make 'st(1, ld(1) * X / W);'
         _make 'if(step(ld(3), fract(ld(1))), B, A)'
         ;;
-    test_blend)
-        _make NATIVE
-        ;;
-    test_texture)
-        _make NATIVE
-        ;;
     esac
     x=$made
     echo "$x"
@@ -2187,11 +2185,17 @@ _gl_transition() { # transition args
 _st_transition() { # transition
     local x # expr
     _make ''
-#   case $1 in
-#   s_none) # by scriptituk
-#       x='if(gt(P, 0.5), A, B)' # no transition, flips at halfway point
-#       ;;
-#   esac
+    case $1 in
+    test_none)
+        _make 'if(gte(P, 0.5), A, B)' # no transition, flips at halfway point
+        ;;
+    test_blend)
+        _make NATIVE # blending test
+        ;;
+    test_texture)
+        _make NATIVE # texture test
+        ;;
+    esac
     x=$made
     echo "$x"
 }
@@ -2416,15 +2420,23 @@ EOT
     pg=reserve_transparent=0; [[ $p_alpha -ne 0 ]] && pg=reserve_transparent=1
     if [[ $path == - ]]; then # no output
         enc='-f null'
-    elif [[ $path =~ .gif ]]; then # animated
-        echo "[v]split[s0][s1]; [s0]palettegen=$pg[s0]; [s1][s0]paletteuse[v]" >> $fc_script
+    elif [[ $path =~ .mp4 ]]; then # x264 - see https://trac.ffmpeg.org/wiki/Encode/H.264
+        enc="-c:v libx264 -preset medium -tune stillimage -pix_fmt yuv420p -r $fps"
     elif [[ $path =~ .mkv ]]; then # lossless - see https://trac.ffmpeg.org/wiki/Encode/FFV1
         enc="-c:v ffv1 -level 3 -coder 1 -context 1 -g 1 -pix_fmt $pf -r $fps"
     elif [[ $path =~ .webm ]]; then # WebM 1080p - see https://developers.google.com/media/vp9/settings/vod
         enc="-c:v libvpx-vp9 -b:v 1800k -minrate 900k -maxrate 2610k -tile-columns 2 -g 240 -threads 4 -quality good -crf 31 -pix_fmt $pf -r $fps"
-    elif [[ $path =~ .mp4 ]]; then # x264 - see https://trac.ffmpeg.org/wiki/Encode/H.264
-        enc="-c:v libx264 -preset medium -tune stillimage -pix_fmt yuv420p -r $fps"
-    elif [[ $path =~ .y4m ]]; then # yuv4mpeg - see https://linux.die.net/man/5/yuv4mpeg
+    elif [[ $path =~ .webp ]]; then # animated WebP - see https://ffmpeg.org/ffmpeg-codecs.html#libwebp
+        enc="-c:v libwebp -pix_fmt yuv420p -r $fps -loop 0"
+    elif [[ $path =~ .gif ]]; then # animated GIF
+        if _dep gifski; then
+            enc="-pix_fmt yuv420p -r $fps -f yuv4mpegpipe - | gifski -q -r $fps -o"
+        else
+            echo "[v]split[s0][s1]; [s0]palettegen=$pg[s0]; [s1][s0]paletteuse[v]" >> $fc_script
+        fi
+    elif [[ $path =~ .png ]]; then # animated PNG
+        enc="-r $fps -plays 0 -f apng"
+    elif [[ $path =~ .y4m ]]; then # animated yuv4mpeg - see https://linux.die.net/man/5/yuv4mpeg
         enc="-pix_fmt yuv420p -r $fps -f yuv4mpegpipe"
     elif [[ $path =~ .raw ]]; then # to decode: -f rawvideo -pixel_format $pf -framerate $fps -video_size WxH -i ...
         enc="-c:v rawvideo -pix_fmt $pf -r $fps -s $size -f rawvideo"
@@ -2435,22 +2447,11 @@ EOT
     local fcs="-/filter_complex $fc_script"; [[ $major -lt 7 ]] && fcs="-filter_complex_script $fc_script"
     local ffopts="-y -hide_banner -loglevel ${o_loglevel-warning} -stats_period 1"
     [[ -z $o_native || $o_loglevel == debug ]] && ffopts+=' -filter_complex_threads 1'
-    ffcmd="ffmpeg $ffopts $fcs -map [v]:v -an -t $length $enc $o_ffopts '$path'"
+    ffcmd="ffmpeg $ffopts $fcs -map [v]:v -an -t $length $o_ffopts $enc '$path'"
+    [[ $ffcmd =~ gifski ]] && ffcmd+=' -' # piped yuv4mpeg
     _info "$ffcmd"
     echo "$ffcmd" > $ff_cmd
     source $ff_cmd # done this way for documentation
-    if [[ $path =~ .gif ]]; then
-        if _dep gifsicle; then
-            mv "$path" $TMP-video.gif
-            gifsicle -O3 -o "$path" $TMP-video.gif
-            if [[ -n $o_transparent ]]; then
-                mv -f "$path" $TMP-video.gif
-                gifsicle -U --disposal=previous --transparent="$o_transparent" -O3 -o "$path" $TMP-video.gif
-            fi
-        else
-            _warning 'missing dependency: gifsicle'
-        fi
-    fi
 }
 
 _main "$@" # run
@@ -2590,6 +2591,7 @@ BEGIN {
     OFS = "\t"
     title["rp"] = "Standard Easings (Robert Penner):"
     title["se"] = "Supplementary Easings:"
+    title["css"] = "CSS Easings:"
     title["xf"] = "XFade Transitions:"
     title["gl"] = "GLSL Transitions:"
     title["st"] = "Supplementary Transitions:"
@@ -2598,14 +2600,14 @@ BEGIN {
 $1 ~ /^#/ { next }
 
 match($1, /^_(.*)_(transition|easing)\(\)/, a) { # transition/easing func
-if(a[1]=="st") next # historic
+if(a[1]=="st") next # test
     go = 1
     if (cases)
         print ""
     print title[a[1]]
 }
 
-match($1, /^([A-Za-z_|]+)\)$/, a) && go { # case
+match($1, /^([A-Za-z_\-|]+)\)$/, a) && go { # case
     if (a[1] ~ /^test_/) next # testing
     cases = a[1]
     native = author = args = defs = c = ""
@@ -2770,15 +2772,15 @@ Options:
     -c canvas size for easing plot (default: $PLOTSIZE, scaled to inches for PDF/EPS)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z x300 scales W
     -v video output filename (default: no video), accepts expansions
-       formats: animated gif, mkv (FFV1), mp4 (H264), webm (VP9), y4m (yuv4mpeg), raw
+       formats: mkv (FFV1), mp4 (H264), webm (VP9), raw
+       animated formats: webp (VP8), png (APNG), gif, y4m (yuv4mpeg)
        from file extension; if filename is - then format is the null muxer (no output)
        if -f format has alpha then mkv,webm,raw generate transparent video output
-       for gifs see -g; if gifsicle is available then gifs will be optimised
+       if gifski is installed then gifs will be optimised
        raw decode: ffmpeg -f rawvideo -pixel_format f -framerate r -video_size s -i ...
     -o additional ffmpeg options, e.g. -o '-movflags +faststart' for MP4 Faststart
     -r video framerate (default: ${VIDEOFPS}fps)
     -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
-    -g gif transparent colour, requires gifsicle and a non-alpha format (default: none)
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z 400x scales H
     -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s, minimum: 0) (see note after -l)
@@ -2813,7 +2815,7 @@ Options:
 Notes:
     1. point the shebang path to a bash4 location (defaults to MacPorts install)
     2. this script requires Bash 4 (2009), ffmpeg, ffprobe, gawk, gsed, seq
-       also gnuplot for plots, gifsicle for transparent animated gifs
+       also gnuplot for plots, gifski for optimised animated gifs
     3. use ffmpeg option -filter_complex_threads 1 (slower) because xfade expression
        vars used by st() & ld() are shared across slices, therefore not thread-safe
        (the custom ffmpeg build works without -filter_complex_threads 1)
