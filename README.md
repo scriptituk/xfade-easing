@@ -650,6 +650,9 @@ original variable names from the GLSL and xfade source code are retained in
 [xfade-easing.sh](src/xfade-easing.sh) and [xfade-easing.h](src/xfade-easing.h).
 The CLI script uses pseudo functions to emulate real functions, expanding them inline later.
 
+See [xfade-easing.h](src/xfade-easing.h) for the C code transpiled from GLSL that helped to optimize the custom expressions.
+See the files in [glsl/](glsl/) refactored from other GLSL transition sources that were used for intermediate testing in the [GL Transition Editor](https://gl-transitions.com/editor).
+
 *Example*: porting transition `gl_randomsquares`
 
 [randomsquares.glsl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/randomsquares.glsl):
@@ -1115,8 +1118,8 @@ Windows performance has not been measured.
 
 <details><summary>plot data</summary>
 
-| Name | SD | HD |
-| :---: | :---: | :--- |
+| Transition | SD | HD |
+| :---: | :---: | :---: |
 |gl_Bars|10.47|27.06|
 |gl_BookFlip|14.21|36.69|
 |gl_Bounce|27.75|73.06|
@@ -1173,17 +1176,14 @@ Windows performance has not been measured.
 This shows most GL transitions take around half a minute for SD and a minute and a half for HD,
 however some take considerably longer (off-scale transitions shown in italics).
 
-See [xfade-easing.h](src/xfade-easing.h) for the C code transpiled from GLSL that helped to optimize the custom expressions.
-See the files in [glsl/](glsl/) refactored from other GLSL transition sources that were used for intermediate testing in the [GL Transition Editor](https://gl-transitions.com/editor).
-
 #### Xfade transition expressions
 
 ![Xfade transition CE times](assets/times-X-T-XF.png)
 
 <details><summary>plot data</summary>
 
-| Name | SD | HD |
-| :---: | :---: | :--- |
+| Transition | SD | HD |
+| :---: | :---: | :---: |
 |circleclose|16.03|41.19|
 |circlecrop|11.6|30.27|
 |circleopen|16.12|41.54|
@@ -1251,8 +1251,8 @@ These are only used when easing standard Xfade transitions.
 
 <details><summary>plot data</summary>
 
-| Name | SD | HD |
-| :---: | :---: | :--- |
+| Easing | SD | HD |
+| :---: | :---: | :---: |
 |back|7.26|18.44|
 |bounce|14.18|36.07|
 |circular|6.34|15.55|
@@ -1277,8 +1277,8 @@ If easing is used these easing times must be added to the GL or Xfade transition
 
 <details><summary>plot data</summary>
 
-| Name | SD | HD |
-| :---: | :---: | :--- |
+| Transition | SD | HD |
+| :---: | :---: | :---: |
 |circleclose|0.94|1.71|
 |circlecrop|0.7|1.19|
 |circleopen|0.94|1.72|
