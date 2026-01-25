@@ -1,5 +1,5 @@
---- libavfilter/vf_xfade.c	2026-01-25 21:40:50
-+++ vf_xfade.c	2026-01-25 21:40:50
+--- libavfilter/vf_xfade.c	2026-01-25 22:33:53
++++ vf_xfade.c	2026-01-25 22:33:53
 @@ -126,6 +126,11 @@
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);
@@ -89,7 +89,7 @@
 -    s->transitionf(ctx, td->xf[0], td->xf[1], td->out, td->progress, slice_start, slice_end, jobnr);
 +    p = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - p) : ease(s, p); // eased progress
 +    if (i) p = 1 - p;
-+    s->transitionf(ctx, td->xf[i], td->xf[i^1], td->out, av_clipf(p, 0.f, 1.f), slice_start, slice_end, jobnr);
++    s->transitionf(ctx, td->xf[i], td->xf[i ^ 1], td->out, av_clipf(p, 0.f, 1.f), slice_start, slice_end, jobnr);
  
      return 0;
  }

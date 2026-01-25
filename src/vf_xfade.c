@@ -2214,7 +2214,7 @@ static int xfade_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
 
     p = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - p) : ease(s, p); // eased progress
     if (i) p = 1 - p;
-    s->transitionf(ctx, td->xf[i], td->xf[i^1], td->out, av_clipf(p, 0.f, 1.f), slice_start, slice_end, jobnr);
+    s->transitionf(ctx, td->xf[i], td->xf[i ^ 1], td->out, av_clipf(p, 0.f, 1.f), slice_start, slice_end, jobnr);
 
     return 0;
 }
