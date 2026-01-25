@@ -1642,7 +1642,7 @@ static void squeezeh##name##_transition(AVFilterContext *ctx,                   
         for (int y = 0; y < height; y++) {                                           \
             const float z = .5f + ((slice_start + y) / h - .5f) / progress;          \
                                                                                      \
-            if (z < 0.f || z > 1.f) {                                                \
+            if (z < 0.f || z > 1.f || isnan(z)) {                                    \
                 for (int x = 0; x < width; x++)                                      \
                     dst[x] = xf1[x];                                                 \
             } else {                                                                 \
@@ -1682,7 +1682,7 @@ static void squeezev##name##_transition(AVFilterContext *ctx,                   
             for (int x = 0; x < width; x++) {                                        \
                 const float z = .5f + (x / w - .5f) / progress;                      \
                                                                                      \
-                if (z < 0.f || z > 1.f) {                                            \
+                if (z < 0.f || z > 1.f || isnan(z)) {                                \
                     dst[x] = xf1[x];                                                 \
                 } else {                                                             \
                     const int xx = lrintf(z * (w - 1.f));                            \
@@ -2214,7 +2214,7 @@ static int xfade_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
 
     p = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - p) : ease(s, p); // eased progress
     if (i) p = 1 - p;
-    s->transitionf(ctx, td->xf[i], td->xf[i ^ 1], td->out, p, slice_start, slice_end, jobnr);
+    s->transitionf(ctx, td->xf[i], td->xf[i^1], td->out, av_clipf(p, 0.f, 1.f), slice_start, slice_end, jobnr);
 
     return 0;
 }
