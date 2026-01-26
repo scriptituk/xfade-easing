@@ -1,5 +1,5 @@
---- libavfilter/vf_xfade.c	2026-01-25 22:33:53
-+++ vf_xfade.c	2026-01-25 22:33:53
+--- libavfilter/vf_xfade.c	2026-01-26 22:28:57
++++ vf_xfade.c	2026-01-26 22:28:57
 @@ -126,6 +126,11 @@
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);
@@ -54,13 +54,12 @@
                      dst[x] = xf1[x];                                                 \
                  } else {                                                             \
                      const int xx = lrintf(z * (w - 1.f));                            \
-@@ -2000,11 +2009,13 @@
- REVEALV_TRANSITION(up,   16, uint16_t, 2, -)
+@@ -2001,10 +2010,12 @@
  REVEALV_TRANSITION(down,  8, uint8_t,  1, )
  REVEALV_TRANSITION(down, 16, uint16_t, 2, )
-+
-+#include "xfade-easing.h" // easing & extended transitions
  
++#include "xfade-easing.h" // easing & extended transitions
++
  static inline double getpix(void *priv, double x, double y, int plane, int nb)
  {
      XFadeContext *s = priv;
@@ -79,7 +78,7 @@
      switch (s->transition) {
      case CUSTOM:     s->transitionf = s->depth <= 8 ? custom8_transition     : custom16_transition;     break;
      case FADE:       s->transitionf = s->depth <= 8 ? fade8_transition       : fade16_transition;       break;
-@@ -2195,8 +2209,12 @@
+@@ -2195,8 +2209,14 @@
      ThreadData *td = arg;
      int slice_start = (outlink->h *  jobnr   ) / nb_jobs;
      int slice_end   = (outlink->h * (jobnr+1)) / nb_jobs;
@@ -87,9 +86,11 @@
 +    float p = td->progress;
  
 -    s->transitionf(ctx, td->xf[0], td->xf[1], td->out, td->progress, slice_start, slice_end, jobnr);
-+    p = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - p) : ease(s, p); // eased progress
 +    if (i) p = 1 - p;
-+    s->transitionf(ctx, td->xf[i], td->xf[i ^ 1], td->out, av_clipf(p, 0.f, 1.f), slice_start, slice_end, jobnr);
++    p = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - p) : ease(s, p); // eased progress
++    if (p < 0) ++p, i ^= 1;
++    else if (p > 1) --p, i ^= 1;
++    s->transitionf(ctx, td->xf[i], td->xf[i ^ 1], td->out, av_clipf(p, 0, 1), slice_start, slice_end, jobnr);
  
      return 0;
  }
