@@ -497,11 +497,12 @@ _step() { # edge x
 # see http://robertpenner.com/easing/
 # see https://github.com/Michaelangel007/easing
 _rp_easing() { # easing mode
+    local e=$1 m=$2 p g
     local i o io x # mode expressions as functions of time (T)
-    case $1 in
+    case $e in
         # note: T is time (0 to 1); R is reversed, 1 - T
     linear)
-        [[ $2 = NATIVE ]] && return # CSS
+        [[ $m = NATIVE ]] && return # CSS
         io='T'
         ;;
     quadratic)
@@ -600,21 +601,23 @@ _rp_easing() { # easing mode
         echo '' && return
         ;;
     esac
-    local t=$io p=$io
-    [[ $2 == in ]] && t=$i p=$o
-    [[ $2 == out ]] && t=$o p=$i
-    t=${t//R/(1-T)} p=${p//R/(1-T)}
-    t=${t//T/ld(0)} # ld(0) is any normalised input value (0 to 1)
+    g=$io p=$io
+    [[ $m == in ]] && g=$i p=$o
+    [[ $m == out ]] && g=$o p=$i
+    g=${g//R/(1-T)} p=${p//R/(1-T)}
+    g=${g//T/ld(0)} # ld(0) is any normalised input value (0 to 1)
     p=${p//T/P} # P is progress (1 to 0)
-    if [[ $t =~ %n ]]; then t=${t//%n/%n } t="st(0,%n $t%n)"; else t="st(0, $t)"; fi
+    if [[ $g =~ %n ]]; then g=${g//%n/%n } g="st(0,%n $g%n)"; else g="st(0, $g)"; fi
     if [[ $p =~ %n ]]; then p=${p//%n/%n } p="st(0,%n $p%n)"; else p="st(0, $p)"; fi
-    echo "$p:$t"
+    [[ $e =~ ^(elastic|back) ]] && p+=';%nst(0, clip(ld(0), 0, 1))' # clip P overshoots
+    echo "$p:$g"
 }
 
 # custom expressions for supplementary easings
 _se_easing() { # easing mode
+    local e=$1 m=$2 p g
     local i o io # mode expressions
-    case $1 in
+    case $e in
     squareroot) # opposite to quadratic (not Pohoreski's sqrt)
         i='sqrt(T)'
         o='1 - sqrt(R)'
@@ -626,23 +629,29 @@ _se_easing() { # easing mode
         o="pow(T, $D1_3)"
         io="if(lt(T, 0.5), pow(T / 4, $D1_3), 1 - pow(R / 4, $D1_3))"
         ;;
+    foldelastic|foldback)
+        p=$(_rp_easing ${e#fold} $m) g=${p#*:} p=${p%:*}
+        p=${p%;*}';%nifnot(between(ld(0), 0, 1), st(0, gt(ld(0), 1) * 2 - ld(0)))'
+        echo "$p:$g" && return
+        ;;
     *)
         echo '' && return
         ;;
     esac
-    local t=$io p=$io
-    [[ $2 == in ]] && t=$i p=$o
-    [[ $2 == out ]] && t=$o p=$i
-    t=${t//R/(1-T)} p=${p//R/(1-T)}
+    g=$io p=$io
+    [[ $m == in ]] && g=$i p=$o
+    [[ $m == out ]] && g=$o p=$i
+    g=${g//R/(1-T)} p=${p//R/(1-T)}
     p="st(0, ${p//T/P})"
-    t="st(0, ${t//T/ld(0)})"
-    echo "$p:$t"
+    g="st(0, ${g//T/ld(0)})"
+    echo "$p:$g"
 }
 
 # custom expressions for CSS easings
 _css_easing() { # easing
+    local e=$1
     local x # expr
-    case $1 in
+    case $e in
     cubic-bezier|ease|ease-in|ease-out|ease-in-out|steps|step-start|step-end|linear)
         x=NATIVE
         ;;
@@ -2262,7 +2271,7 @@ _plot() { # path easings
         easing=${easing#*=}
         if [[ -n $o_native ]]; then # use native build
             e=":easing='$easing'"
-            expr="ifnot(PLANE+X+Y, print(-1, $ll); print(1-ld(0), $ll); print(1-P, $ll)); 0"
+            expr="ifnot(PLANE+X+Y, print(-1, $ll); print(1-ld(0), $ll); print(1-ld(1), $ll)); 0"
         else
             expr=$(_easing $easing) expr=${expr%:*}
             [[ -z $expr ]] && exit $ERROR # CSS?
