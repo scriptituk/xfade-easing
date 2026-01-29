@@ -267,13 +267,13 @@ static float se_cuberoot(const XFadeEasingContext *k, float t)
     return (t < P5f) ? cbrtf(t + t) / 2 : 1 - cbrtf(2 - t - t) / 2;
 }
 
-static float se_foldelastic(const XFadeEasingContext *k, float t)
+static float se_flipelastic(const XFadeEasingContext *k, float t)
 {
     t = rp_elastic(k, t);
     return (t < 0) ? -t : (t > 1) ? 2 - t : t;
 }
 
-static float se_foldback(const XFadeEasingContext *k, float t)
+static float se_flipback(const XFadeEasingContext *k, float t)
 {
     t = rp_back(k, t);
     return (t < 0) ? -t : (t > 1) ? 2 - t : t;
@@ -2730,8 +2730,8 @@ static int parse_easing(AVFilterContext *ctx)
     else if (av_stristart(e, "bounce", &p)) k->easingf = rp_bounce;
     else if (av_stristart(e, "squareroot", &p)) k->easingf = se_squareroot;
     else if (av_stristart(e, "cuberoot", &p)) k->easingf = se_cuberoot;
-    else if (av_stristart(e, "foldelastic", &p)) k->easingf = se_foldelastic;
-    else if (av_stristart(e, "foldback", &p)) k->easingf = se_foldback;
+    else if (av_stristart(e, "flipelastic", &p)) k->easingf = se_flipelastic;
+    else if (av_stristart(e, "flipback", &p)) k->easingf = se_flipback;
     if (p) {
         if (!*p || *p == '-')
             f = parse_standard_easing;
