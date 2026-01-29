@@ -128,7 +128,7 @@ typedef struct XFadeContext {
 
     char *easing_str; // easing name with optional args
     char *transition_str; // transition name with optional args
-    int reverse; // reverse option bit flags (enum ReverseOpts)
+    int reverse; // reverse option bit flags (enum ReverseFlags)
     struct XFadeEasingContext *k; // xfade-easing data
 
     AVExpr *e;
@@ -2015,7 +2015,7 @@ REVEALV_TRANSITION(down, 16, uint16_t, 2, )
 static inline double getpix(void *priv, double x, double y, int plane, int nb)
 {
     XFadeContext *s = priv;
-    AVFrame *in = s->xf[nb ^ (s->reverse & REVERSE_TRANSITION)];
+    AVFrame *in = s->xf[nb];
     const uint8_t *src = in->data[FFMIN(plane, s->nb_planes - 1)];
     int linesize = in->linesize[FFMIN(plane, s->nb_planes - 1)];
     const int w = in->width;
@@ -2209,12 +2209,8 @@ static int xfade_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
     ThreadData *td = arg;
     int slice_start = (outlink->h *  jobnr   ) / nb_jobs;
     int slice_end   = (outlink->h * (jobnr+1)) / nb_jobs;
-    int i = s->reverse & REVERSE_TRANSITION; // input 0 or 1
-    float p = td->progress;
 
-    p = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - p) : ease(s, p); // eased progress
-    if (i) p = 1 - p;
-    s->transitionf(ctx, td->xf[i], td->xf[i ^ 1], td->out, av_clipf(p, 0.f, 1.f), slice_start, slice_end, jobnr);
+    s->transitionf(ctx, td->xf[0], td->xf[1], td->out, td->progress, slice_start, slice_end, jobnr);
 
     return 0;
 }
@@ -2232,7 +2228,14 @@ static int xfade_frame(AVFilterContext *ctx, AVFrame *a, AVFrame *b)
         return AVERROR(ENOMEM);
     av_frame_copy_props(out, a);
 
-    td.xf[0] = a, td.xf[1] = b, td.out = out, td.progress = progress;
+    progress = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - progress) : ease(s, progress); // eased progress
+    int i = s->reverse & REVERSE_TRANSITION;
+    if (i) progress = 1 - progress;
+    if (s->reverse & REVERSE_OVERSHOOT) { // internal flag
+        if (progress < 0) progress += 1, i ^= 1; // undershoot
+        else if (progress > 1) progress -= 1, i ^= 1; // overshoot
+    }
+    td.xf[i] = a, td.xf[i ^ 1] = b, td.out = out, td.progress = av_clipf(progress, 0, 1);
     ff_filter_execute(ctx, xfade_slice, &td, NULL,
                       FFMIN(outlink->h, ff_filter_get_nb_threads(ctx)));
 

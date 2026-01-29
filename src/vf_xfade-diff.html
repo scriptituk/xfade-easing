@@ -78,7 +78,7 @@ body {
       <td bgcolor="#CCCCCC">&nbsp;</td>
 
       <td bgcolor="#FF9999">
-      131:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;reverse;&nbsp;//&nbsp;reverse&nbsp;option&nbsp;bit&nbsp;flags&nbsp;(enum&nbsp;ReverseOpts)</td>
+      131:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;reverse;&nbsp;//&nbsp;reverse&nbsp;option&nbsp;bit&nbsp;flags&nbsp;(enum&nbsp;ReverseFlags)</td>
     </tr>
 
     <tr>
@@ -370,14 +370,6 @@ body {
     </tr>
 
     <tr>
-      <td>
-      2000:&nbsp;REVEALV_TRANSITION(up,&nbsp;&nbsp;&nbsp;16,&nbsp;uint16_t,&nbsp;2,&nbsp;-)</td>
-
-      <td>
-      2009:&nbsp;REVEALV_TRANSITION(up,&nbsp;&nbsp;&nbsp;16,&nbsp;uint16_t,&nbsp;2,&nbsp;-)</td>
-    </tr>
-
-    <tr>
       <td>2001:&nbsp;REVEALV_TRANSITION(down,&nbsp;&nbsp;8,&nbsp;uint8_t,&nbsp;&nbsp;1,&nbsp;)</td>
 
       <td>2010:&nbsp;REVEALV_TRANSITION(down,&nbsp;&nbsp;8,&nbsp;uint8_t,&nbsp;&nbsp;1,&nbsp;)</td>
@@ -390,9 +382,9 @@ body {
     </tr>
 
     <tr>
-      <td bgcolor="#CCCCCC">&nbsp;</td>
+      <td>2003:&nbsp;</td>
 
-      <td bgcolor="#FF9999">2012:&nbsp;</td>
+      <td>2012:&nbsp;</td>
     </tr>
 
     <tr>
@@ -403,9 +395,9 @@ body {
     </tr>
 
     <tr>
-      <td>2003:&nbsp;</td>
+      <td bgcolor="#CCCCCC">&nbsp;</td>
 
-      <td>2014:&nbsp;</td>
+      <td bgcolor="#FF9999">2014:&nbsp;</td>
     </tr>
 
     <tr>
@@ -426,36 +418,6 @@ body {
       <td>2006:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;priv;</td>
 
       <td>2017:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;XFadeContext&nbsp;*s&nbsp;=&nbsp;priv;</td>
-    </tr>
-
-    <tr>
-      <td bgcolor="#99FF99">
-      2007:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVFrame&nbsp;*in&nbsp;=&nbsp;s-&gt;xf[nb];</td>
-
-      <td bgcolor="#99FF99">
-      2018:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AVFrame&nbsp;*in&nbsp;=&nbsp;s-&gt;xf[nb&nbsp;^&nbsp;(s-&gt;reverse&nbsp;&amp;&nbsp;REVERSE_TRANSITION)];</td>
-    </tr>
-
-    <tr>
-      <td>
-      2008:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;uint8_t&nbsp;*src&nbsp;=&nbsp;in-&gt;data[FFMIN(plane,&nbsp;s-&gt;nb_planes&nbsp;-&nbsp;1)];</td>
-
-      <td>
-      2019:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;uint8_t&nbsp;*src&nbsp;=&nbsp;in-&gt;data[FFMIN(plane,&nbsp;s-&gt;nb_planes&nbsp;-&nbsp;1)];</td>
-    </tr>
-
-    <tr>
-      <td>
-      2009:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;linesize&nbsp;=&nbsp;in-&gt;linesize[FFMIN(plane,&nbsp;s-&gt;nb_planes&nbsp;-&nbsp;1)];</td>
-
-      <td>
-      2020:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;linesize&nbsp;=&nbsp;in-&gt;linesize[FFMIN(plane,&nbsp;s-&gt;nb_planes&nbsp;-&nbsp;1)];</td>
-    </tr>
-
-    <tr>
-      <td>2010:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;int&nbsp;w&nbsp;=&nbsp;in-&gt;width;</td>
-
-      <td>2021:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;int&nbsp;w&nbsp;=&nbsp;in-&gt;width;</td>
     </tr>
 
     <tr>
@@ -521,85 +483,101 @@ body {
     </tr>
 
     <tr>
-      <td>2195:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ThreadData&nbsp;*td&nbsp;=&nbsp;arg;</td>
-
-      <td>2209:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ThreadData&nbsp;*td&nbsp;=&nbsp;arg;</td>
-    </tr>
-
-    <tr>
       <td>
-      2196:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_start&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;&nbsp;jobnr&nbsp;&nbsp;&nbsp;)&nbsp;/&nbsp;nb_jobs;</td>
+      2214:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;AVERROR(ENOMEM);</td>
 
       <td>
-      2210:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_start&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;&nbsp;jobnr&nbsp;&nbsp;&nbsp;)&nbsp;/&nbsp;nb_jobs;</td>
+      2228:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;AVERROR(ENOMEM);</td>
     </tr>
 
     <tr>
-      <td>
-      2197:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_end&nbsp;&nbsp;&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;(jobnr+1))&nbsp;/&nbsp;nb_jobs;</td>
+      <td>2215:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;av_frame_copy_props(out,&nbsp;a);</td>
 
-      <td>
-      2211:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;slice_end&nbsp;&nbsp;&nbsp;=&nbsp;(outlink-&gt;h&nbsp;*&nbsp;(jobnr+1))&nbsp;/&nbsp;nb_jobs;</td>
+      <td>2229:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;av_frame_copy_props(out,&nbsp;a);</td>
     </tr>
 
     <tr>
-      <td bgcolor="#CCCCCC">&nbsp;</td>
+      <td>2216:&nbsp;</td>
 
-      <td bgcolor="#FF9999">
-      2212:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;i&nbsp;=&nbsp;s-&gt;reverse&nbsp;&amp;&nbsp;REVERSE_TRANSITION;&nbsp;//&nbsp;input&nbsp;0&nbsp;or&nbsp;1</td>
-    </tr>
-
-    <tr>
-      <td bgcolor="#CCCCCC">&nbsp;</td>
-
-      <td bgcolor="#FF9999">
-      2213:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;float&nbsp;p&nbsp;=&nbsp;td-&gt;progress;</td>
-    </tr>
-
-    <tr>
-      <td>2198:&nbsp;</td>
-
-      <td>2214:&nbsp;</td>
+      <td>2230:&nbsp;</td>
     </tr>
 
     <tr>
       <td bgcolor="#99FF99">
-      2199:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf(ctx,&nbsp;td-&gt;xf[0],&nbsp;td-&gt;xf[1],&nbsp;td-&gt;out,&nbsp;td-&gt;progress,&nbsp;slice_start,&nbsp;slice_end,&nbsp;jobnr);</td>
+      2217:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;td.xf[0]&nbsp;=&nbsp;a,&nbsp;td.xf[1]&nbsp;=&nbsp;b,&nbsp;td.out&nbsp;=&nbsp;out,&nbsp;td.progress&nbsp;=&nbsp;progress;</td>
 
       <td bgcolor="#99FF99">
-      2215:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;p&nbsp;=&nbsp;(s-&gt;reverse&nbsp;&amp;&nbsp;REVERSE_EASING)&nbsp;?&nbsp;1&nbsp;-&nbsp;ease(s,&nbsp;1&nbsp;-&nbsp;p)&nbsp;:&nbsp;ease(s,&nbsp;p);&nbsp;//&nbsp;eased&nbsp;progress</td>
+      2231:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;progress&nbsp;=&nbsp;(s-&gt;reverse&nbsp;&amp;&nbsp;REVERSE_EASING)&nbsp;?&nbsp;1&nbsp;-&nbsp;ease(s,&nbsp;1&nbsp;-&nbsp;progress)&nbsp;:&nbsp;ease(s,&nbsp;progress);&nbsp;//&nbsp;eased&nbsp;progress</td>
     </tr>
 
     <tr>
       <td bgcolor="#99CC99">&nbsp;</td>
 
       <td bgcolor="#99FF99">
-      2216:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(i)&nbsp;p&nbsp;=&nbsp;1&nbsp;-&nbsp;p;</td>
+      2232:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;i&nbsp;=&nbsp;s-&gt;reverse&nbsp;&amp;&nbsp;REVERSE_TRANSITION;</td>
     </tr>
 
     <tr>
       <td bgcolor="#99CC99">&nbsp;</td>
 
       <td bgcolor="#99FF99">
-      2217:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s-&gt;transitionf(ctx,&nbsp;td-&gt;xf[i],&nbsp;td-&gt;xf[i&nbsp;^&nbsp;1],&nbsp;td-&gt;out,&nbsp;av_clipf(p,&nbsp;0.f,&nbsp;1.f),&nbsp;slice_start,&nbsp;slice_end,&nbsp;jobnr);</td>
+      2233:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(i)&nbsp;progress&nbsp;=&nbsp;1&nbsp;-&nbsp;progress;</td>
     </tr>
 
     <tr>
-      <td>2200:&nbsp;</td>
+      <td bgcolor="#99CC99">&nbsp;</td>
 
-      <td>2218:&nbsp;</td>
+      <td bgcolor="#99FF99">
+      2234:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(s-&gt;reverse&nbsp;&amp;&nbsp;REVERSE_OVERSHOOT)&nbsp;{&nbsp;//&nbsp;internal&nbsp;flag</td>
     </tr>
 
     <tr>
-      <td>2201:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</td>
+      <td bgcolor="#99CC99">&nbsp;</td>
 
-      <td>2219:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</td>
+      <td bgcolor="#99FF99">
+      2235:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(progress&nbsp;&lt;&nbsp;0)&nbsp;progress&nbsp;+=&nbsp;1,&nbsp;i&nbsp;^=&nbsp;1;&nbsp;//&nbsp;undershoot</td>
     </tr>
 
     <tr>
-      <td>2202:&nbsp;}</td>
+      <td bgcolor="#99CC99">&nbsp;</td>
 
-      <td>2220:&nbsp;}</td>
+      <td bgcolor="#99FF99">
+      2236:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else&nbsp;if&nbsp;(progress&nbsp;&gt;&nbsp;1)&nbsp;progress&nbsp;-=&nbsp;1,&nbsp;i&nbsp;^=&nbsp;1;&nbsp;//&nbsp;overshoot</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#99CC99">&nbsp;</td>
+
+      <td bgcolor="#99FF99">2237:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#99CC99">&nbsp;</td>
+
+      <td bgcolor="#99FF99">
+      2238:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;td.xf[i]&nbsp;=&nbsp;a,&nbsp;td.xf[i&nbsp;^&nbsp;1]&nbsp;=&nbsp;b,&nbsp;td.out&nbsp;=&nbsp;out,&nbsp;td.progress&nbsp;=&nbsp;av_clipf(progress,&nbsp;0,&nbsp;1);</td>
+    </tr>
+
+    <tr>
+      <td>
+      2218:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ff_filter_execute(ctx,&nbsp;xfade_slice,&nbsp;&amp;td,&nbsp;NULL,</td>
+
+      <td>
+      2239:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ff_filter_execute(ctx,&nbsp;xfade_slice,&nbsp;&amp;td,&nbsp;NULL,</td>
+    </tr>
+
+    <tr>
+      <td>
+      2219:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FFMIN(outlink-&gt;h,&nbsp;ff_filter_get_nb_threads(ctx)));</td>
+
+      <td>
+      2240:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FFMIN(outlink-&gt;h,&nbsp;ff_filter_get_nb_threads(ctx)));</td>
+    </tr>
+
+    <tr>
+      <td>2220:&nbsp;</td>
+
+      <td>2241:&nbsp;</td>
     </tr>
   </table><br>
   <br>

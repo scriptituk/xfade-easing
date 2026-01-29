@@ -1,12 +1,12 @@
---- libavfilter/vf_xfade.c	2026-01-26 22:44:13
-+++ vf_xfade.c	2026-01-26 22:44:13
+--- libavfilter/vf_xfade.c	2026-01-29 15:10:00
++++ vf_xfade.c	2026-01-29 15:10:00
 @@ -126,6 +126,11 @@
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);
  
 +    char *easing_str; // easing name with optional args
 +    char *transition_str; // transition name with optional args
-+    int reverse; // reverse option bit flags (enum ReverseOpts)
++    int reverse; // reverse option bit flags (enum ReverseFlags)
 +    struct XFadeEasingContext *k; // xfade-easing data
 +
      AVExpr *e;
@@ -54,7 +54,7 @@
                      dst[x] = xf1[x];                                                 \
                  } else {                                                             \
                      const int xx = lrintf(z * (w - 1.f));                            \
-@@ -2001,10 +2010,12 @@
+@@ -2001,6 +2010,8 @@
  REVEALV_TRANSITION(down,  8, uint8_t,  1, )
  REVEALV_TRANSITION(down, 16, uint16_t, 2, )
  
@@ -63,11 +63,6 @@
  static inline double getpix(void *priv, double x, double y, int plane, int nb)
  {
      XFadeContext *s = priv;
--    AVFrame *in = s->xf[nb];
-+    AVFrame *in = s->xf[nb ^ (s->reverse & REVERSE_TRANSITION)];
-     const uint8_t *src = in->data[FFMIN(plane, s->nb_planes - 1)];
-     int linesize = in->linesize[FFMIN(plane, s->nb_planes - 1)];
-     const int w = in->width;
 @@ -2102,6 +2113,9 @@
      if (s->duration)
          s->duration_pts = av_rescale_q(s->duration, AV_TIME_BASE_Q, outlink->time_base);
@@ -78,19 +73,19 @@
      switch (s->transition) {
      case CUSTOM:     s->transitionf = s->depth <= 8 ? custom8_transition     : custom16_transition;     break;
      case FADE:       s->transitionf = s->depth <= 8 ? fade8_transition       : fade16_transition;       break;
-@@ -2195,8 +2209,14 @@
-     ThreadData *td = arg;
-     int slice_start = (outlink->h *  jobnr   ) / nb_jobs;
-     int slice_end   = (outlink->h * (jobnr+1)) / nb_jobs;
+@@ -2214,7 +2228,14 @@
+         return AVERROR(ENOMEM);
+     av_frame_copy_props(out, a);
+ 
+-    td.xf[0] = a, td.xf[1] = b, td.out = out, td.progress = progress;
++    progress = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - progress) : ease(s, progress); // eased progress
 +    int i = s->reverse & REVERSE_TRANSITION;
-+    float p = td->progress;
++    if (i) progress = 1 - progress;
++    if (s->reverse & REVERSE_OVERSHOOT) { // internal flag
++        if (progress < 0) progress += 1, i ^= 1; // undershoot
++        else if (progress > 1) progress -= 1, i ^= 1; // overshoot
++    }
++    td.xf[i] = a, td.xf[i ^ 1] = b, td.out = out, td.progress = av_clipf(progress, 0, 1);
+     ff_filter_execute(ctx, xfade_slice, &td, NULL,
+                       FFMIN(outlink->h, ff_filter_get_nb_threads(ctx)));
  
--    s->transitionf(ctx, td->xf[0], td->xf[1], td->out, td->progress, slice_start, slice_end, jobnr);
-+    if (i) p = 1 - p;
-+    p = (s->reverse & REVERSE_EASING) ? 1 - ease(s, 1 - p) : ease(s, p); // eased progress
-+    if (p < 0) p += 1, i ^= 1; // undershoot
-+    else if (p > 1) p -= 1, i ^= 1; // overshoot
-+    s->transitionf(ctx, td->xf[i], td->xf[i ^ 1], td->out, av_clipf(p, 0, 1), slice_start, slice_end, jobnr);
- 
-     return 0;
- }
