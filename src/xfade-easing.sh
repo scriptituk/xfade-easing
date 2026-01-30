@@ -166,7 +166,7 @@ _version() {
 _opts() {
     ffmpeg -hide_banner --help filter=xfade | grep -q easing && o_native=true # detect native build
     local OPTIND OPTARG opt
-    while getopts ':t:e:b:x:as:p:m:q:c:v:o:r:f:g:z:d:i:l:jnu:k:LHVXIPT:KD' opt; do
+    while getopts ':t:e:b:x:as:p:m:q:c:v:o:r:f:z:d:i:l:jn:u:k:LHVXIPT:KD' opt; do
         case $opt in
         t) o_transition=$OPTARG ;;
         e) o_easing=$OPTARG ;;
@@ -187,7 +187,7 @@ _opts() {
         i) o_vtime=$OPTARG ;;
         l) o_vlength=$OPTARG ;;
         j) o_vplay=true ;;
-        n) o_vname=true ;;
+        n) o_vannot=$OPTARG ;;
         u) o_vfsmult=$OPTARG ;;
         k) o_vstack=$OPTARG ;;
         L) o_list=true ;;
@@ -497,7 +497,7 @@ _step() { # edge x
 # see http://robertpenner.com/easing/
 # see https://github.com/Michaelangel007/easing
 _rp_easing() { # easing mode
-    local e=$1 m=$2 p g
+    local e=$1 m=$2 t p g
     local i o io x # mode expressions as functions of time (T)
     case $e in
         # note: T is time (0 to 1); R is reversed, 1 - T
@@ -601,11 +601,11 @@ _rp_easing() { # easing mode
         echo '' && return
         ;;
     esac
-    g=$io p=$io
-    [[ $m == in ]] && g=$i p=$o
-    [[ $m == out ]] && g=$o p=$i
-    g=${g//R/(1-T)} p=${p//R/(1-T)}
-    g=${g//T/ld(0)} # ld(0) is any normalised input value (0 to 1)
+    t=$io p=$io
+    [[ $m == in ]] && t=$i p=$o
+    [[ $m == out ]] && t=$o p=$i
+    t=${t//R/(1 - T)} p=${p//R/(1 - T)}
+    g=${t//T/ld(0)} # ld(0) is any normalised input value (0 to 1)
     p=${p//T/P} # P is progress (1 to 0)
     if [[ $g =~ %n ]]; then g=${g//%n/%n } g="st(0,%n $g%n)"; else g="st(0, $g)"; fi
     if [[ $p =~ %n ]]; then p=${p//%n/%n } p="st(0,%n $p%n)"; else p="st(0, $p)"; fi
@@ -615,8 +615,8 @@ _rp_easing() { # easing mode
 
 # custom expressions for supplementary easings
 _se_easing() { # easing mode
-    local e=$1 m=$2 p g
-    local i o io # mode expressions
+    local e=$1 m=$2 t p g
+    local i o io x # mode expressions
     case $e in
     squareroot) # opposite to quadratic (not Pohoreski's sqrt)
         i='sqrt(T)'
@@ -629,21 +629,22 @@ _se_easing() { # easing mode
         o="pow(T, $D1_3)"
         io="if(lt(T, 0.5), pow(T / 4, $D1_3), 1 - pow(R / 4, $D1_3))"
         ;;
-    foldelastic|foldback)
-        p=$(_rp_easing ${e#fold} $m) g=${p#*:} p=${p%:*}
-        p=${p%;*}';%nifnot(between(ld(0), 0, 1), st(0, gt(ld(0), 1) * 2 - ld(0)))'
+    flipelastic|flipback)
+        x='ifnot(between(ld(0), 0, 1), st(0, gt(ld(0), 1) * 2 - ld(0)))'
+        p=$(_rp_easing ${e#flip} $m) g=${p#*:} p=${p%:*}
+        p="${p%;*};%n$x" g="$g;%n$x"
         echo "$p:$g" && return
         ;;
     *)
         echo '' && return
         ;;
     esac
-    g=$io p=$io
-    [[ $m == in ]] && g=$i p=$o
-    [[ $m == out ]] && g=$o p=$i
-    g=${g//R/(1-T)} p=${p//R/(1-T)}
+    t=$io p=$io
+    [[ $m == in ]] && t=$i p=$o
+    [[ $m == out ]] && t=$o p=$i
+    t=${t//R/(1 - T)} p=${p//R/(1 - T)}
+    g="st(0, ${t//T/ld(0)})"
     p="st(0, ${p//T/P})"
-    g="st(0, ${g//T/ld(0)})"
     echo "$p:$g"
 }
 
@@ -2341,10 +2342,11 @@ _video() { # path
     local fsmult=${o_vfsmult-$VIDEOFSMULT}
     local bb=$(_calc "int(3 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled boxborder
     local fs=$(_calc "int(16 / ${VIDEOSIZE#*x} * $height * $fsmult + 0.5)" ) # scaled fontsize
-    local drawtext="drawtext=x='(w-text_w)/2':y='(h-text_h)/2':box=1:boxborderw=$bb:text_align=C:fontsize=$fs:text='TEXT'"
+    local drawtext="drawtext=x='(w-tw)/2':y='(h-th)/2':box=1:boxborderw=$bb:text_align=C:fontsize=$fs:text='TEXT'"
     local text1=$transition text2=$transition
     [[ -n $targs ]] && text1+=$(_expand '=%A') text2+=$(_expand '=%a')
     [[ $easing != linear ]] && text1+=$(_expand '%nno easing') text2+=$(_expand '%n%e')
+    [[ -n $o_vannot && $o_vannot != auto ]] && text2=$(_expand "$o_vannot")
     readarray -d , -n 4 -t d <<<$VIDEOSTACK, # defaults
     readarray -d , -n 4 -t o <<<$o_vstack,,,, # options
     local stack=${o[0]:-${d[0]}} gap=${o[1]:-${d[1]}} fill=${o[2]:-${d[2]}} pad=${o[3]:-${d[3]}}
@@ -2383,7 +2385,7 @@ tpad=start_mode=clone:start_duration=$start:stop_mode=clone:stop_duration=$stop
 EOT
     done
     if [[ -z $stack || $stack == 1 || ( $easing == linear && -z $o_easing && -z $targs ) ]]; then # unstacked
-        if [[ -n $o_vname ]]; then
+        if [[ -n $o_vannot ]]; then
             for i in $(seq 0 1 $m); do
                 echo "[v$i]${drawtext/TEXT/$text2}[v$i];" >> $fc_script
             done
@@ -2404,7 +2406,7 @@ EOT
         for i in $(seq 0 1 $m); do
             echo "[v$i]split[v${i}a][v${i}b];" >> $fc_script
         done
-        if [[ -n $o_vname ]]; then
+        if [[ -n $o_vannot ]]; then
             for i in $(seq 0 1 $m); do
                 echo "[v${i}a]${drawtext/TEXT/$text1}[v${i}a];" >> $fc_script
                 echo "[v${i}b]${drawtext/TEXT/$text2}[v${i}b];" >> $fc_script
@@ -2799,8 +2801,9 @@ Options:
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
     -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
-    -n show effect name on video as text (requires the libfreetype library)
     -u video text font size multiplier (default: $VIDEOFSMULT)
+    -n annotate video with text (requires the libfreetype library)
+    -n show effect name on video as text (requires the libfreetype library)
     -k video stack orientation,gap,colour,padding (default: $VIDEOSTACK), e.g. h,2,red,1
        stacks uneased and eased videos horizontally (h), vertically (v) or auto (a)
        auto selects the orientation that displays easing to best effect
