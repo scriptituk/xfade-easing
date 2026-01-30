@@ -19,28 +19,28 @@ CUBIC-IN
 st(0, ld(0)^3)
 
 CUBIC-OUT
-st(0, 1 - (1-ld(0))^3)
+st(0, 1 - (1 - ld(0))^3)
 
 CUBIC-IN-OUT
-st(0, if(lt(ld(0), 0.5), 4 * ld(0)^3, 1 - 4 * (1-ld(0))^3))
+st(0, if(lt(ld(0), 0.5), 4 * ld(0)^3, 1 - 4 * (1 - ld(0))^3))
 
 QUARTIC-IN
 st(0, ld(0)^4)
 
 QUARTIC-OUT
-st(0, 1 - (1-ld(0))^4)
+st(0, 1 - (1 - ld(0))^4)
 
 QUARTIC-IN-OUT
-st(0, if(lt(ld(0), 0.5), 8 * ld(0)^4, 1 - 8 * (1-ld(0))^4))
+st(0, if(lt(ld(0), 0.5), 8 * ld(0)^4, 1 - 8 * (1 - ld(0))^4))
 
 QUINTIC-IN
 st(0, ld(0)^5)
 
 QUINTIC-OUT
-st(0, 1 - (1-ld(0))^5)
+st(0, 1 - (1 - ld(0))^5)
 
 QUINTIC-IN-OUT
-st(0, if(lt(ld(0), 0.5), 16 * ld(0)^5, 1 - 16 * (1-ld(0))^5))
+st(0, if(lt(ld(0), 0.5), 16 * ld(0)^5, 1 - 16 * (1 - ld(0))^5))
 
 SINUSOIDAL-IN
 st(0, 1 - cos(ld(0) * PI / 2))
@@ -80,7 +80,7 @@ st(0,
 )
 
 ELASTIC-IN
-st(0, cos((1-ld(0)) * 20.944) / 2^(10 * (1-ld(0))))
+st(0, cos((1 - ld(0)) * 20.944) / 2^(10 * (1 - ld(0))))
 
 ELASTIC-OUT
 st(0, 1 - cos(ld(0) * 20.944) / 2^(10 * ld(0)))
@@ -96,13 +96,13 @@ BACK-IN
 st(0, ld(0) * ld(0) * (ld(0) * 2.70158 - 1.70158))
 
 BACK-OUT
-st(0, 1 - (1-ld(0))^2 * (1 - ld(0) * 2.70158))
+st(0, 1 - (1 - ld(0))^2 * (1 - ld(0) * 2.70158))
 
 BACK-IN-OUT
 st(0,
  if(lt(ld(0), 0.5),
   2 * ld(0) * ld(0) * (2 * ld(0) * 3.59491 - 2.59491),
-  1 - 2 * (1-ld(0))^2 * (4.59491 - 2 * ld(0) * 3.59491)
+  1 - 2 * (1 - ld(0))^2 * (4.59491 - 2 * ld(0) * 3.59491)
  )
 )
 
@@ -159,16 +159,49 @@ SQUAREROOT-IN
 st(0, sqrt(ld(0)))
 
 SQUAREROOT-OUT
-st(0, 1 - sqrt((1-ld(0))))
+st(0, 1 - sqrt((1 - ld(0))))
 
 SQUAREROOT-IN-OUT
-st(0, if(lt(ld(0), 0.5), sqrt(ld(0) / 2), 1 - sqrt((1-ld(0)) / 2)))
+st(0, if(lt(ld(0), 0.5), sqrt(ld(0) / 2), 1 - sqrt((1 - ld(0)) / 2)))
 
 CUBEROOT-IN
-st(0, 1 - pow((1-ld(0)), 0.333333))
+st(0, 1 - pow((1 - ld(0)), 0.333333))
 
 CUBEROOT-OUT
 st(0, pow(ld(0), 0.333333))
 
 CUBEROOT-IN-OUT
-st(0, if(lt(ld(0), 0.5), pow(ld(0) / 4, 0.333333), 1 - pow((1-ld(0)) / 4, 0.333333)))
+st(0, if(lt(ld(0), 0.5), pow(ld(0) / 4, 0.333333), 1 - pow((1 - ld(0)) / 4, 0.333333)))
+
+FLIPELASTIC-IN
+st(0, cos((1 - ld(0)) * 20.944) / 2^(10 * (1 - ld(0))));
+ifnot(between(ld(0), 0, 1), st(0, gt(ld(0), 1) * 2 - ld(0)))
+
+FLIPELASTIC-OUT
+st(0, 1 - cos(ld(0) * 20.944) / 2^(10 * ld(0)));
+ifnot(between(ld(0), 0, 1), st(0, gt(ld(0), 1) * 2 - ld(0)))
+
+FLIPELASTIC-IN-OUT
+st(0,
+ st(1, cos(st(2, 2 * ld(0) - 1) * 13.9626) / 2);
+ st(2, 2^(10 * ld(2)));
+ if(lt(ld(0), 0.5), ld(1) * ld(2), 1 - ld(1) / ld(2))
+);
+ifnot(between(ld(0), 0, 1), st(0, gt(ld(0), 1) * 2 - ld(0)))
+
+FLIPBACK-IN
+st(0, ld(0) * ld(0) * (ld(0) * 2.70158 - 1.70158));
+ifnot(between(ld(0), 0, 1), st(0, gt(ld(0), 1) * 2 - ld(0)))
+
+FLIPBACK-OUT
+st(0, 1 - (1 - ld(0))^2 * (1 - ld(0) * 2.70158));
+ifnot(between(ld(0), 0, 1), st(0, gt(ld(0), 1) * 2 - ld(0)))
+
+FLIPBACK-IN-OUT
+st(0,
+ if(lt(ld(0), 0.5),
+  2 * ld(0) * ld(0) * (2 * ld(0) * 3.59491 - 2.59491),
+  1 - 2 * (1 - ld(0))^2 * (4.59491 - 2 * ld(0) * 3.59491)
+ )
+);
+ifnot(between(ld(0), 0, 1), st(0, gt(ld(0), 1) * 2 - ld(0)))

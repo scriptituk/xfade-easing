@@ -113,3 +113,21 @@ st(0,pow(ld(0),0.333333))
 
 CUBEROOT-IN-OUT
 st(0,if(lt(ld(0),0.5),pow(ld(0)/4,0.333333),1-pow((1-ld(0))/4,0.333333)))
+
+FLIPELASTIC-IN
+st(0,cos((1-ld(0))*20.944)/2^(10*(1-ld(0))));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
+
+FLIPELASTIC-OUT
+st(0,1-cos(ld(0)*20.944)/2^(10*ld(0)));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
+
+FLIPELASTIC-IN-OUT
+st(0,st(1,cos(st(2,2*ld(0)-1)*13.9626)/2);st(2,2^(10*ld(2)));if(lt(ld(0),0.5),ld(1)*ld(2),1-ld(1)/ld(2)));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
+
+FLIPBACK-IN
+st(0,ld(0)*ld(0)*(ld(0)*2.70158-1.70158));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
+
+FLIPBACK-OUT
+st(0,1-(1-ld(0))^2*(1-ld(0)*2.70158));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
+
+FLIPBACK-IN-OUT
+st(0,if(lt(ld(0),0.5),2*ld(0)*ld(0)*(2*ld(0)*3.59491-2.59491),1-2*(1-ld(0))^2*(4.59491-2*ld(0)*3.59491)));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
