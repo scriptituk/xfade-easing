@@ -318,8 +318,13 @@ This implementation derives from [Michael Pohoreski’s](https://github.com/Mich
 
 - `squareroot`
 - `cuberoot`
+- `flipelastic`
+- `flipback`
 
 The `squareroot` and `cuberoot` easings focus more on the middle regions and less on the extremes, opposite to `quadratic` and `cubic` respectively:
+
+The `flipelastic` and `flipback` easings invert overshoots to keep the progress value within limits,
+see [Overshoots](#overshoots).
 
 ![supplementary easings](assets/supplementary-easings.png)
 
@@ -368,13 +373,28 @@ See [Reversing xfade effects](#reversing-xfade-effects) to achieve this with the
 
 ### Overshoots
 
-The `elastic` and `back` easings overshoot and undershoot, causing many transitions to clip and others to show colour distortion.
-Therefore they are quite useless for xfade (but see [Easing other filters](#easing-other-filters)).
-CSS easings `linear()` and `cubic-bezier()` can also overshoot.
+The `elastic` and `back` easings overshoot out of range for xfade.
+CSS `linear()` and `cubic-bezier()` easings can also overshoot.
+This causes unpredictable behaviour and even access violation exceptions, so needs to be prevented
+(but see [Easing other filters](#easing-other-filters)).
+The resolution depends on the variant:
 
-Rendering expressions can only access the two frames of data available.
-A wrapping overshoot strategy might work for simple horizontal/vertical effects whereby fetching X & Y pixel data is intercepted
-but at present eased progress outside the range 0 to 1 yields unpredictable results.
+- **custom ffmpeg**
+  - `elastic` and `back` easings show the other input in the space created during the overshoots,
+    i.e. input2 during undershoot and input1 during overshoot
+  - any CSS easing overshoot is simply clipped
+- **custom expressions**
+  - `elastic` and `back` easings are clipped;
+    this makes `elastic` like `exponential` with blips and `back` like a delayed `quintic`
+  - generic easings for other filters remain unclipped
+
+#### Flipped overshoots
+
+Easings `flipelastic` and `flipback` flip `elastic` and `back` overshoots into range,
+creating more interest than clipping,
+see [Supplementary easings](#supplementary-easings).
+
+![flipped easings](assets/flips.gif)
 
 ### Easing other filters
 
@@ -464,7 +484,7 @@ see also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) pag
 The open collection of [GL Transitions](https://gl-transitions.com/) initiative lead by [Gaëtan Renaudeau](https://github.com/gre) (gre)
 “aims to establish an universal collection of transitions that various softwares can use” released under a Free License.
 
-Other GLSL transition sources are from [shadertoy](https://www.shadertoy.com/) and the [Vegas Forum](https://www.vegascreativesoftware.info/us/forum/gl-transitions-gallery-sharing-place-share-the-code-here--133472/).
+Other GLSL transition sources here are from [shadertoy](https://www.shadertoy.com/) and the [Vegas Forum](https://www.vegascreativesoftware.info/us/forum/gl-transitions-gallery-sharing-place-share-the-code-here--133472/).
 
 Most of the transitions at [gl-transitions](https://github.com/gl-transitions/gl-transitions/tree/master/transitions) and many from elsewhere
 have been transpiled into native C transitions (for custom ffmpeg variant) and custom expressions (for custom expression variant) for use with or without easing.
@@ -707,8 +727,8 @@ Here, `vec4` and `ivec2` simulate GLSL vector types
 and `XTransition` encapsulates data pertaining to a transition:
 ```c
 typedef struct XTransition {
-    float progress; // transition progress, 0.0 to 1.0 (cf. P)
     float ratio; // frame width / height (cf. W / H)
+    float progress; // transition progress, 0.0 to 1.0 (cf. P)
     vec2 p; // pixel position, .y==0 is bottom (cf. X, Y)
     vec4 a, b; // plane data at p (cf. A, B)
     ...
@@ -720,30 +740,32 @@ static void xtransition_transition(AVFilterContext *ctx,
                                    const AVFrame *a, const AVFrame *b,
                                    AVFrame *out,
                                    float progress,
-                                   int slice_start, int slice_end, int jobnr)
+                                   int slice_start, int slice_end,
+                                   int jobnr)
 {
     const XFadeContext *s = ctx->priv;
     const XFadeEasingContext *k = s->k;
-    const float mw = k->mw, mh = k->mh, mv = k->mv; // as float
+    const float sw = 1.f / k->mw, sh = 1.f / k->mh, sv = 1.f / k->mv; // scale
     XTransition e = { // slice data
-        .progress = 1 - progress, // 0 to 1 for xtransitions
+        .xf = {a, b}, // input frame data
         .ratio = k->r, // pixel ratio
+        .progress = 1 - progress, // 0 to 1 for xtransitions
         .k = k // common context
     };
     // pixel iterator and unit interval conversions
     for (int y = slice_start; y < slice_end; y++) {
-        e.p.y = 1 - y / mh; // y=0 is bottom
+        e.p.y = 1 - y * sh; // y=0 is bottom
         for (int x = 0, p = 0; x <= k->mw; x++) {
-            e.p.x = x / mw;
-            e.a = e.b = VEC4(0, 0.5, 0.5, 1); // plane defaults
+            e.p.x = x * sw;
+            e.a = PLANED, e.b = PLANED; // plane defaults
             do {
-                e.a.p[p] = line(a, p, y)[x] / mv; // from colour
-                e.b.p[p] = line(b, p, y)[x] / mv; // to colour
+                e.a.p[p] = *pix(a, p, x, y) * sv; // from colour
+                e.b.p[p] = *pix(b, p, x, y) * sv; // to colour
             } while (++p < k->n);
             vec4 c = k->xtransitionf(&e); // transition colour
             do {
                 --p;
-                line(out, p, y)[x] = scaleUI(c.p[p], k->mv); // clips
+                *pix(out, p, x, y) = scaleUI(c.p[p], k->mv); // clips
             } while (p > 0);
         }
     }
@@ -1097,6 +1119,7 @@ But modern CPU speeds make Xfade custom transitions a viable option, if somewhat
 The following plots show empirical processing times for a 3-second transition of 3-plane frames (rgb24) through a null muxer
 in SD (720x480) and HD (1280x720) sizes on an otherwise idle Intel 2018 Mac,
 taking the minimum times of several runs.
+This an *old machine* now, so below each plot are tables of estimated times for later PCs.
 
 Based on benchmark scores ([Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks))
 these times are representative of 2017-2020 Intel Macs,
@@ -1120,48 +1143,48 @@ Windows performance has not been measured.
 
 | Transition | SD | HD |
 | :---: | :---: | :---: |
-|gl_Bars|10.47|27|
+|gl_Bars|10.31|26.32|
 |gl_BookFlip|14.06|36.69|
 |gl_Bounce|27.33|73.06|
 |gl_CornerVanish|6.79|17.5|
 |gl_CrazyParametricFun|57.69|154.98|
-|gl_CrossOut|16.15|42.36|
-|gl_Diamond|8.59|22.1|
+|gl_CrossOut|16.15|42.27|
+|gl_Diamond|8.59|22.06|
 |gl_DirectionalScaled|39.77|105.64|
 |gl_DoubleDiamond|10.88|28.15|
-|gl_Dreamy|31.46|83.19|
-|gl_FanIn|12.54|32.85|
-|gl_FanOut|12.59|33.23|
+|gl_Dreamy|31.44|82.64|
+|gl_FanIn|12.5|32.4|
+|gl_FanOut|12.59|33.11|
 |gl_FanUp|9.93|25.61|
 |gl_Flower|29.51|77.89|
-|gl_InvertedPageCurl|47.65|126.94|
+|gl_InvertedPageCurl|47.59|124.01|
 |gl_LinearBlur|511.72|1380.91|
 |gl_Mosaic|68.87|183.57|
 |gl_PolkaDotsCurtain|22.13|58.39|
-|gl_Rolls|35.65|92.61|
-|gl_RotateScaleVanish|42.29|111.61|
-|gl_SimplePageCurl|122.08|315.73|
+|gl_Rolls|35.54|91.3|
+|gl_RotateScaleVanish|41.82|111.61|
+|gl_SimplePageCurl|122.06|315.73|
 |gl_Slides|18.91|49.39|
-|gl_StarWipe|48.18|122.7|
+|gl_StarWipe|46.93|122.7|
 |gl_Swirl|41.9|113.51|
 |gl_WaterDrop|21.12|56.11|
-|gl_angular|16.18|42.2|
-|gl_cannabisleaf|28.54|76.16|
+|gl_angular|16.03|41.66|
+|gl_cannabisleaf|28.09|74.17|
 |gl_chessboard|16.89|44.15|
 |gl_crosshatch|52.07|140.25|
 |gl_crosswarp|35.92|92.72|
-|gl_cube|65.88|178.62|
-|gl_directionalwarp|62.48|166.27|
+|gl_cube|65.88|177.15|
+|gl_directionalwarp|62.48|165.2|
 |gl_doorway|39.93|104.99|
-|gl_heart|16.68|44.91|
-|gl_hexagonalize|65.21|172.6|
+|gl_heart|16.68|44.06|
+|gl_hexagonalize|63.19|164.52|
 |gl_kaleidoscope|174.98|475.29|
-|gl_perlin|90.86|239.03|
-|gl_pinwheel|11.67|30.7|
-|gl_polar_function|17.77|45.79|
-|gl_powerKaleido|529.15|1425.97|
-|gl_randomNoisex|10.23|26.32|
-|gl_randomsquares|24.21|64.17|
+|gl_perlin|90.32|239.03|
+|gl_pinwheel|11.67|30.41|
+|gl_polar_function|17.44|45.68|
+|gl_powerKaleido|529.15|1394.25|
+|gl_randomNoisex|10.23|26.12|
+|gl_randomsquares|24.19|64.09|
 |gl_ripple|35.57|94.07|
 |gl_rotateTransition|34.91|92.81|
 |gl_rotate_scale_fade|55.79|148.75|
@@ -1173,7 +1196,7 @@ Windows performance has not been measured.
 
 </details>
 
-This shows most GL transitions take around half a minute for SD and a minute and a half for HD,
+This shows most GL transitions take around half a minute for SD and 1&frac12; minutes for HD,
 however some take considerably longer (off-scale transitions shown in italics).
 
 #### Xfade transition expressions
@@ -1184,62 +1207,62 @@ however some take considerably longer (off-scale transitions shown in italics).
 
 | Transition | SD | HD |
 | :---: | :---: | :---: |
-|circleclose|16.03|41.19|
-|circlecrop|11.6|30.27|
-|circleopen|15.84|41.54|
+|circleclose|15.82|41.19|
+|circlecrop|11.6|30.11|
+|circleopen|15.84|41.35|
 |coverdown|10.38|27.2|
 |coverleft|10.17|26.53|
-|coverright|10.39|27.92|
-|coverup|10.24|26.52|
+|coverright|10.39|27.46|
+|coverup|10.24|26.31|
 |diagbl|11.47|29.99|
-|diagbr|12.62|31.89|
+|diagbr|12.6|31.89|
 |diagtl|11|28.01|
-|diagtr|11.67|30.5|
-|dissolve|9.75|25.74|
+|diagtr|11.67|30.4|
+|dissolve|9.75|25.39|
 |fade|2.41|5.72|
 |fadeblack|24.56|65.3|
-|fadefast|8.21|21.8|
+|fadefast|8.21|21.75|
 |fadegrays|34.06|91.82|
 |fadeslow|8.19|21.58|
 |fadewhite|24|63.18|
-|hlslice|14.96|38.29|
-|hlwind|18.74|49.19|
-|horzclose|11.04|28.98|
+|hlslice|14.75|38.29|
+|hlwind|18.7|49.08|
+|horzclose|11.04|28.44|
 |horzopen|10.9|28.32|
-|hrslice|15.81|40.73|
+|hrslice|15.8|40.73|
 |hrwind|18.24|47.72|
-|pixelize|27.83|73.49|
-|radial|13.51|35.61|
-|rectcrop|8|20.53|
-|revealdown|10.45|27.46|
-|revealleft|10.05|26.84|
-|revealright|10.57|27.38|
-|revealup|10.11|26.9|
-|slidedown|11.68|30.38|
+|pixelize|27.65|72.87|
+|radial|13.51|34.77|
+|rectcrop|7.93|20.53|
+|revealdown|10.45|27.35|
+|revealleft|10.05|26.77|
+|revealright|10.38|27.27|
+|revealup|10.11|26.5|
+|slidedown|11.68|30.06|
 |slideleft|11.1|29.39|
-|slideright|11.46|30.82|
+|slideright|11.46|30.07|
 |slideup|11.33|29.26|
 |smoothdown|10.57|27.7|
-|smoothleft|9.68|25.87|
-|smoothright|10.56|27.99|
+|smoothleft|9.68|25.82|
+|smoothright|10.56|27.77|
 |smoothup|9.87|25.69|
-|squeezeh|6.63|16.96|
-|squeezev|6.6|17.23|
+|squeezeh|6.63|16.73|
+|squeezev|6.6|16.8|
 |vdslice|15.5|40.1|
-|vdwind|18.19|47.95|
-|vertclose|11.04|29.15|
+|vdwind|18.19|47.57|
+|vertclose|10.97|28.37|
 |vertopen|10.98|28.5|
-|vuslice|14.64|38.99|
-|vuwind|18.69|49.33|
-|wipebl|3.77|9.26|
+|vuslice|14.64|38.14|
+|vuwind|18.46|48.87|
+|wipebl|3.75|9.26|
 |wipebr|4.18|10.29|
 |wipedown|2.52|5.71|
 |wipeleft|2.11|4.87|
-|wiperight|2.51|5.98|
-|wipetl|3.37|8.21|
+|wiperight|2.48|5.98|
+|wipetl|3.34|8.21|
 |wipetr|3.72|9.04|
 |wipeup|2.06|4.68|
-|zoomin|28.93|76.4|
+|zoomin|28.79|75|
 
 </details>
 
@@ -1253,19 +1276,21 @@ These are only used when easing standard Xfade transitions.
 
 | Easing | SD | HD |
 | :---: | :---: | :---: |
-|back|7.21|18.44|
-|bounce|14.02|35.95|
-|circular|6.07|15.55|
-|cuberoot|6.71|17.1|
-|cubic|6.52|16.76|
-|elastic|11.49|29.41|
-|exponential|6.3|16.19|
-|linear|2.64|6.22|
-|quadratic|4.6|11.37|
-|quartic|6.66|16.72|
-|quintic|6.53|16.75|
-|sinusoidal|5.26|13.33|
-|squareroot|4.71|12.02|
+|back|9.05|23.51|
+|bounce|13.94|36.74|
+|circular|6.1|16.11|
+|cuberoot|6.81|17.21|
+|cubic|6.61|16.95|
+|elastic|13.34|34.89|
+|exponential|6.38|16.51|
+|flipback|10.21|26.79|
+|flipelastic|13.59|35.98|
+|linear|2.67|6.23|
+|quadratic|4.56|11.45|
+|quartic|6.57|17.04|
+|quintic|6.56|17|
+|sinusoidal|5.22|13.18|
+|squareroot|4.8|12.15|
 
 </details>
 
@@ -1294,7 +1319,7 @@ If easing is used these easing times must be added to the GL or Xfade transition
 |distance|1|1.97|
 |fade|0.5|0.58|
 |fadeblack|0.61|0.72|
-|fadefast|1.95|4.98|
+|fadefast|1.95|4.84|
 |fadegrays|1.02|1.83|
 |fadeslow|1.91|4.74|
 |fadewhite|0.61|0.72|
@@ -1340,76 +1365,76 @@ If easing is used these easing times must be added to the GL or Xfade transition
 |gl_Bars|1.25|2.78|
 |gl_BookFlip|1.28|2.77|
 |gl_Bounce|1.62|3.65|
-|gl_BowTie|1.46|3.55|
-|gl_ButterflyWaveScrawler|5.23|15.29|
+|gl_BowTie|1.46|3.49|
+|gl_ButterflyWaveScrawler|5.23|15.15|
 |gl_CornerVanish|1.04|2.19|
-|gl_CrazyParametricFun|2.91|7.51|
+|gl_CrazyParametricFun|2.91|7.43|
 |gl_CrossOut|1.13|2.29|
-|gl_CrossZoom|45.65|130.27|
-|gl_Diamond|1.11|2.25|
-|gl_DirectionalScaled|2.56|6.39|
-|gl_DoubleDiamond|1.11|2.35|
-|gl_Dreamy|2.41|6.1|
+|gl_CrossZoom|45.21|127.99|
+|gl_Diamond|1.1|2.25|
+|gl_DirectionalScaled|2.56|6.15|
+|gl_DoubleDiamond|1.11|2.28|
+|gl_Dreamy|2.41|6.02|
 |gl_EdgeTransition|9.96|31.12|
-|gl_Exponential_Swish|5.12|14.38|
-|gl_FanIn|1.23|2.72|
-|gl_FanOut|1.27|2.79|
-|gl_FanUp|1.22|2.7|
+|gl_Exponential_Swish|5.12|14.33|
+|gl_FanIn|1.23|2.67|
+|gl_FanOut|1.27|2.77|
+|gl_FanUp|1.22|2.66|
 |gl_Flower|1.76|4.11|
-|gl_GridFlip|2.14|5.28|
-|gl_InvertedPageCurl|2.02|4.88|
-|gl_LinearBlur|32.78|97.51|
+|gl_GridFlip|2.1|5.09|
+|gl_InvertedPageCurl|1.95|4.46|
+|gl_LinearBlur|32.78|93.69|
 |gl_Lissajous_Tiles|84.58|232.48|
-|gl_Mosaic|2.79|7.01|
+|gl_Mosaic|2.79|6.92|
 |gl_PolkaDotsCurtain|1.38|3.05|
-|gl_Rolls|1.57|3.63|
-|gl_RotateScaleVanish|1.96|4.66|
-|gl_SimpleBookCurl|2.19|5.6|
-|gl_SimplePageCurl|1.69|3.85|
-|gl_Slides|1.25|2.6|
-|gl_StageCurtains|1.98|4.86|
+|gl_Rolls|1.55|3.46|
+|gl_RotateScaleVanish|1.95|4.57|
+|gl_SimpleBookCurl|2.19|5.39|
+|gl_SimplePageCurl|1.69|3.79|
+|gl_Slides|1.23|2.54|
+|gl_StageCurtains|1.96|4.68|
 |gl_StarWipe|2.32|5.72|
 |gl_StereoViewer|2.25|5.89|
 |gl_Stripe_Wipe|2.67|6.69|
-|gl_Swirl|3.01|7.62|
-|gl_WaterDrop|1.91|4.67|
+|gl_Swirl|3|7.59|
+|gl_WaterDrop|1.91|4.6|
 |gl_angular|1.46|3.33|
-|gl_blend|1.76|4.39|
-|gl_cannabisleaf|3.28|8.57|
-|gl_chessboard|1.14|2.33|
-|gl_crosshatch|2.12|5.04|
-|gl_crosswarp|1.98|4.77|
-|gl_cube|1.82|4.24|
-|gl_directionalwarp|2.64|6.61|
-|gl_doorway|1.61|3.58|
-|gl_fadecolor|1.38|3.14|
-|gl_heart|1.11|2.32|
-|gl_hexagonalize|2.34|5.74|
+|gl_blend|1.76|4.32|
+|gl_cannabisleaf|3.28|8.53|
+|gl_chessboard|1.14|2.3|
+|gl_crosshatch|2.12|4.88|
+|gl_crosswarp|1.98|4.68|
+|gl_cube|1.82|4.1|
+|gl_directionalwarp|2.64|6.44|
+|gl_doorway|1.61|3.48|
+|gl_fadecolor|1.38|3.07|
+|gl_heart|1.11|2.3|
+|gl_hexagonalize|2.34|5.61|
 |gl_kaleidoscope|5.37|15.32|
-|gl_morph|1.87|4.51|
+|gl_morph|1.84|4.44|
 |gl_perlin|2.89|6.98|
-|gl_pinwheel|1.48|3.42|
-|gl_polar_function|1.88|4.49|
-|gl_powerKaleido|5.45|15.51|
+|gl_pinwheel|1.48|3.37|
+|gl_polar_function|1.88|4.48|
+|gl_powerKaleido|5.45|14.95|
 |gl_randomNoisex|1.7|3.85|
 |gl_randomsquares|1.96|4.61|
-|gl_ripple|2.42|5.86|
+|gl_ripple|2.42|5.81|
 |gl_rotateTransition|2.27|5.45|
 |gl_rotate_scale_fade|2.52|6.14|
-|gl_squareswire|1.34|2.89|
+|gl_squareswire|1.34|2.86|
 |gl_static_wipe|1.96|4.63|
-|gl_swap|1.71|3.78|
-|gl_windowblinds|1.27|2.65|
-|gl_windowslice|1.17|2.37|
+|gl_swap|1.64|3.64|
+|gl_windowblinds|1.27|2.59|
+|gl_windowslice|1.17|2.36|
 
 </details>
 
 This plot combines both Xfade and GL transitions.
 
-It shows most transitions take around a second for SD and 2.5 seconds for HD
+It shows most transitions take around 1 second for SD and 2&frac12; seconds for HD
 but again some take considerably longer (off-scale transitions shown in italics).
 
-Progress easing is calculated once per slice and presents no discernable performance hit.
+Progress easing is calculated once per frame and presents no discernable performance hit.
 
 The custom ffmpeg C code in [xfade-easing.h](src/xfade-easing.h) deploys a single pixel iterator for all extended transition functions which in turn operate on all planes at once,
 and it does not require `-filter_complex_threads 1`.
@@ -1493,8 +1518,9 @@ Options:
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
     -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
-    -n show effect name on video as text (requires the libfreetype library)
     -u video text font size multiplier (default: 1.0)
+    -n annotate video with text (requires the libfreetype library)
+    -n show effect name on video as text (requires the libfreetype library)
     -k video stack orientation,gap,colour,padding (default: ,0,white,0), e.g. h,2,red,1
        stacks uneased and eased videos horizontally (h), vertically (v) or auto (a)
        auto selects the orientation that displays easing to best effect
