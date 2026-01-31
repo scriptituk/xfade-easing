@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.2
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.3
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Generic easing expressions, inline for -filter_complex filterchains

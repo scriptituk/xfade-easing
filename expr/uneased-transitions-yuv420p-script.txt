@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.2
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.3
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Uneased transition expressions (yuv420p), script for -/filter_complex filterchains
@@ -252,16 +252,16 @@ ld(1) * ld(2) + B * (1 - ld(2))
 
 SQUEEZEH
 st(1, 0.5 + (Y / H - 0.5) / P);
-if(between(ld(1), 0, 1),
- st(1, round(ld(1) * (H - 1)));
+if(P * between(ld(1), 0, 1),
+ st(1, ld(1) * H);
  ifnot(PLANE, a0(X,ld(1)), ifnot(1-PLANE, a1(X,ld(1)), ifnot(2-PLANE, a2(X,ld(1)), a3(X,ld(1))))),
  B
 )
 
 SQUEEZEV
 st(1, 0.5 + (X / W - 0.5) / P);
-if(between(ld(1), 0, 1),
- st(1, round(ld(1) * (W - 1)));
+if(P * between(ld(1), 0, 1),
+ st(1, ld(1) * W);
  ifnot(PLANE, a0(ld(1),Y), ifnot(1-PLANE, a1(ld(1),Y), ifnot(2-PLANE, a2(ld(1),Y), a3(ld(1),Y)))),
  B
 )
