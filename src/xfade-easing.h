@@ -60,7 +60,7 @@ static void xe_debug(void *avcl, const char *fmt, ...);
 // aggregate types
 ////////////////////////////////////////////////////////////////////////////////
 
-// reverse option bit flags
+// reverse bit flags
 typedef enum { REVERSE_TRANSITION = 1, REVERSE_EASING = 2, REVERSE_OVERSHOOT = 8 } ReverseFlags;
 
 // blend modes

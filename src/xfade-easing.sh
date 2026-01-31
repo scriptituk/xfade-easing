@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.6.2
+export VERSION=3.6.3
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -112,13 +112,13 @@ _heredoc() { # delimiter
     gsed -n -e "/^@$1/,/^!$1/{//!p}" $0 | gsed '/^[ \t]*#/d'
 }
 
-# check dependency
+# check command dependency
 _dep() { # dep
     command -v $1 > /dev/null 2>&1 && return 0
     return $ERROR
 }
 
-# check dependencies
+# check command dependencies
 _deps() {
     local deps
     [[ ${BASH_VERSINFO[0]} -ge 4 ]] || deps='bash-v4'
@@ -166,7 +166,7 @@ _version() {
 _opts() {
     ffmpeg -hide_banner --help filter=xfade | grep -q easing && o_native=true # detect native build
     local OPTIND OPTARG opt
-    while getopts ':t:e:b:x:as:p:m:q:c:v:o:r:f:z:d:i:l:jn:u:k:LHVXIPT:KD' opt; do
+    while getopts ':t:e:b:x:as:p:m:q:c:v:o:r:f:z:d:i:l:jnu:k:LHVXIPT:KD' opt; do
         case $opt in
         t) o_transition=$OPTARG ;;
         e) o_easing=$OPTARG ;;
@@ -187,7 +187,7 @@ _opts() {
         i) o_vtime=$OPTARG ;;
         l) o_vlength=$OPTARG ;;
         j) o_vplay=true ;;
-        n) o_vannot=$OPTARG ;;
+        n) o_vname=true ;;
         u) o_vfsmult=$OPTARG ;;
         k) o_vstack=$OPTARG ;;
         L) o_list=true ;;
@@ -848,16 +848,16 @@ _xf_transition() { # transition
         ;;
     squeezeh)
         _make 'st(1, 0.5 + (Y / H - 0.5) / P);' # z
-        _make 'if(between(ld(1), 0, 1),'
-        _make ' st(1, round(ld(1) * (H - 1)));'
+        _make 'if(P * between(ld(1), 0, 1),'
+        _make ' st(1, ld(1) * H);'
         _make ' a(X, ld(1)),'
         _make ' B'
         _make ')'
         ;;
     squeezev)
         _make 'st(1, 0.5 + (X / W - 0.5) / P);' # z
-        _make 'if(between(ld(1), 0, 1),'
-        _make ' st(1, round(ld(1) * (W - 1)));'
+        _make 'if(P * between(ld(1), 0, 1),'
+        _make ' st(1, ld(1) * W);'
         _make ' a(ld(1), Y),'
         _make ' B'
         _make ')'
@@ -2346,7 +2346,6 @@ _video() { # path
     local text1=$transition text2=$transition
     [[ -n $targs ]] && text1+=$(_expand '=%A') text2+=$(_expand '=%a')
     [[ $easing != linear ]] && text1+=$(_expand '%nno easing') text2+=$(_expand '%n%e')
-    [[ -n $o_vannot && $o_vannot != auto ]] && text2=$(_expand "$o_vannot")
     readarray -d , -n 4 -t d <<<$VIDEOSTACK, # defaults
     readarray -d , -n 4 -t o <<<$o_vstack,,,, # options
     local stack=${o[0]:-${d[0]}} gap=${o[1]:-${d[1]}} fill=${o[2]:-${d[2]}} pad=${o[3]:-${d[3]}}
@@ -2385,7 +2384,7 @@ tpad=start_mode=clone:start_duration=$start:stop_mode=clone:stop_duration=$stop
 EOT
     done
     if [[ -z $stack || $stack == 1 || ( $easing == linear && -z $o_easing && -z $targs ) ]]; then # unstacked
-        if [[ -n $o_vannot ]]; then
+        if [[ -n $o_vname ]]; then
             for i in $(seq 0 1 $m); do
                 echo "[v$i]${drawtext/TEXT/$text2}[v$i];" >> $fc_script
             done
@@ -2406,7 +2405,7 @@ EOT
         for i in $(seq 0 1 $m); do
             echo "[v$i]split[v${i}a][v${i}b];" >> $fc_script
         done
-        if [[ -n $o_vannot ]]; then
+        if [[ -n $o_vname ]]; then
             for i in $(seq 0 1 $m); do
                 echo "[v${i}a]${drawtext/TEXT/$text1}[v${i}a];" >> $fc_script
                 echo "[v${i}b]${drawtext/TEXT/$text2}[v${i}b];" >> $fc_script
@@ -2794,16 +2793,15 @@ Options:
     -f pixel format (default: $FORMAT): use ffmpeg -pix_fmts for list
     -z video size (default: input 1 size)
        format: WxH; omitting W or H keeps aspect ratio, e.g. -z 400x scales H
-    -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s, minimum: 0) (see note after -l)
-    -i time between video transitions (default: ${VIDEOTIME}s, minimum: 0) (see note after -l)
+    -d video transition duration (default: ${VIDEOTRANSITIONDURATION}s, minimum: 0) (see note for -l)
+    -i time between video transitions (default: ${VIDEOTIME}s, minimum: 0) (see note for -l)
     -l video length (default: ${VIDEOLENGTH}s)
        note: options -d, -i, -l are interdependent: l=ni+(n-1)d for n inputs
        given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
     -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
-    -u video text font size multiplier (default: $VIDEOFSMULT)
-    -n annotate video with text (requires the libfreetype library)
     -n show effect name on video as text (requires the libfreetype library)
+    -u video text font size multiplier (default: $VIDEOFSMULT)
     -k video stack orientation,gap,colour,padding (default: $VIDEOSTACK), e.g. h,2,red,1
        stacks uneased and eased videos horizontally (h), vertically (v) or auto (a)
        auto selects the orientation that displays easing to best effect
