@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.3
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.4
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Generic easing expressions, inline for -filter_complex filterchains
@@ -10,10 +10,10 @@ QUADRATIC-IN
 st(0,ld(0)*ld(0))
 
 QUADRATIC-OUT
-st(0,ld(0)*(2-ld(0)))
+st(0,(2-ld(0))*ld(0))
 
 QUADRATIC-IN-OUT
-st(0,if(lt(ld(0),0.5),2*ld(0)*ld(0),2*ld(0)*(2-ld(0))-1))
+st(0,if(lt(ld(0),0.5),ld(0)*ld(0)*2,(2-ld(0))*ld(0)*2-1))
 
 CUBIC-IN
 st(0,ld(0)^3)
@@ -64,10 +64,10 @@ CIRCULAR-IN
 st(0,1-sqrt(1-ld(0)*ld(0)))
 
 CIRCULAR-OUT
-st(0,sqrt(ld(0)*(2-ld(0))))
+st(0,sqrt((2-ld(0))*ld(0)))
 
 CIRCULAR-IN-OUT
-st(0,if(lt(ld(0),0.5),1-sqrt(1-4*ld(0)*ld(0)),1+sqrt(4*ld(0)*(2-ld(0))-3))/2)
+st(0,if(lt(ld(0),0.5),1-sqrt(1-ld(0)*ld(0)*4),1+sqrt((2-ld(0))*ld(0)*4-3))/2)
 
 ELASTIC-IN
 st(0,cos((1-ld(0))*20.944)/2^(10*(1-ld(0))))
@@ -76,16 +76,16 @@ ELASTIC-OUT
 st(0,1-cos(ld(0)*20.944)/2^(10*ld(0)))
 
 ELASTIC-IN-OUT
-st(0,st(1,cos(st(2,2*ld(0)-1)*13.9626)/2);st(2,2^(10*ld(2)));if(lt(ld(0),0.5),ld(1)*ld(2),1-ld(1)/ld(2)))
+st(0,st(1,cos(st(2,ld(0)*2-1)*13.9626)/2);st(2,2^(10*ld(2)));if(lt(ld(0),0.5),ld(1)*ld(2),1-ld(1)/ld(2)))
 
 BACK-IN
-st(0,ld(0)*ld(0)*(ld(0)*2.70158-1.70158))
+st(0,(ld(0)*2.70158-1.70158)*ld(0)*ld(0))
 
 BACK-OUT
 st(0,1-(1-ld(0))^2*(1-ld(0)*2.70158))
 
 BACK-IN-OUT
-st(0,if(lt(ld(0),0.5),2*ld(0)*ld(0)*(2*ld(0)*3.59491-2.59491),1-2*(1-ld(0))^2*(4.59491-2*ld(0)*3.59491)))
+st(0,if(lt(ld(0),0.5),(ld(0)*7.18982-2.59491)*ld(0)*ld(0)*2,(ld(0)*7.18982-4.59491)*(1-ld(0))^2*2+1))
 
 BOUNCE-IN
 st(0,st(0,1-ld(0));1-(if(lt(ld(0),0.363636),7.5625*ld(0)*ld(0),if(lt(ld(0),0.727273),7.5625*(ld(0)-0.545455)^2+0.75,if(lt(ld(0),0.909091),7.5625*(ld(0)-0.818182)^2+0.9375,7.5625*(ld(0)-0.954545)^2+0.984375)))))
@@ -121,13 +121,13 @@ FLIPELASTIC-OUT
 st(0,1-cos(ld(0)*20.944)/2^(10*ld(0)));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
 
 FLIPELASTIC-IN-OUT
-st(0,st(1,cos(st(2,2*ld(0)-1)*13.9626)/2);st(2,2^(10*ld(2)));if(lt(ld(0),0.5),ld(1)*ld(2),1-ld(1)/ld(2)));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
+st(0,st(1,cos(st(2,ld(0)*2-1)*13.9626)/2);st(2,2^(10*ld(2)));if(lt(ld(0),0.5),ld(1)*ld(2),1-ld(1)/ld(2)));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
 
 FLIPBACK-IN
-st(0,ld(0)*ld(0)*(ld(0)*2.70158-1.70158));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
+st(0,(ld(0)*2.70158-1.70158)*ld(0)*ld(0));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
 
 FLIPBACK-OUT
 st(0,1-(1-ld(0))^2*(1-ld(0)*2.70158));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
 
 FLIPBACK-IN-OUT
-st(0,if(lt(ld(0),0.5),2*ld(0)*ld(0)*(2*ld(0)*3.59491-2.59491),1-2*(1-ld(0))^2*(4.59491-2*ld(0)*3.59491)));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
+st(0,if(lt(ld(0),0.5),(ld(0)*7.18982-2.59491)*ld(0)*ld(0)*2,(ld(0)*7.18982-4.59491)*(1-ld(0))^2*2+1));ifnot(between(ld(0),0,1),st(0,gt(ld(0),1)*2-ld(0)))
