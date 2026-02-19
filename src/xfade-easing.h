@@ -375,10 +375,10 @@ static inline bool betweenUI(float x) { return betweenf(x, 0, 1); } // within un
 static inline float clipUI(float x) { return av_clipf(x, 0, 1); } // clip to unit interval
 static inline float frandf(float x, float y)
 {
-    return fract(sinf(x * 12.9898f + y * 78.233f) * 43758.5453f);
-//  return fract(sin(x * 12.9898 + y * 78.233) * 43758.5453); // doubles render like GL Transitions
+    return fract(sinf(x * 12.9898f + y * 78.233f) * 43758.545f); // cf. vf_xfade.c frand()
+//  return fract(sin(x * 12.9898 + y * 78.233) * 43758.545); // doubles render like GL Transitions
 }
-static inline float r2f(AVRational r) { return (float)r.num / r.den; } // cf. av_q2d()
+static inline float r2f(AVRational r) { return (float)r.num / r.den; } // cf. libavutil/rational.h av_q2d()
 
 // coordinate functions --------------------------------------------------
 
@@ -1223,11 +1223,11 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
         if (wrap.x == 2)
             uv0.x = acosf(cosf(M_PIf * uv0.x)) * M_1_PIf, uv1.x = acosf(cosf(M_PIf * uv1.x)) * M_1_PIf;
         else if (wrap.x == 1)
-            uv0.x = fract(uv0.x), uv1.x = fract(uv1.x);
+            uv0.x -= floorf(uv0.x), uv1.x -= floorf(uv1.x);
         if (wrap.y == 2)
             uv0.y = acosf(cosf(M_PIf * uv0.y)) * M_1_PIf, uv1.y = acosf(cosf(M_PIf * uv1.y)) * M_1_PIf;
         else if (wrap.y == 1)
-            uv0.y = fract(uv0.y), uv1.y = fract(uv1.y);
+            uv0.y -= floorf(uv0.y), uv1.y -= floorf(uv1.y);
         bool b = (p < P5f);
         vec4 c = (!wrap.x && ((b && !betweenUI(uv0.x)) || (!b && !betweenUI(uv1.x)))) ||
                  (!wrap.y && ((b && !betweenUI(uv0.y)) || (!b && !betweenUI(uv1.y))))
@@ -2283,7 +2283,7 @@ static vec4 t_simple_plasma(const XTransition *e) // by Kastor (ldBGRR)
 
 static vec4 t_simple_rainbow_formula(const XTransition *e) // by Jodie (4l2cDm)
 {
-    float x = glmod(e->p.x + e->progress, 1);
+    float x = fract(e->p.x + e->progress);
     vec4 c = VEC3(sinf((x + 2.f / 3.f) * M_TAUf), sinf((x + 1.f / 3.f) * M_TAUf), sinf(x * M_TAUf));
     return add3f(mul3f(c, P5f), P5f);
 }
