@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.4] - 2026-02-20
+
+### Changed
+
+- custom expr optimisations: use `mod(x,1)` for `fract(x)`-->`x-floor(x)`
+- updated performance analysis in README
+- more alphabetical Xfade transition order in README
+
+### Fixed
+
+- no clipping in plot generation
+
 ## [3.6.3] - 2026-01-31
 
 ### Added
