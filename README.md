@@ -450,7 +450,7 @@ So the zoompan `zoom` expression, with `back` expr from [generic-easings-inline.
 
 ```
 z='st(0, clip((time - 1) / 3, 0, 1));
-     st(0,if(lt(ld(0),0.5),2*ld(0)*ld(0)*(2*ld(0)*3.59491-2.59491),1-2*(1-ld(0))^2*(4.59491-2*ld(0)*3.59491)));
+     st(0,if(lt(ld(0),0.5),(ld(0)*7.18982-2.59491)*ld(0)*ld(0)*2,(ld(0)*7.18982-4.59491)*(1-ld(0))^2*2+1))
    lerp(1.2, 3.1, ld(0))'
 ```
 
@@ -458,7 +458,7 @@ And the drawtext `y` expression with `squareroot` easing is:
 
 ```
 y='st(0, clip((t - 1) / 3, 0, 1));
-     st(0, if(lt(ld(0), 0.5), sqrt(ld(0) / 2), 1 - sqrt((1-ld(0)) / 2)));
+     st(0, if(lt(ld(0), 0.5), sqrt(ld(0) / 2), 1 - sqrt((1 - ld(0)) / 2)));
    lerp(line_h - 10, h - line_h * 2 - 5, ld(0))'
 ```
 
