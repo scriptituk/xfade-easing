@@ -10,6 +10,7 @@ The easing expressions can be used for [other filters](#easing-other-filters) be
 <img src="assets/xfade-easing.gif" alt="Summary" align="right">
 
 There are 2 variants:
+
 1. **custom ffmpeg** build with added xfade `easing` and `reverse` options
 2. **custom expressions** for use with standard ffmpeg (see [performance](#performance))
 
@@ -19,7 +20,8 @@ therefore transitions lack interest.
 Easing inserts a progress envelope to smooth transitions in a natural way.
 
 Example usage:
-* **custom ffmpeg**:
+
+- **custom ffmpeg**:
 set the new `easing` option to the easing name, with optional CSS-easing arguments,
 and the `transition` option to the transition name, with optional transition arguments,
 and the `reverse` option to reverse the easing and/or transition effect
@@ -30,7 +32,7 @@ and the `reverse` option to reverse the easing and/or transition effect
 `xfade=duration=3:offset=10:easing='cubic-bezier(0.12,0.57,0.63,0.21)'` \
 `:transition='gl_cube(floating=5,unzoom=0.8,background=SlateGray)':reverse=1`
 
-* **custom expression**:
+- **custom expression**:
 set the xfade `transition` option to `custom` and the `expr` option to the concatenation of a standard easing expression and a transition expression
 (this variant does not support CSS easings or reversed effects). \
 *Example* (quartic-out, radial): \
@@ -63,6 +65,7 @@ ffmpeg -i first.mp4 -i second.mp4 -filter_complex "
     xfade=duration=3:offset=1:easing=cubic-in-out:transition=wipedown
     " output.mp4
 ```
+
 Easing mode `in-out` is the default mode; the above is equivalent to `easing=cubic`. \
 The default easing is `linear` (none).
 
@@ -92,10 +95,13 @@ or [eased-transitions-yuv420p-inline.txt](expr/eased-transitions-yuv420p-inline.
 Those contain inline expressions for CLI use.
 
 Alternatively use the [CLI script](#cli-script):
+
 ```shell
 xfade-easing.sh -t wipedown -e cubic -x -
 ```
+
 dumps the xfade `expr` parameter:
+
 ```
 'st(0,if(lt(P,0.5),4*P^3,1-4*(1-P)^3));if(gt(Y,H*(1-ld(0))),A,B)'
 ```
@@ -110,17 +116,22 @@ or [eased-transitions-yuv420p-script.txt](expr/eased-transitions-yuv420p-script.
 Those contain multiline expressions for script use (but the inline expressions work too).
 
 Alternatively use [xfade-easing.sh](#cli-script) with expansion specifiers `expr='%n%X'` (see [Usage](#usage)):
+
 ```shell
 xfade-easing.sh -t wipedown -e cubic -s "xfade=offset=10:duration=5:transition=custom:expr='%n%X'" -x script.txt
 ```
+
 writes the complete xfade filter description to file script.txt:
+
 ```
 xfade=offset=10:duration=5:transition=custom:expr='
 st(0, if(lt(P, 0.5), 4 * P^3, 1 - 4 * (1-P)^3))
 ;
 if(gt(Y, H * (1 - ld(0))), A, B)'
 ```
+
 and the command becomes
+
 ```shell
 ffmpeg -i first.mp4 -i second.mp4 -filter_complex_threads 1 -/filter_complex script.txt output.mp4`
 ```
@@ -231,6 +242,7 @@ The [CLI script](#cli-script) can produce combined expressions in any syntax usi
 This format is condensed into a single line stripped of whitespace.
 
 *Example*: `elastic out` easing (leaves progress in `st(0)`)
+
 ```
 st(0,cos((1-P)*20.944)/2^(10*(1-P)))
 ```
@@ -240,6 +252,7 @@ st(0,cos((1-P)*20.944)/2^(10*(1-P)))
 This format is best for expressions that are too unwieldy for inline ffmpeg commands.
 
 *Example*: `gl_Swirl` transition (expects eased progress in `ld(0)`) (cf. [Swirl.glsl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/Swirl.glsl))
+
 ```
 st(1, 1);
 st(2, 1);
@@ -370,7 +383,7 @@ documented at [W3C here](https://drafts.csswg.org/css-easing-2/#step-easing-func
 #### Reversed CSS easing
 
 Standard easings have ease-in and ease-out modes but not CSS easings.
-See [Reversing xfade effects](#reversing-xfade-effects) to achieve this with the custom ffmpeg build.
+See [Reversing Xfade effects](#reversing-xfade-effects) to achieve this with the custom ffmpeg build.
 
 ### Overshoots
 
@@ -395,14 +408,14 @@ Easings `flipelastic` and `flipback` flip `elastic` and `back` overshoots into r
 creating more interest than clipping,
 see [Supplementary easings](#supplementary-easings).
 
-*Examples*: `elastic-in` and `back` overshoot handling
+*Examples*: `elastic-in` and `back` overshoot handling for `slideup` transition
 
 ![overshoots](assets/overshoot.gif)
 
 ### Easing other filters
 
 The easing expressions are useful for filters other than xfade,
-e.g. blend, drawtext, geq, overlay, rotate, zoompan, etc.
+e.g. [`blend`](https://www.ffmpeg.org/ffmpeg-filters.html#blend), [`drawtext`](https://www.ffmpeg.org/ffmpeg-filters.html#drawtext), [`geq`](https://www.ffmpeg.org/ffmpeg-filters.html#geq), [`overlay`](https://www.ffmpeg.org/ffmpeg-filters.html#overlay), [`rotate`](https://www.ffmpeg.org/ffmpeg-filters.html#rotate), [`zoompan`](https://www.ffmpeg.org/ffmpeg-filters.html#zoompan), etc.
 – anywhere an ffmpeg expr is used to calculate filter options.
 
 For this purpose the [CLI script](#cli-script) includes text expansion codes `%g` & `%G` to generate generic easing expressions for the value in `ld(0)` (instead of `P` for xfade), leaving the result in `ld(0)`.
@@ -415,17 +428,19 @@ To ease other filters, store a normalised input value in `st(0,…)`, append the
 ![zoompan elastic-out easing](assets/zoompan.gif)
 
 Here’s the `zoom` option expression for the zoompan filter:
+
 ```
 zoom='st(0, clip((time - 1) / 3, 0, 1));
         st(0, 1 - cos(ld(0) * 20.944) / 2^(10 * ld(0)));
       lerp(1, 3, ld(0))'
 ```
+
 The first line stores a 3 second duration delayed by 1 second normalised to a value between 0 and 1. \
 The last line scales the result to zoom between 1x and 3x. \
 The middle line performs `elastic-out` easing, obtained from [generic-easings-script.txt](expr/generic-easings-script.txt), or \
 `xfade-easing.sh -e elastic-out -s %G -x -`
 
-The [zoompan filter](https://ffmpeg.org/ffmpeg-filters.html#zoompan) can produce impressive [Ken Burns effects](https://www.epidemicsound.com/blog/ken-burns-effect/) when `zoom`, `x`, `y` are all dynamic.
+The [zoompan filter](https://www.ffmpeg.org/ffmpeg-filters.html#zoompan) can produce impressive [Ken Burns effects](https://www.epidemicsound.com/blog/ken-burns-effect/) when `zoom`, `x`, `y` are all dynamic.
 Adding easing can take the illusion of motion even further.
 
 *Example*: zoompan with `back` zooming and drawtext with `squareroot` scrolling
@@ -434,12 +449,15 @@ Adding easing can take the illusion of motion even further.
 
 The initial zoom here is 1.2x to accommodate the 10% undershoot that `back` easing produces.
 So the zoompan `zoom` expression, with `back` expr from [generic-easings-inline.txt](expr/generic-easings-inline.txt), is:
+
 ```
 z='st(0, clip((time - 1) / 3, 0, 1));
      st(0,if(lt(ld(0),0.5),2*ld(0)*ld(0)*(2*ld(0)*3.59491-2.59491),1-2*(1-ld(0))^2*(4.59491-2*ld(0)*3.59491)));
    lerp(1.2, 3.1, ld(0))'
 ```
+
 And the drawtext `y` expression with `squareroot` easing is:
+
 ```
 y='st(0, clip((t - 1) / 3, 0, 1));
      st(0, if(lt(ld(0), 0.5), sqrt(ld(0) / 2), 1 - sqrt((1-ld(0)) / 2)));
@@ -457,25 +475,25 @@ converted from C-code in [vf_xfade.c](https://github.com/FFmpeg/FFmpeg/blob/mast
 The custom ffmpeg variant eases the built-in xfade transitions.
 Omitted transitions are `distance` and `hblur` which perform aggregation, so cannot be processed efficiently on a per plane-pixel basis.
 
-- `fade` `fadefast` `fadeslow`
-- `fadeblack` `fadewhite` `fadegrays`
-- `wipeleft` `wiperight` `wipeup` `wipedown`
-- `wipetl` `wipetr` `wipebl` `wipebr`
-- `slideleft` `slideright` `slideup` `slidedown`
-- `smoothleft` `smoothright` `smoothup` `smoothdown`
-- `circlecrop` `rectcrop`
-- `circleopen` `circleclose`
-- `vertopen` `vertclose` `horzopen` `horzclose`
-- `diagtl` `diagtr` `diagbl` `diagbr`
-- `hlslice` `hrslice` `vuslice` `vdslice`
-- `radial` `zoomin`
-- `dissolve` `pixelize`
-- `squeezeh` `squeezev`
-- `hlwind` `hrwind` `vuwind` `vdwind`
-- `coverleft` `coverright` `coverup` `coverdown`
-- `revealleft` `revealright` `revealup` `revealdown`
+- `circleclose` `circleopen` `circlecrop` `rectcrop`
+- `coverleft` `coverright` `coverdown` `coverup`
+- `diagbl` `diagbr` `diagtl` `diagtr`
+- `fade` `fadefast` `fadeslow` `dissolve`
+- `fadeblack` `fadewhite` `fadegrays` `pixelize`
+- `hlslice` `hrslice` `vdslice` `vuslice`
+- `hlwind` `hrwind` `vdwind` `vuwind`
+- `horzclose` `horzopen` `vertclose` `vertopen`
+- `revealleft` `revealright` `revealdown` `revealup`
+- `slideleft` `slideright` `slidedown` `slideup`
+- `smoothleft` `smoothright` `smoothdown` `smoothup`
+- `squeezeh` `squeezev` `radial` `zoomin`
+- `wipebl` `wipebr` `wipetl` `wipetr`
+- `wipeleft` `wiperight` `wipedown` `wipeup`
+- `distance`<sup>※</sup> `hblur`<sup>※</sup>
 
-#### XFade gallery
+<sup>※</sup> native ffmpeg only
+
+#### Xfade gallery
 
 Here are the xfade transitions processed using custom expressions instead of the built-in transitions (for testing), without easing –
 see also the FFmpeg [Wiki Xfade](https://trac.ffmpeg.org/wiki/Xfade#Gallery) page:
@@ -498,70 +516,70 @@ The following list shows the transition names, customisation parameters and defa
 
 | transition | parameters (=default) | author |
 | :--------: | :-------------------: | :----: |
-| gl_angular | `startingAngle=90`<br>`clockwise=0` | Fernando Kuteken |
-| gl_Bars | `vertical=0` | Mark Craig |
-| gl_blend<sup>※</sup> | `mode=0` | scriptituk |
-| gl_BookFlip |  | hong |
-| gl_Bounce | `bounces=3`<br>`direction=0`<br>`shadowAlpha=0.6`<br>`shadowHeight=0.075`<br>`shadowColor=0` | Adrian Purser |
-| gl_BowTie<sup>※</sup> | `vertical=0` | huynx |
-| gl_ButterflyWaveScrawler<sup>※</sup> | `amplitude=1`<br>`waves=30`<br>`colorSeparation=0.3` | mandubian |
-| gl_cannabisleaf |  | Flexi23 |
-| gl_chessboard | `grid=8` | lql |
-| gl_CornerVanish |  | Mark Craig |
-| gl_CrazyParametricFun | `a=4`<br>`b=1`<br>`amplitude=120`<br>`smoothness=0.1` | mandubian |
-| gl_crosshatch | `center.x=0.5`<br>`center.y=0.5`<br>`threshold=3`<br>`fadeEdge=0.1` | pthrasher |
-| gl_CrossOut | `smoothness=0.05` | Mark Craig |
-| gl_crosswarp |  | Eke Péter |
-| gl_CrossZoom<sup>※</sup> | `strength=0.4`<br>`centerFrom.x=0.25`<br>`centerFrom.y=0.5`<br>`centerTo.x=0.75`<br>`centerTo.y=0.5` | rectalogic |
-| gl_cube | `persp=0.7`<br>`unzoom=0.3`<br>`reflection=0.4`<br>`floating=3`<br>`background=0` | gre |
-| gl_Diamond | `smoothness=0.05` | Mark Craig |
-| gl_DirectionalScaled | `direction.x=0`<br>`direction.y=1`<br>`scale=0.7`<br>`background=0` | Thibaut Foussard |
-| gl_directionalwarp | `smoothness=0.1`<br>`direction.x=-1`<br>`direction.y=1` | pschroen |
-| gl_doorway | `reflection=0.4`<br>`perspective=0.4`<br>`depth=3`<br>`background=0` | gre |
-| gl_DoubleDiamond | `smoothness=0.05` | Mark Craig |
-| gl_Dreamy |  | mikolalysenko |
-| gl_EdgeTransition<sup>※</sup> | `edgeThickness=0.001`<br>`edgeBrightness=8` | Woohyun Kim |
-| gl_Exponential_Swish<sup>※</sup> | `zoom=0.8`<br>`angle=0`<br>`offset.x=0`<br>`offset.y=0`<br>`exponent=4`<br>`wrap.x=2`<br>`wrap.y=2`<br>`blur=0`<br>`background=0` | Boundless |
-| gl_fadecolor<sup>※</sup> | `color=0`<br>`colorPhase=0.4` | gre |
-| gl_FanIn | `smoothness=0.05` | Mark Craig |
-| gl_FanOut | `smoothness=0.05` | Mark Craig |
-| gl_FanUp | `smoothness=0.05` | Mark Craig |
-| gl_Flower | `smoothness=0.05`<br>`rotation=360` | Mark Craig |
-| gl_GridFlip<sup>※</sup> | `size.x=4`<br>`size.y=4`<br>`pause=0.1`<br>`dividerWidth=0.05`<br>`randomness=0.1`<br>`background=0` | TimDonselaar |
-| gl_heart |  | gre |
-| gl_hexagonalize | `steps=50`<br>`horizontalHexagons=20` | Fernando Kuteken |
-| gl_InvertedPageCurl | `angle=100`<br>`radius=0.159`<br>`reverseEffect=0` | Hewlett-Packard |
-| gl_kaleidoscope | `speed=1`<br>`angle=1`<br>`power=1.5` | nwoeanhinnogaehr |
-| gl_LinearBlur | `intensity=0.1` | gre |
-| gl_Lissajous_Tiles<sup>※</sup> | `grid.x=10`<br>`grid.y=10`<br>`speed=0.5`<br>`freq.x=2`<br>`freq.y=3`<br>`offset=2`<br>`zoom=0.8`<br>`fade=3`<br>`power=3`<br>`background=0` | Boundless |
-| gl_morph<sup>※</sup> | `strength=0.1` | paniq |
-| gl_Mosaic | `endx=2`<br>`endy=-1` | Xaychru |
-| gl_perlin | `scale=4`<br>`smoothness=0.01` | Rich Harris |
-| gl_pinwheel | `speed=2` | Mr Speaker |
-| gl_polar_function | `segments=5` | Fernando Kuteken |
-| gl_PolkaDotsCurtain | `dots=20`<br>`centre.x=0`<br>`centre.y=0` | bobylito |
-| gl_powerKaleido | `scale=2`<br>`z=1.5`<br>`speed=5` | Boundless |
-| gl_randomNoisex |  | towrabbit |
-| gl_randomsquares | `size.x=10`<br>`size.y=10`<br>`smoothness=0.5` | gre |
-| gl_ripple | `amplitude=100`<br>`speed=50` | gre |
-| gl_Rolls | `type=0`<br>`rotDown=0` | Mark Craig |
-| gl_RotateScaleVanish | `fadeInSecond=1`<br>`reverseEffect=0`<br>`reverseRotation=0`<br>`background=0`<br>`trkMat=0` | Mark Craig |
-| gl_rotateTransition |  | haiyoucuv |
-| gl_rotate_scale_fade | `centre.x=0.5`<br>`centre.y=0.5`<br>`rotations=1`<br>`scale=8`<br>`background=0.15` | Fernando Kuteken |
-| gl_SimpleBookCurl<sup>※</sup> | `angle=150`<br>`radius=0.1`<br>`shadow=0.2` | scriptituk |
-| gl_SimplePageCurl | `angle=80`<br>`radius=0.15`<br>`roll=0`<br>`reverseEffect=0`<br>`greyBack=0`<br>`opacity=0.8`<br>`shadow=0.2` | Andrew Hung |
-| gl_Slides | `type=0`<br>`slideIn=0` | Mark Craig |
-| gl_squareswire | `squares.x=10`<br>`squares.y=10`<br>`direction.x=1.0`<br>`direction.y=-0.5`<br>`smoothness=1.6` | gre |
-| gl_StageCurtains<sup>※</sup> | `color=0xCC1A33FF`<br>`bumps=15`<br>`drop=0.1` | scriptituk |
-| gl_StarWipe | `borderThickness=0.01`<br>`starRotation=0.75`<br>`borderColor=1` | Ben Lucas |
-| gl_static_wipe | `upToDown=1`<br>`maxSpan=0.5` | Ben Lucas |
-| gl_StereoViewer<sup>※</sup> | `zoom=0.9`<br>`radius=0.25`<br>`flip=0`<br>`background=0`<br>`trkMat=0` | Ted Schundler |
-| gl_Stripe_Wipe<sup>※</sup> | `nlayers=3`<br>`layerSpread=0.5`<br>`color1=0x3319CCFF`<br>`color2=0x66CCFFFF`<br>`shadowIntensity=0.7`<br>`shadowSpread=0`<br>`angle=0` | Boundless |
-| gl_swap | `reflection=0.4`<br>`perspective=0.2`<br>`depth=3`<br>`background=0` | gre |
-| gl_Swirl | `radius=1`<br>`clockwise=1` | Sergey Kosarevsky |
-| gl_WaterDrop | `amplitude=30`<br>`speed=30` | Paweł Płóciennik |
-| gl_windowblinds |  | Fabien Benetou |
-| gl_windowslice | `count=10`<br>`smoothness=0.5` | gre |
+| `gl_angular` | `startingAngle=90`<br>`clockwise=0` | Fernando Kuteken |
+| `gl_Bars` | `vertical=0` | Mark Craig |
+| `gl_blend`<sup>※</sup> | `mode=0` | scriptituk |
+| `gl_BookFlip` |  | hong |
+| `gl_Bounce` | `bounces=3`<br>`direction=0`<br>`shadowAlpha=0.6`<br>`shadowHeight=0.075`<br>`shadowColor=0` | Adrian Purser |
+| `gl_BowTie`<sup>※</sup> | `vertical=0` | huynx |
+| `gl_ButterflyWaveScrawler`<sup>※</sup> | `amplitude=1`<br>`waves=30`<br>`colorSeparation=0.3` | mandubian |
+| `gl_cannabisleaf` |  | Flexi23 |
+| `gl_chessboard` | `grid=8` | lql |
+| `gl_CornerVanish` |  | Mark Craig |
+| `gl_CrazyParametricFun` | `a=4`<br>`b=1`<br>`amplitude=120`<br>`smoothness=0.1` | mandubian |
+| `gl_crosshatch` | `center.x=0.5`<br>`center.y=0.5`<br>`threshold=3`<br>`fadeEdge=0.1` | pthrasher |
+| `gl_CrossOut` | `smoothness=0.05` | Mark Craig |
+| `gl_crosswarp` |  | Eke Péter |
+| `gl_CrossZoom`<sup>※</sup> | `strength=0.4`<br>`centerFrom.x=0.25`<br>`centerFrom.y=0.5`<br>`centerTo.x=0.75`<br>`centerTo.y=0.5` | rectalogic |
+| `gl_cube` | `persp=0.7`<br>`unzoom=0.3`<br>`reflection=0.4`<br>`floating=3`<br>`background=0` | gre |
+| `gl_Diamond` | `smoothness=0.05` | Mark Craig |
+| `gl_DirectionalScaled` | `direction.x=0`<br>`direction.y=1`<br>`scale=0.7`<br>`background=0` | Thibaut Foussard |
+| `gl_directionalwarp` | `smoothness=0.1`<br>`direction.x=-1`<br>`direction.y=1` | pschroen |
+| `gl_doorway` | `reflection=0.4`<br>`perspective=0.4`<br>`depth=3`<br>`background=0` | gre |
+| `gl_DoubleDiamond` | `smoothness=0.05` | Mark Craig |
+| `gl_Dreamy` |  | mikolalysenko |
+| `gl_EdgeTransition`<sup>※</sup> | `edgeThickness=0.001`<br>`edgeBrightness=8` | Woohyun Kim |
+| `gl_Exponential_Swish`<sup>※</sup> | `zoom=0.8`<br>`angle=0`<br>`offset.x=0`<br>`offset.y=0`<br>`exponent=4`<br>`wrap.x=2`<br>`wrap.y=2`<br>`blur=0`<br>`background=0` | Boundless |
+| `gl_fadecolor`<sup>※</sup> | `color=0`<br>`colorPhase=0.4` | gre |
+| `gl_FanIn` | `smoothness=0.05` | Mark Craig |
+| `gl_FanOut` | `smoothness=0.05` | Mark Craig |
+| `gl_FanUp` | `smoothness=0.05` | Mark Craig |
+| `gl_Flower` | `smoothness=0.05`<br>`rotation=360` | Mark Craig |
+| `gl_GridFlip`<sup>※</sup> | `size.x=4`<br>`size.y=4`<br>`pause=0.1`<br>`dividerWidth=0.05`<br>`randomness=0.1`<br>`background=0` | TimDonselaar |
+| `gl_heart` |  | gre |
+| `gl_hexagonalize` | `steps=50`<br>`horizontalHexagons=20` | Fernando Kuteken |
+| `gl_InvertedPageCurl` | `angle=100`<br>`radius=0.159`<br>`reverseEffect=0` | Hewlett-Packard |
+| `gl_kaleidoscope` | `speed=1`<br>`angle=1`<br>`power=1.5` | nwoeanhinnogaehr |
+| `gl_LinearBlur` | `intensity=0.1` | gre |
+| `gl_Lissajous_Tiles`<sup>※</sup> | `grid.x=10`<br>`grid.y=10`<br>`speed=0.5`<br>`freq.x=2`<br>`freq.y=3`<br>`offset=2`<br>`zoom=0.8`<br>`fade=3`<br>`power=3`<br>`background=0` | Boundless |
+| `gl_morph`<sup>※</sup> | `strength=0.1` | paniq |
+| `gl_Mosaic` | `endx=2`<br>`endy=-1` | Xaychru |
+| `gl_perlin` | `scale=4`<br>`smoothness=0.01` | Rich Harris |
+| `gl_pinwheel` | `speed=2` | Mr Speaker |
+| `gl_polar_function` | `segments=5` | Fernando Kuteken |
+| `gl_PolkaDotsCurtain` | `dots=20`<br>`centre.x=0`<br>`centre.y=0` | bobylito |
+| `gl_powerKaleido` | `scale=2`<br>`z=1.5`<br>`speed=5` | Boundless |
+| `gl_randomNoisex` |  | towrabbit |
+| `gl_randomsquares` | `size.x=10`<br>`size.y=10`<br>`smoothness=0.5` | gre |
+| `gl_ripple` | `amplitude=100`<br>`speed=50` | gre |
+| `gl_Rolls` | `type=0`<br>`rotDown=0` | Mark Craig |
+| `gl_RotateScaleVanish` | `fadeInSecond=1`<br>`reverseEffect=0`<br>`reverseRotation=0`<br>`background=0`<br>`trkMat=0` | Mark Craig |
+| `gl_rotateTransition` |  | haiyoucuv |
+| `gl_rotate_scale_fade` | `centre.x=0.5`<br>`centre.y=0.5`<br>`rotations=1`<br>`scale=8`<br>`background=0.15` | Fernando Kuteken |
+| `gl_SimpleBookCurl`<sup>※</sup> | `angle=150`<br>`radius=0.1`<br>`shadow=0.2` | scriptituk |
+| `gl_SimplePageCurl` | `angle=80`<br>`radius=0.15`<br>`roll=0`<br>`reverseEffect=0`<br>`greyBack=0`<br>`opacity=0.8`<br>`shadow=0.2` | Andrew Hung |
+| `gl_Slides` | `type=0`<br>`slideIn=0` | Mark Craig |
+| `gl_squareswire` | `squares.x=10`<br>`squares.y=10`<br>`direction.x=1.0`<br>`direction.y=-0.5`<br>`smoothness=1.6` | gre |
+| `gl_StageCurtains`<sup>※</sup> | `color=0xCC1A33FF`<br>`bumps=15`<br>`drop=0.1` | scriptituk |
+| `gl_StarWipe` | `borderThickness=0.01`<br>`starRotation=0.75`<br>`borderColor=1` | Ben Lucas |
+| `gl_static_wipe` | `upToDown=1`<br>`maxSpan=0.5` | Ben Lucas |
+| `gl_StereoViewer`<sup>※</sup> | `zoom=0.9`<br>`radius=0.25`<br>`flip=0`<br>`background=0`<br>`trkMat=0` | Ted Schundler |
+| `gl_Stripe_Wipe`<sup>※</sup> | `nlayers=3`<br>`layerSpread=0.5`<br>`color1=0x3319CCFF`<br>`color2=0x66CCFFFF`<br>`shadowIntensity=0.7`<br>`shadowSpread=0`<br>`angle=0` | Boundless |
+| `gl_swap` | `reflection=0.4`<br>`perspective=0.2`<br>`depth=3`<br>`background=0` | gre |
+| `gl_Swirl` | `radius=1`<br>`clockwise=1` | Sergey Kosarevsky |
+| `gl_WaterDrop` | `amplitude=30`<br>`speed=30` | Paweł Płóciennik |
+| `gl_windowblinds` |  | Fabien Benetou |
+| `gl_windowslice` | `count=10`<br>`smoothness=0.5` | gre |
 
 <sup>※</sup> native build only
 
@@ -610,6 +628,7 @@ Custom [expressions](expr) can also be amended directly:
 parameters are specified using store functions `st(p,v)`
 where `p` is the parameter number and `v` its value.
 So for `gl_pinwheel` with a `speed` value 10, change the first line of its expr below to `st(1, 10);`.
+
 ```
 st(1, 2);
 st(2, 1 - ld(0));
@@ -617,8 +636,10 @@ st(1, atan2(0.5 - Y / H, X / W - 0.5) + ld(2) * ld(1));
 st(1, mod(ld(1), PI / 4));
 if(lte(ld(2), ld(1)), A, B)
 ```
+
 Similarly, `gl_directionalwarp` takes 3 parameters: `smoothness`, `direction.x`, `direction.y` (from `xfade-easing.sh -L`)
 and its expr starts with 3 corresponding `st()` (store) functions which may be changed from their default values:
+
 ```
 st(1, 0.1);
 st(2, -1);
@@ -626,6 +647,7 @@ st(3, 1);
 st(4, hypot(ld(2), ld(3)));
 etc.
 ```
+
 #### Altered GLSL transition parameters
 
 - `gl_angular` has an additional `clockwise` parameter
@@ -685,7 +707,7 @@ uniform ivec2 size; // = ivec2(10, 10)
 uniform float smoothness; // = 0.5
 
 float rand (vec2 co) {
-    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
 vec4 transition(vec2 p) {
@@ -696,6 +718,7 @@ vec4 transition(vec2 p) {
 ```
 
 [xfade-easing.sh](src/xfade-easing.sh) (custom expression variant):
+
 ```shell
 gl_randomsquares) # (case)
     _make "st(1, ${a[0]-10});" # size.x
@@ -703,17 +726,19 @@ gl_randomsquares) # (case)
     _make "st(3, ${a[2]-0.5});" # smoothness
     _make 'st(1, floor(ld(1) * X / W));'
     _make 'st(2, floor(ld(2) * (1 - Y / H)));'
-    _make 'st(4, frand(ld(1), ld(2), 4));' # r
+    _make 'st(4, frand(ld(1), ld(2)));' # r
     _make 'st(4, ld(4) - (1 - P) * (1 + ld(3)));'
     _make 'st(4, smoothstep(0, -ld(3), ld(4), 4));' # m
     _make 'mix(A, B, ld(4))'
     ;;
 ```
+
 Here, `frand()`, `smoothstep()` and `mix()` are pseudo functions.
 Customizable parameters are generally stored first.
 `_make` is just an expression string builder function.
 
 [xfade-easing.h](src/xfade-easing.h) (custom ffmpeg variant):
+
 ```c
 static vec4 gl_randomsquares(const XTransition *e)
 {
@@ -726,8 +751,10 @@ static vec4 gl_randomsquares(const XTransition *e)
     return mix4(e->a, e->b, m);
 }
 ```
+
 Here, `vec4` and `ivec2` simulate GLSL vector types
 and `XTransition` encapsulates data pertaining to a transition:
+
 ```c
 typedef struct XTransition {
     float ratio; // frame width / height (cf. W / H)
@@ -737,7 +764,9 @@ typedef struct XTransition {
     ...
 } XTransition;
 ```
+
 And the extended transitions delegate is:
+
 ```c
 static void xtransition_transition(AVFilterContext *ctx,
                                    const AVFrame *a, const AVFrame *b,
@@ -793,6 +822,7 @@ This is adapted from the elegant
 who also provides an excellent [shader breakdown](https://andrewhungblog.wordpress.com/2018/04/29/page-curl-shader-breakdown/)
 to demystify the deformation effect. \
 It is more versatile than `gl_InvertedPageCurl` and takes the following parameters:
+
 - `angle` may be any 360° angle
   (horizontal east is 0°, curl direction is `angle - 90°` anticlockwise);
   in effect, 1–89° curls from bottom-right; 91–179° top-right; 181–269° (or -91–-179°) top-left; 271–359° (or -1–-89°) bottom-left;
@@ -805,6 +835,7 @@ It is more versatile than `gl_InvertedPageCurl` and takes the following paramete
 - `shadow` the shadow intensity
 
 The main differences from `gl_InvertedPageCurl` are:
+
 - curling in any direction, not just right-to-left at 30° or 100°
 - takes aspect ratio into account, ensuring accurate angle
 - can render back of turning page either rolling or just curled over
@@ -840,6 +871,7 @@ A by-product effect is a wipe transition in any direction, achieved by setting `
 This is adapted from `gl_SimplePageCurl` to clamp the curl to the virtual ‘spine’ at the horizontal centre,
 then flatten the radius to zero, using built-in easing to appear more realistic. \
 It takes the following parameters:
+
 - `angle` may be any 360° angle
   (horizontal east is 0°, curl direction is `angle - π/2` anticlockwise);
   in effect, angles from 180° to 359° (or -1° to -180°) page backwards
@@ -898,6 +930,7 @@ If in doubt, check with `ffmpeg -pix_fmts` or use the [xfade-easing.sh](#cli-scr
 ### Colour parameters
 
 These conventions are adopted:
+
 - colour values are interpreted according to sign, magnitude and syntax:
   - values that match the ffmpeg [Color syntax](https://ffmpeg.org/ffmpeg-utils.html#Color)
     are treated as RGBA colour components packed into 32 bits,
@@ -922,6 +955,7 @@ including named colours and variable alpha, \
 e.g. `gl_Stripe_Wipe(color1=DeepSkyBlue, color2=ffd700)`
 
 Colour value examples:
+
 - `CornflowerBlue` (a standard X11 colour name, see [ffmpeg colour names](https://github.com/scriptituk/ffmpeg-colours))
 - `0x56789A` or `#56789A` (packed RGB hexadecimal digits)
 - `0xA987657F` or `#A98765@0.5` or `A98765@0x7F` (packed RGBA)
@@ -954,9 +988,9 @@ grey or [RGBA colour](https://ffmpeg.org/ffmpeg-utils.html#Color) or [texture](#
 (the custom expression variant only suports grey and transparent).
 
 Transparent background transitions make for good
-[overlay](https://ffmpeg.org/ffmpeg-filters.html#overlay-1) effects.
+[overlay](https://www.ffmpeg.org/ffmpeg-filters.html#overlay) effects.
 Alternatively, use opaque
-[chroma-key](https://ffmpeg.org/ffmpeg-filters.html#chromakey-1) compositing backgrounds,
+[chroma-key](https://www.ffmpeg.org/ffmpeg-filters.html#chromakey) compositing backgrounds,
 commonly `#00B140` for green-screen and `#0047BB` or `#0827F5` for blue-screen.
 
 #### Textures
@@ -966,13 +1000,14 @@ commonly `#00B140` for green-screen and `#0047BB` or `#0827F5` for blue-screen.
 > [!NOTE]
 > this features is experimental –
 > for generic background effects use the ffmpeg
-> [overlay](https://ffmpeg.org/ffmpeg-filters.html#overlay-1) filter
+> [overlay](https://www.ffmpeg.org/ffmpeg-filters.html#overlay) filter
 > in conjunction with [transparent](#transparency) xfade-easing.
 
 Textures are shader effects ported from [Shadertoy](https://www.shadertoy.com/),
 mainly for transition backgrounds selected with the `background` parameter
 but any colour parameter can select a texture – see [Colour parameters](#colour-parameters).
 They are referenced by a negative index, where
+
 - even values show a moving texture with linear progress (uneased and non-reversed)
 - odd values show a still version of its even-valued texture,
   e.g. -5 is a still of -4 at the halfway point
@@ -1016,7 +1051,7 @@ compositing formula and blending functions, which are quite ubiquitous:
 
 ![blending](assets/blending.gif)
 
-To blend transitions over a backdrop layer use the [blend filter](https://ffmpeg.org/ffmpeg-filters.html#blend-1).
+To blend transitions over a backdrop layer use the [blend filter](https://www.ffmpeg.org/ffmpeg-filters.html#blend).
 It is poorly documented and the implementation in
 [vf_blend.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_blend.c),
 [vf_blend_init.h](https://github.com/FFmpeg/FFmpeg/blob/master/libavfilter/vf_blend_init.h),
@@ -1044,6 +1079,7 @@ Note: webm encoding is extremely slow and webm alpha is not widely supported.
 To specify alpha in transition parameters, see [Colour parameters](#colour-parameters).
 
 *Example*: overlaid transparent `gl_RotateScaleVanish` transition with `quadratic-in` easing
+
 ```shell
 ffmpeg -i skaro.png -i tardis.png -i gallifrey.png -filter_complex "
     [0]loop=-1:1, fps=25, format=rgba, scale=250:-2[a];
@@ -1052,7 +1088,9 @@ ffmpeg -i skaro.png -i tardis.png -i gallifrey.png -filter_complex "
     [a][b]xfade=offset=1:duration=3:easing=quadratic-in:transition='gl_RotateScaleVanish(FadeInSecond=0,ReverseEffect=1,trkMat=1)'[fg];
     [bg][fg]overlay" -t 5 -c:v libx264 -pix_fmt yuv420p drwho.mp4
 ```
+
 or using the [CLI script](#cli-script)
+
 ```shell
 xfade-easing.sh -f rgba -e quadratic-in -t 'gl_RotateScaleVanish(FadeInSecond=0,ReverseEffect=1,trkMat=1)' -v alpha.mkv -z 250x skaro.png tardis.png
 ffmpeg -i gallifrey.png -i alpha.mkv -filter_complex '[0]scale=250:-2[b]; [b][1]overlay' drwho.mp4
@@ -1071,7 +1109,7 @@ which overlays a transparent transition.
 
 ---
 
-## Reversing xfade effects
+## Reversing Xfade effects
 
 (custom ffmpeg only)
 
@@ -1115,15 +1153,17 @@ FFmpeg incorporates a simple arithmetic expression evaluator implemented as a LL
 Custom `expr` strings initially get parsed into an expression tree of `AVExpr` nodes in
 [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c)
 which is then executed for every pixel in each plane.
-The inefficiency is further exacerbated by disabling threading in order to use the `st()` and `ld()` state variables shared between slices
+Unfortunately threading must be disabled (`-filter_complex_threads 1`)
+in order to use the `st()` and `ld()` state variables shared between slices
 (a slice is a range of frame lines processed by a thread job).
-But modern CPU speeds make Xfade custom transitions a viable option, if somewhat challenging.
+But modern CPU speeds make xfade custom transitions a viable option, if somewhat challenging.
 
 #### Interpretation of metrics
 
 The following plots show empirical processing times for a 3-second transition of 3-plane frames (rgb24) through a null muxer
 in SD (720x480) and HD (1280x720) sizes on an otherwise idle Intel 2018 Mac,
 taking the minimum times of several runs.
+Times include the [CLI script](#cli-script) overhead.
 
 > [!NOTE]
 > this an *old machine* now, so below each plot is a table with estimated times for later PCs
@@ -1135,8 +1175,8 @@ these times need scaling as follows:
 - for greyscale (single plane), subtract two thirds
 - for an alpha plane, add a third
 - 2025– M4 Macs ~ 2.7 times faster
-- 2023–5 M3 Macs ~ 2.2 times faster
-- 2020–3 M1-M2 Macs ~ 1.8 times faster
+- 2023–25 M3 Macs ~ 2.2 times faster
+- 2020–23 M1-M2 Macs ~ 1.8 times faster
 - 2017–20 Intel Macs ~ representative timings shown here
 - 2013–16 Intel Macs ~ half as fast
 - times may be affected by GL transition arguments and pixel format
@@ -1144,105 +1184,43 @@ these times need scaling as follows:
 Mac model performance varies enormously so timing vintage Macs is very approximate.
 Windows performance has not been measured.
 
-#### GL Transition expressions
-
-![GL Transition CE times](assets/times-X-T-GL.png)
-
-<details><summary>plot data</summary>
-
- | Transition | SD | HD | HD÷1.8 | HD÷2.2 | HD÷2.7 | 
- | :---: | :---: | :---: | :---: | :---: | :---: |
- | gl_Bars | 10 | 26 | 15 | 12 | 10 | 
- | gl_BookFlip | 14 | 37 | 20 | 17 | 14 | 
- | gl_Bounce | 27 | 73 | 41 | 33 | 27 | 
- | gl_CornerVanish | 7 | 18 | 10 | 8 | 6 | 
- | gl_CrazyParametricFun | 58 | 155 | 86 | 70 | 57 | 
- | gl_CrossOut | 16 | 42 | 23 | 19 | 16 | 
- | gl_Diamond | 9 | 22 | 12 | 10 | 8 | 
- | gl_DirectionalScaled | 40 | 106 | 59 | 48 | 39 | 
- | gl_DoubleDiamond | 11 | 28 | 16 | 13 | 10 | 
- | gl_Dreamy | 31 | 83 | 46 | 38 | 31 | 
- | gl_FanIn | 12 | 32 | 18 | 15 | 12 | 
- | gl_FanOut | 13 | 33 | 18 | 15 | 12 | 
- | gl_FanUp | 10 | 26 | 14 | 12 | 9 | 
- | gl_Flower | 30 | 78 | 43 | 35 | 29 | 
- | gl_InvertedPageCurl | 48 | 124 | 69 | 56 | 46 | 
- | gl_LinearBlur | 512 | 1381 | 767 | 628 | 511 | 
- | gl_Mosaic | 69 | 184 | 102 | 83 | 68 | 
- | gl_PolkaDotsCurtain | 22 | 58 | 32 | 27 | 22 | 
- | gl_Rolls | 36 | 91 | 51 | 41 | 34 | 
- | gl_RotateScaleVanish | 42 | 112 | 62 | 51 | 41 | 
- | gl_SimplePageCurl | 122 | 316 | 175 | 144 | 117 | 
- | gl_Slides | 19 | 49 | 27 | 22 | 18 | 
- | gl_StarWipe | 47 | 123 | 68 | 56 | 45 | 
- | gl_Swirl | 42 | 114 | 63 | 52 | 42 | 
- | gl_WaterDrop | 21 | 56 | 31 | 26 | 21 | 
- | gl_angular | 16 | 42 | 23 | 19 | 15 | 
- | gl_cannabisleaf | 28 | 74 | 41 | 34 | 27 | 
- | gl_chessboard | 17 | 44 | 25 | 20 | 16 | 
- | gl_crosshatch | 52 | 140 | 78 | 64 | 52 | 
- | gl_crosswarp | 36 | 93 | 52 | 42 | 34 | 
- | gl_cube | 66 | 177 | 98 | 81 | 66 | 
- | gl_directionalwarp | 62 | 165 | 92 | 75 | 61 | 
- | gl_doorway | 40 | 105 | 58 | 48 | 39 | 
- | gl_heart | 17 | 44 | 24 | 20 | 16 | 
- | gl_hexagonalize | 63 | 165 | 91 | 75 | 61 | 
- | gl_kaleidoscope | 175 | 475 | 264 | 216 | 176 | 
- | gl_perlin | 90 | 239 | 133 | 109 | 89 | 
- | gl_pinwheel | 12 | 30 | 17 | 14 | 11 | 
- | gl_polar_function | 17 | 46 | 25 | 21 | 17 | 
- | gl_powerKaleido | 529 | 1394 | 775 | 634 | 516 | 
- | gl_randomNoisex | 10 | 26 | 15 | 12 | 10 | 
- | gl_randomsquares | 24 | 64 | 36 | 29 | 24 | 
- | gl_ripple | 36 | 94 | 52 | 43 | 35 | 
- | gl_rotateTransition | 35 | 93 | 52 | 42 | 34 | 
- | gl_rotate_scale_fade | 56 | 149 | 83 | 68 | 55 | 
- | gl_squareswire | 50 | 134 | 75 | 61 | 50 | 
- | gl_static_wipe | 54 | 143 | 80 | 65 | 53 | 
- | gl_swap | 71 | 187 | 104 | 85 | 69 | 
- | gl_windowblinds | 21 | 57 | 32 | 26 | 21 | 
- | gl_windowslice | 16 | 43 | 24 | 20 | 16 | 
-
-</details>
-
-This shows most GL transitions take around half a minute for SD and 1&frac12; minutes for HD,
-however some take considerably longer (off-scale transitions shown in italics).
-
 #### Xfade transition expressions
+
+These are only needed when easing standard Xfade transitions.
 
 ![Xfade transition CE times](assets/times-X-T-XF.png)
 
 <details><summary>plot data</summary>
 
- | Transition | SD | HD | HD÷1.8 | HD÷2.2 | HD÷2.7 | 
+ | Transition | SD<br>2017–20 | HD<br>2017–20 | HD÷1.8<br>2020–23 | HD÷2.2<br>2023–25 | HD÷2.7<br>2025– | 
  | :---: | :---: | :---: | :---: | :---: | :---: |
  | circleclose | 16 | 41 | 23 | 19 | 15 | 
  | circlecrop | 12 | 30 | 17 | 14 | 11 | 
  | circleopen | 16 | 41 | 23 | 19 | 15 | 
  | coverdown | 10 | 27 | 15 | 12 | 10 | 
- | coverleft | 10 | 27 | 15 | 12 | 10 | 
+ | coverleft | 10 | 26 | 15 | 12 | 10 | 
  | coverright | 10 | 27 | 15 | 12 | 10 | 
  | coverup | 10 | 26 | 15 | 12 | 10 | 
- | diagbl | 11 | 30 | 17 | 14 | 11 | 
- | diagbr | 13 | 32 | 18 | 14 | 12 | 
- | diagtl | 11 | 28 | 16 | 13 | 10 | 
+ | diagbl | 12 | 30 | 16 | 13 | 11 | 
+ | diagbr | 12 | 32 | 18 | 15 | 12 | 
+ | diagtl | 11 | 28 | 15 | 13 | 10 | 
  | diagtr | 12 | 30 | 17 | 14 | 11 | 
- | dissolve | 10 | 25 | 14 | 12 | 9 | 
+ | dissolve | 8 | 21 | 12 | 9 | 8 | 
  | fade | 2 | 6 | 3 | 3 | 2 | 
- | fadeblack | 25 | 65 | 36 | 30 | 24 | 
- | fadefast | 8 | 22 | 12 | 10 | 8 | 
- | fadegrays | 34 | 92 | 51 | 42 | 34 | 
- | fadeslow | 8 | 22 | 12 | 10 | 8 | 
- | fadewhite | 24 | 63 | 35 | 29 | 23 | 
- | hlslice | 15 | 38 | 21 | 17 | 14 | 
- | hlwind | 19 | 49 | 27 | 22 | 18 | 
+ | fadeblack | 26 | 68 | 38 | 31 | 25 | 
+ | fadefast | 8 | 21 | 12 | 10 | 8 | 
+ | fadegrays | 35 | 92 | 51 | 42 | 34 | 
+ | fadeslow | 8 | 21 | 12 | 10 | 8 | 
+ | fadewhite | 25 | 66 | 37 | 30 | 25 | 
+ | hlslice | 13 | 35 | 20 | 16 | 13 | 
+ | hlwind | 17 | 45 | 25 | 20 | 17 | 
  | horzclose | 11 | 28 | 16 | 13 | 11 | 
  | horzopen | 11 | 28 | 16 | 13 | 10 | 
- | hrslice | 16 | 41 | 23 | 19 | 15 | 
- | hrwind | 18 | 48 | 27 | 22 | 18 | 
- | pixelize | 28 | 73 | 40 | 33 | 27 | 
- | radial | 14 | 35 | 19 | 16 | 13 | 
- | rectcrop | 8 | 21 | 11 | 9 | 8 | 
+ | hrslice | 14 | 37 | 21 | 17 | 14 | 
+ | hrwind | 17 | 44 | 24 | 20 | 16 | 
+ | pixelize | 27 | 72 | 40 | 33 | 27 | 
+ | radial | 13 | 35 | 19 | 16 | 13 | 
+ | rectcrop | 8 | 20 | 11 | 9 | 8 | 
  | revealdown | 10 | 27 | 15 | 12 | 10 | 
  | revealleft | 10 | 27 | 15 | 12 | 10 | 
  | revealright | 10 | 27 | 15 | 12 | 10 | 
@@ -1252,17 +1230,17 @@ however some take considerably longer (off-scale transitions shown in italics).
  | slideright | 11 | 30 | 17 | 14 | 11 | 
  | slideup | 11 | 29 | 16 | 13 | 11 | 
  | smoothdown | 11 | 28 | 15 | 13 | 10 | 
- | smoothleft | 10 | 26 | 14 | 12 | 10 | 
- | smoothright | 11 | 28 | 15 | 13 | 10 | 
+ | smoothleft | 10 | 26 | 14 | 12 | 9 | 
+ | smoothright | 11 | 27 | 15 | 12 | 10 | 
  | smoothup | 10 | 26 | 14 | 12 | 10 | 
  | squeezeh | 7 | 17 | 9 | 8 | 6 | 
  | squeezev | 7 | 17 | 9 | 8 | 6 | 
- | vdslice | 16 | 40 | 22 | 18 | 15 | 
- | vdwind | 18 | 48 | 26 | 22 | 18 | 
- | vertclose | 11 | 28 | 16 | 13 | 11 | 
- | vertopen | 11 | 28 | 16 | 13 | 11 | 
- | vuslice | 15 | 38 | 21 | 17 | 14 | 
- | vuwind | 18 | 49 | 27 | 22 | 18 | 
+ | vdslice | 14 | 38 | 21 | 17 | 14 | 
+ | vdwind | 17 | 44 | 24 | 20 | 16 | 
+ | vertclose | 11 | 28 | 16 | 13 | 10 | 
+ | vertopen | 11 | 28 | 16 | 13 | 10 | 
+ | vuslice | 14 | 35 | 19 | 16 | 13 | 
+ | vuwind | 17 | 45 | 25 | 21 | 17 | 
  | wipebl | 4 | 9 | 5 | 4 | 3 | 
  | wipebr | 4 | 10 | 6 | 5 | 4 | 
  | wipedown | 3 | 6 | 3 | 3 | 2 | 
@@ -1271,187 +1249,249 @@ however some take considerably longer (off-scale transitions shown in italics).
  | wipetl | 3 | 8 | 5 | 4 | 3 | 
  | wipetr | 4 | 9 | 5 | 4 | 3 | 
  | wipeup | 2 | 5 | 3 | 2 | 2 | 
- | zoomin | 29 | 75 | 42 | 34 | 28 | 
+ | zoomin | 28 | 75 | 42 | 34 | 28 | 
 
 </details>
 
-These are only used when easing standard Xfade transitions.
+#### GL Transition expressions
+
+![GL Transition CE times](assets/times-X-T-GL.png)
+
+<details><summary>plot data</summary>
+
+ | Transition | SD<br>2017–20 | HD<br>2017–20 | HD÷1.8<br>2020–23 | HD÷2.2<br>2023–25 | HD÷2.7<br>2025– | 
+ | :---: | :---: | :---: | :---: | :---: | :---: |
+ | gl_Bars | 9 | 23 | 13 | 11 | 9 | 
+ | gl_BookFlip | 14 | 37 | 21 | 17 | 14 | 
+ | gl_Bounce | 28 | 73 | 41 | 33 | 27 | 
+ | gl_CornerVanish | 7 | 17 | 10 | 8 | 6 | 
+ | gl_CrazyParametricFun | 60 | 158 | 88 | 72 | 58 | 
+ | gl_CrossOut | 16 | 42 | 23 | 19 | 16 | 
+ | gl_Diamond | 9 | 22 | 12 | 10 | 8 | 
+ | gl_DirectionalScaled | 40 | 104 | 58 | 47 | 38 | 
+ | gl_DoubleDiamond | 11 | 28 | 16 | 13 | 10 | 
+ | gl_Dreamy | 31 | 82 | 45 | 37 | 30 | 
+ | gl_FanIn | 13 | 32 | 18 | 15 | 12 | 
+ | gl_FanOut | 13 | 33 | 18 | 15 | 12 | 
+ | gl_FanUp | 10 | 26 | 14 | 12 | 10 | 
+ | gl_Flower | 30 | 78 | 43 | 35 | 29 | 
+ | gl_InvertedPageCurl | 47 | 125 | 69 | 57 | 46 | 
+ | gl_LinearBlur | 515 | 1378 | 765 | 626 | 510 | 
+ | gl_Mosaic | 70 | 184 | 102 | 84 | 68 | 
+ | gl_PolkaDotsCurtain | 20 | 51 | 28 | 23 | 19 | 
+ | gl_Rolls | 35 | 91 | 50 | 41 | 34 | 
+ | gl_RotateScaleVanish | 42 | 110 | 61 | 50 | 41 | 
+ | gl_SimplePageCurl | 120 | 317 | 176 | 144 | 117 | 
+ | gl_Slides | 19 | 49 | 27 | 22 | 18 | 
+ | gl_StarWipe | 47 | 122 | 68 | 56 | 45 | 
+ | gl_Swirl | 43 | 116 | 64 | 53 | 43 | 
+ | gl_WaterDrop | 21 | 56 | 31 | 25 | 21 | 
+ | gl_angular | 14 | 38 | 21 | 17 | 14 | 
+ | gl_cannabisleaf | 28 | 73 | 41 | 33 | 27 | 
+ | gl_chessboard | 18 | 47 | 26 | 21 | 17 | 
+ | gl_crosshatch | 49 | 130 | 72 | 59 | 48 | 
+ | gl_crosswarp | 36 | 96 | 54 | 44 | 36 | 
+ | gl_cube | 66 | 176 | 98 | 80 | 65 | 
+ | gl_directionalwarp | 63 | 167 | 93 | 76 | 62 | 
+ | gl_doorway | 40 | 106 | 59 | 48 | 39 | 
+ | gl_heart | 16 | 44 | 24 | 20 | 16 | 
+ | gl_hexagonalize | 63 | 166 | 92 | 76 | 62 | 
+ | gl_kaleidoscope | 173 | 459 | 255 | 209 | 170 | 
+ | gl_perlin | 86 | 230 | 128 | 104 | 85 | 
+ | gl_pinwheel | 12 | 30 | 17 | 14 | 11 | 
+ | gl_polar_function | 18 | 47 | 26 | 21 | 17 | 
+ | gl_powerKaleido | 516 | 1398 | 777 | 636 | 518 | 
+ | gl_randomNoisex | 8 | 22 | 12 | 10 | 8 | 
+ | gl_randomsquares | 24 | 62 | 35 | 28 | 23 | 
+ | gl_ripple | 39 | 103 | 57 | 47 | 38 | 
+ | gl_rotateTransition | 32 | 85 | 47 | 39 | 31 | 
+ | gl_rotate_scale_fade | 55 | 146 | 81 | 66 | 54 | 
+ | gl_squareswire | 48 | 128 | 71 | 58 | 47 | 
+ | gl_static_wipe | 53 | 139 | 77 | 63 | 52 | 
+ | gl_swap | 70 | 187 | 104 | 85 | 69 | 
+ | gl_windowblinds | 22 | 57 | 32 | 26 | 21 | 
+ | gl_windowslice | 18 | 47 | 26 | 21 | 17 | 
+
+</details>
+
+This shows most GL transitions take around &frac12; minute for SD and 1&frac12; for HD,
+however some take considerably longer (off-scale transitions shown in italics).
 
 #### Easing expressions
+
+If easing then these times must be added to the Xfade or GL transition times above.
 
 ![Easing CE times](assets/times-X-E.png)
 
 <details><summary>plot data</summary>
 
- | Easing | SD | HD | HD÷1.8 | HD÷2.2 | HD÷2.7 | 
+ | Easing | SD<br>2017–20 | HD<br>2017–20 | HD÷1.8<br>2020–23 | HD÷2.2<br>2023–25 | HD÷2.7<br>2025– | 
  | :---: | :---: | :---: | :---: | :---: | :---: |
- | back | 9 | 24 | 13 | 11 | 9 | 
+ | back | 9 | 23 | 13 | 10 | 8 | 
  | bounce | 14 | 36 | 20 | 16 | 13 | 
- | circular | 6 | 15 | 9 | 7 | 6 | 
- | cuberoot | 7 | 17 | 10 | 8 | 6 | 
+ | circular | 6 | 16 | 9 | 7 | 6 | 
+ | cuberoot | 7 | 17 | 9 | 8 | 6 | 
  | cubic | 7 | 17 | 9 | 8 | 6 | 
- | elastic | 13 | 35 | 19 | 16 | 13 | 
+ | elastic | 13 | 34 | 19 | 16 | 13 | 
  | exponential | 6 | 16 | 9 | 7 | 6 | 
- | flipback | 10 | 27 | 15 | 12 | 10 | 
- | flipelastic | 14 | 35 | 20 | 16 | 13 | 
+ | flipback | 10 | 25 | 14 | 12 | 9 | 
+ | flipelastic | 14 | 36 | 20 | 16 | 13 | 
  | linear | 3 | 6 | 3 | 3 | 2 | 
  | quadratic | 5 | 11 | 6 | 5 | 4 | 
  | quartic | 7 | 17 | 9 | 8 | 6 | 
  | quintic | 7 | 17 | 9 | 8 | 6 | 
  | sinusoidal | 5 | 13 | 7 | 6 | 5 | 
- | squareroot | 5 | 12 | 7 | 6 | 4 | 
+ | squareroot | 5 | 12 | 7 | 5 | 4 | 
 
 </details>
 
-If easing is used these easing times must be added to the GL or Xfade transition times above.
-
 ### Custom FFmpeg performance
+
+The custom ffmpeg C code in [xfade-easing.h](src/xfade-easing.h) deploys a single pixel iterator for all extended transition functions which in turn operate on all planes at once, threading enabled.
+Use is made of aligned variables and inlined code snippets as compiler hints for fast SIMD vector and `sincos` instructions.
+
+Easing is calculated once per frame and presents no discernable performance hit.
+
+This plot combines both Xfade and GL transitions.
 
 ![Custom FFmpeg performance](assets/times-C.png)
 
 <details><summary>plot data</summary>
 
- | Transition | SD | HD | HD÷1.8 | HD÷2.2 | HD÷2.7 | 
+ | Transition | SD<br>2017–20 | HD<br>2017–20 | HD÷1.8<br>2020–23 | HD÷2.2<br>2023–25 | HD÷2.7<br>2025– | 
  | :---: | :---: | :---: | :---: | :---: | :---: |
- | circleclose | 0.9 | 1.7 | 1 | 0.8 | 0.6 | 
+ | circleclose | 1 | 1.7 | 0.9 | 0.8 | 0.6 | 
  | circlecrop | 0.7 | 1.2 | 0.7 | 0.5 | 0.4 | 
- | circleopen | 0.9 | 1.7 | 1 | 0.8 | 0.6 | 
- | coverdown | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
- | coverleft | 0.7 | 1.2 | 0.7 | 0.5 | 0.4 | 
+ | circleopen | 1 | 1.7 | 0.9 | 0.8 | 0.6 | 
+ | coverdown | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
+ | coverleft | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
  | coverright | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | coverup | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
+ | coverup | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | diagbl | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
- | diagbr | 0.8 | 1.5 | 0.8 | 0.7 | 0.5 | 
+ | diagbr | 0.9 | 1.4 | 0.8 | 0.7 | 0.5 | 
  | diagtl | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
- | diagtr | 0.8 | 1.4 | 0.8 | 0.7 | 0.5 | 
+ | diagtr | 0.9 | 0.5 | 0.3 | 0.2 | 0.2 | 
  | dissolve | 1 | 1.9 | 1.1 | 0.9 | 0.7 | 
  | distance | 1 | 2 | 1.1 | 0.9 | 0.7 | 
  | fade | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | fadeblack | 0.6 | 0.7 | 0.4 | 0.3 | 0.3 | 
  | fadefast | 2 | 4.8 | 2.7 | 2.2 | 1.8 | 
- | fadegrays | 1 | 1.8 | 1 | 0.8 | 0.7 | 
- | fadeslow | 1.9 | 4.7 | 2.6 | 2.2 | 1.8 | 
- | fadewhite | 0.6 | 0.7 | 0.4 | 0.3 | 0.3 | 
- | hblur | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
+ | fadegrays | 1 | 1.9 | 1 | 0.8 | 0.7 | 
+ | fadeslow | 2 | 4.6 | 2.6 | 2.1 | 1.7 | 
+ | fadewhite | 0.6 | 0.8 | 0.4 | 0.3 | 0.3 | 
+ | hblur | 0.7 | 1.2 | 0.7 | 0.5 | 0.4 | 
  | hlslice | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
  | hlwind | 0.9 | 1.5 | 0.8 | 0.7 | 0.6 | 
- | horzclose | 0.7 | 1.1 | 0.6 | 0.5 | 0.4 | 
- | horzopen | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | hrslice | 0.8 | 1.4 | 0.8 | 0.7 | 0.5 | 
- | hrwind | 0.9 | 1.5 | 0.8 | 0.7 | 0.5 | 
- | pixelize | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
+ | horzclose | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
+ | horzopen | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
+ | hrslice | 0.9 | 1.4 | 0.8 | 0.7 | 0.5 | 
+ | hrwind | 0.9 | 1.5 | 0.8 | 0.7 | 0.6 | 
+ | pixelize | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
  | radial | 1.1 | 2.1 | 1.2 | 1 | 0.8 | 
  | rectcrop | 0.6 | 0.8 | 0.4 | 0.3 | 0.3 | 
- | revealdown | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
- | revealleft | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | revealright | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | revealup | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
+ | revealdown | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
+ | revealleft | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
+ | revealright | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
+ | revealup | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | slidedown | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
- | slideleft | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | slideright | 0.8 | 1.1 | 0.6 | 0.5 | 0.4 | 
+ | slideleft | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
+ | slideright | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
  | slideup | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | smoothdown | 0.8 | 1.2 | 0.7 | 0.5 | 0.4 | 
- | smoothleft | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
- | smoothright | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
- | smoothup | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
+ | smoothleft | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
+ | smoothright | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
+ | smoothup | 0.8 | 1.2 | 0.7 | 0.5 | 0.4 | 
  | squeezeh | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
- | squeezev | 0.7 | 1.1 | 0.6 | 0.5 | 0.4 | 
- | vdslice | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | vdwind | 1.2 | 2.5 | 1.4 | 1.2 | 0.9 | 
- | vertclose | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
+ | squeezev | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
+ | vdslice | 0.8 | 1.2 | 0.7 | 0.6 | 0.5 | 
+ | vdwind | 1.2 | 2.5 | 1.4 | 1.1 | 0.9 | 
+ | vertclose | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
  | vertopen | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
- | vuslice | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
+ | vuslice | 0.8 | 1.2 | 0.7 | 0.6 | 0.5 | 
  | vuwind | 1.2 | 2.5 | 1.4 | 1.1 | 0.9 | 
- | wipebl | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
- | wipebr | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
- | wipedown | 0.4 | 0.5 | 0.3 | 0.2 | 0.2 | 
- | wipeleft | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
- | wiperight | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
- | wipetl | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
- | wipetr | 0.5 | 0.6 | 0.4 | 0.3 | 0.2 | 
- | wipeup | 0.4 | 0.5 | 0.3 | 0.2 | 0.2 | 
+ | wipebl | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
+ | wipebr | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
+ | wipedown | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
+ | wipeleft | 0.5 | 0.6 | 0.4 | 0.3 | 0.2 | 
+ | wiperight | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
+ | wipetl | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
+ | wipetr | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
+ | wipeup | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
  | zoomin | 0.9 | 1.6 | 0.9 | 0.7 | 0.6 | 
- | gl_Bars | 1.2 | 2.8 | 1.5 | 1.3 | 1 | 
- | gl_BookFlip | 1.3 | 2.8 | 1.5 | 1.3 | 1 | 
- | gl_Bounce | 1.6 | 3.6 | 2 | 1.7 | 1.4 | 
- | gl_BowTie | 1.5 | 3.5 | 1.9 | 1.6 | 1.3 | 
- | gl_ButterflyWaveScrawler | 5.2 | 15.2 | 8.4 | 6.9 | 5.6 | 
- | gl_CornerVanish | 1 | 2.2 | 1.2 | 1 | 0.8 | 
- | gl_CrazyParametricFun | 2.9 | 7.4 | 4.1 | 3.4 | 2.8 | 
- | gl_CrossOut | 1.1 | 2.3 | 1.3 | 1 | 0.8 | 
- | gl_CrossZoom | 45.2 | 128 | 71.1 | 58.2 | 47.4 | 
+ | gl_Bars | 1.3 | 2.7 | 1.5 | 1.2 | 1 | 
+ | gl_BookFlip | 1.3 | 2.6 | 1.5 | 1.2 | 1 | 
+ | gl_Bounce | 1.6 | 3.5 | 1.9 | 1.6 | 1.3 | 
+ | gl_BowTie | 1.4 | 3.3 | 1.8 | 1.5 | 1.2 | 
+ | gl_ButterflyWaveScrawler | 5.1 | 14.8 | 8.2 | 6.7 | 5.5 | 
+ | gl_CornerVanish | 1 | 2.1 | 1.2 | 1 | 0.8 | 
+ | gl_CrazyParametricFun | 2.8 | 7.1 | 4 | 3.2 | 2.6 | 
+ | gl_CrossOut | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
+ | gl_CrossZoom | 42.9 | 124.3 | 69.1 | 56.5 | 46 | 
  | gl_Diamond | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
- | gl_DirectionalScaled | 2.6 | 6.2 | 3.4 | 2.8 | 2.3 | 
- | gl_DoubleDiamond | 1.1 | 2.3 | 1.3 | 1 | 0.8 | 
- | gl_Dreamy | 2.4 | 6 | 3.3 | 2.7 | 2.2 | 
- | gl_EdgeTransition | 10 | 31.1 | 17.3 | 14.1 | 11.5 | 
- | gl_Exponential_Swish | 5.1 | 14.3 | 8 | 6.5 | 5.3 | 
- | gl_FanIn | 1.2 | 2.7 | 1.5 | 1.2 | 1 | 
- | gl_FanOut | 1.3 | 2.8 | 1.5 | 1.3 | 1 | 
- | gl_FanUp | 1.2 | 2.7 | 1.5 | 1.2 | 1 | 
- | gl_Flower | 1.8 | 4.1 | 2.3 | 1.9 | 1.5 | 
- | gl_GridFlip | 2.1 | 5.1 | 2.8 | 2.3 | 1.9 | 
- | gl_InvertedPageCurl | 2 | 4.5 | 2.5 | 2 | 1.7 | 
- | gl_LinearBlur | 32.8 | 93.7 | 52 | 42.6 | 34.7 | 
- | gl_Lissajous_Tiles | 84.6 | 232.5 | 129.2 | 105.7 | 86.1 | 
- | gl_Mosaic | 2.8 | 6.9 | 3.8 | 3.1 | 2.6 | 
+ | gl_DirectionalScaled | 2.4 | 6.1 | 3.4 | 2.8 | 2.2 | 
+ | gl_DoubleDiamond | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
+ | gl_Dreamy | 2.4 | 5.9 | 3.3 | 2.7 | 2.2 | 
+ | gl_EdgeTransition | 9.4 | 30.9 | 17.1 | 14 | 11.4 | 
+ | gl_Exponential_Swish | 5 | 13.9 | 7.7 | 6.3 | 5.2 | 
+ | gl_FanIn | 1.2 | 2.6 | 1.4 | 1.2 | 1 | 
+ | gl_FanOut | 1.2 | 2.6 | 1.5 | 1.2 | 1 | 
+ | gl_FanUp | 1.2 | 2.5 | 1.4 | 1.2 | 0.9 | 
+ | gl_Flower | 1.7 | 4 | 2.2 | 1.8 | 1.5 | 
+ | gl_GridFlip | 2 | 4.9 | 2.7 | 2.2 | 1.8 | 
+ | gl_InvertedPageCurl | 1.9 | 4.4 | 2.4 | 2 | 1.6 | 
+ | gl_LinearBlur | 31.1 | 92.2 | 51.2 | 41.9 | 34.1 | 
+ | gl_Lissajous_Tiles | 83.5 | 232 | 128.9 | 105.5 | 85.9 | 
+ | gl_Mosaic | 2.8 | 6.8 | 3.8 | 3.1 | 2.5 | 
  | gl_PolkaDotsCurtain | 1.4 | 3 | 1.7 | 1.4 | 1.1 | 
- | gl_Rolls | 1.6 | 3.5 | 1.9 | 1.6 | 1.3 | 
- | gl_RotateScaleVanish | 2 | 4.6 | 2.5 | 2.1 | 1.7 | 
- | gl_SimpleBookCurl | 2.2 | 5.4 | 3 | 2.4 | 2 | 
+ | gl_Rolls | 1.5 | 3.4 | 1.9 | 1.5 | 1.3 | 
+ | gl_RotateScaleVanish | 1.9 | 4.3 | 2.4 | 2 | 1.6 | 
+ | gl_SimpleBookCurl | 2.1 | 5.2 | 2.9 | 2.4 | 1.9 | 
  | gl_SimplePageCurl | 1.7 | 3.8 | 2.1 | 1.7 | 1.4 | 
- | gl_Slides | 1.2 | 2.5 | 1.4 | 1.2 | 0.9 | 
- | gl_StageCurtains | 2 | 4.7 | 2.6 | 2.1 | 1.7 | 
- | gl_StarWipe | 2.3 | 5.7 | 3.2 | 2.6 | 2.1 | 
- | gl_StereoViewer | 2.2 | 5.9 | 3.3 | 2.7 | 2.2 | 
- | gl_Stripe_Wipe | 2.7 | 6.7 | 3.7 | 3 | 2.5 | 
- | gl_Swirl | 3 | 7.6 | 4.2 | 3.4 | 2.8 | 
- | gl_WaterDrop | 1.9 | 4.6 | 2.6 | 2.1 | 1.7 | 
- | gl_angular | 1.5 | 3.3 | 1.9 | 1.5 | 1.2 | 
- | gl_blend | 1.8 | 4.3 | 2.4 | 2 | 1.6 | 
- | gl_cannabisleaf | 3.3 | 8.5 | 4.7 | 3.9 | 3.2 | 
- | gl_chessboard | 1.1 | 2.3 | 1.3 | 1 | 0.9 | 
- | gl_crosshatch | 2.1 | 4.9 | 2.7 | 2.2 | 1.8 | 
- | gl_crosswarp | 2 | 4.7 | 2.6 | 2.1 | 1.7 | 
- | gl_cube | 1.8 | 4.1 | 2.3 | 1.9 | 1.5 | 
- | gl_directionalwarp | 2.6 | 6.4 | 3.6 | 2.9 | 2.4 | 
- | gl_doorway | 1.6 | 3.5 | 1.9 | 1.6 | 1.3 | 
- | gl_fadecolor | 1.4 | 3.1 | 1.7 | 1.4 | 1.1 | 
- | gl_heart | 1.1 | 2.3 | 1.3 | 1 | 0.9 | 
+ | gl_Slides | 1.2 | 2.5 | 1.4 | 1.1 | 0.9 | 
+ | gl_StageCurtains | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
+ | gl_StarWipe | 2.3 | 5.6 | 3.1 | 2.6 | 2.1 | 
+ | gl_StereoViewer | 2.3 | 5.6 | 3.1 | 2.6 | 2.1 | 
+ | gl_Stripe_Wipe | 2.6 | 6.7 | 3.7 | 3.1 | 2.5 | 
+ | gl_Swirl | 2.9 | 7.3 | 4.1 | 3.3 | 2.7 | 
+ | gl_WaterDrop | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
+ | gl_angular | 1.5 | 3.2 | 1.8 | 1.4 | 1.2 | 
+ | gl_blend | 1.8 | 4.2 | 2.3 | 1.9 | 1.6 | 
+ | gl_cannabisleaf | 3.2 | 8.4 | 4.6 | 3.8 | 3.1 | 
+ | gl_chessboard | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
+ | gl_crosshatch | 2.1 | 4.7 | 2.6 | 2.1 | 1.7 | 
+ | gl_crosswarp | 1.9 | 4.4 | 2.5 | 2 | 1.6 | 
+ | gl_cube | 1.8 | 4 | 2.2 | 1.8 | 1.5 | 
+ | gl_directionalwarp | 2.6 | 6.3 | 3.5 | 2.9 | 2.3 | 
+ | gl_doorway | 1.6 | 3.4 | 1.9 | 1.5 | 1.3 | 
+ | gl_fadecolor | 1.3 | 3 | 1.7 | 1.4 | 1.1 | 
+ | gl_heart | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
  | gl_hexagonalize | 2.3 | 5.6 | 3.1 | 2.5 | 2.1 | 
- | gl_kaleidoscope | 5.4 | 15.3 | 8.5 | 7 | 5.7 | 
- | gl_morph | 1.8 | 4.4 | 2.5 | 2 | 1.6 | 
- | gl_perlin | 2.9 | 7 | 3.9 | 3.2 | 2.6 | 
- | gl_pinwheel | 1.5 | 3.4 | 1.9 | 1.5 | 1.2 | 
- | gl_polar_function | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
- | gl_powerKaleido | 5.4 | 14.9 | 8.3 | 6.8 | 5.5 | 
- | gl_randomNoisex | 1.7 | 3.9 | 2.1 | 1.8 | 1.4 | 
- | gl_randomsquares | 2 | 4.6 | 2.6 | 2.1 | 1.7 | 
- | gl_ripple | 2.4 | 5.8 | 3.2 | 2.6 | 2.2 | 
- | gl_rotateTransition | 2.3 | 5.4 | 3 | 2.5 | 2 | 
- | gl_rotate_scale_fade | 2.5 | 6.1 | 3.4 | 2.8 | 2.3 | 
- | gl_squareswire | 1.3 | 2.9 | 1.6 | 1.3 | 1.1 | 
- | gl_static_wipe | 2 | 4.6 | 2.6 | 2.1 | 1.7 | 
- | gl_swap | 1.6 | 3.6 | 2 | 1.7 | 1.3 | 
- | gl_windowblinds | 1.3 | 2.6 | 1.4 | 1.2 | 1 | 
- | gl_windowslice | 1.2 | 2.4 | 1.3 | 1.1 | 0.9 | 
+ | gl_kaleidoscope | 5.2 | 14.5 | 8.1 | 6.6 | 5.4 | 
+ | gl_morph | 1.8 | 4.1 | 2.3 | 1.9 | 1.5 | 
+ | gl_perlin | 2.8 | 6.8 | 3.8 | 3.1 | 2.5 | 
+ | gl_pinwheel | 1.5 | 3.3 | 1.8 | 1.5 | 1.2 | 
+ | gl_polar_function | 1.9 | 4.3 | 2.4 | 2 | 1.6 | 
+ | gl_powerKaleido | 5.5 | 15.9 | 8.9 | 7.2 | 5.9 | 
+ | gl_randomNoisex | 1.7 | 3.8 | 2.1 | 1.7 | 1.4 | 
+ | gl_randomsquares | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
+ | gl_ripple | 2.4 | 5.7 | 3.2 | 2.6 | 2.1 | 
+ | gl_rotateTransition | 2.2 | 5.1 | 2.9 | 2.3 | 1.9 | 
+ | gl_rotate_scale_fade | 2.5 | 6 | 3.3 | 2.7 | 2.2 | 
+ | gl_squareswire | 1.3 | 2.8 | 1.5 | 1.3 | 1 | 
+ | gl_static_wipe | 2 | 4.5 | 2.5 | 2 | 1.7 | 
+ | gl_swap | 1.6 | 3.4 | 1.9 | 1.5 | 1.2 | 
+ | gl_windowblinds | 1.2 | 2.6 | 1.4 | 1.2 | 1 | 
+ | gl_windowslice | 1.1 | 2.3 | 1.3 | 1 | 0.9 | 
 
 </details>
 
-This plot combines both Xfade and GL transitions.
-
-It shows most transitions take around 1 second for SD and 2&frac12; seconds for HD
+This shows most transitions take around 1 second for SD and 2&frac12; for HD
 but again some take considerably longer (off-scale transitions shown in italics).
-
-Progress easing is calculated once per frame and presents no discernable performance hit.
-
-The custom ffmpeg C code in [xfade-easing.h](src/xfade-easing.h) deploys a single pixel iterator for all extended transition functions which in turn operate on all planes at once,
-and it does not require `-filter_complex_threads 1`.
-Use is made of aligned variables and inlined code snippets as compiler hints for fast SIMD vector and sincos instructions.
 
 ####  Alternative GL Transitions
 
 Other, faster ways to use GL Transitions with FFmpeg are:
+
 - [gl-transition-scripts](https://www.npmjs.com/package/gl-transition-scripts) includes a Node.js CLI script `gl-transition-render` which can render multiple GL Transitions and images for FFmpeg processing
 - [ffmpeg-concat](https://github.com/transitive-bullshit/ffmpeg-concat) is a Node.js package which requires installation and a lot of temporary storage
 - [ffmpeg-gl-transition](https://github.com/transitive-bullshit/ffmpeg-gl-transition) is a native FFmpeg filter which requires building ffmpeg from source
@@ -1461,6 +1501,7 @@ Other, faster ways to use GL Transitions with FFmpeg are:
 ## CLI script
 
 [xfade-easing.sh](src/xfade-easing.sh) is a Bash 4 shell wrapper for ffmpeg. It can:
+
 - generate custom easing and transition expressions for the xfade `expr` parameter
 - generate easing graphs via gnuplot (especially useful for CSS easings)
 - create eased transition videos from two visual media sources
@@ -1469,8 +1510,8 @@ Other, faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg XFade easing and extensions version 3.6.3 by Raymond Luckhurst, https://scriptit.uk
-Wrapper script to render eased XFade/GLSL transitions natively or with custom expressions.
+FFmpeg Xfade easing and extensions version 3.6.4 by Raymond Luckhurst, https://scriptit.uk
+Wrapper script to render eased Xfade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
 See https://github.com/scriptituk/xfade-easing
@@ -1511,7 +1552,7 @@ Options:
     -v video output filename (default: no video), accepts expansions
        formats: mkv (FFV1), mp4 (H264), webm (VP9), raw
        animated formats: webp (VP8), png (APNG), gif, y4m (yuv4mpeg)
-       from file extension; if filename is - then format is the null muxer (no output)
+       inferred from filename; if filename is - then format is the null muxer (no output)
        if -f format has alpha then mkv,webm,raw generate transparent video output
        if gifski is installed then gifs will be optimised
        raw decode: ffmpeg -f rawvideo -pixel_format f -framerate r -video_size s -i ...
@@ -1578,6 +1619,7 @@ prints expr for coverup transition with quartic-in easing to file coverup_quarti
 ditto, using expansion specifiers in file name
 - `xfade-easing.sh -t rectcrop -e exponential-out -s "\$expr['%t+%e'] = '%n%X';" -x exprs.php -a` \
 appends the following to file exprs.php:
+
 ```php
 $expr['rectcrop+exponential-out'] = '
 st(0, if(lte(P, 0), 0, 2^(10 * P - 10)))
@@ -1588,8 +1630,10 @@ if(lt(abs(X - W / 2), ld(1) * W) * lt(abs(Y - H / 2), ld(1) * H),
  ifnot(3-PLANE, 255)
 )';
 ```
+
 - `xfade-easing.sh -t gl_polar_function -s "expr='%n%X'" -x fc-script.txt` \
 This is not eased, therefore the expr written to fc-script.txt uses progress `P` directly:
+
 ```shell
 expr='
 st(1, 5);
@@ -1692,7 +1736,7 @@ a GL transition with arguments and cubic-bezier easing, running at 30fps for 7 s
 
 ## See also
 
-- [FFmpeg Xfade filter](https://ffmpeg.org/ffmpeg-filters.html#xfade) reference documentation
+- [FFmpeg Xfade filter](https://www.ffmpeg.org/ffmpeg-filters.html#xfade) reference documentation
 - [FFmpeg Wiki Xfade page](https://trac.ffmpeg.org/wiki/Xfade) with gallery
 - [FFmpeg Expression Evaluation](https://ffmpeg.org/ffmpeg-utils.html#Expression-Evaluation) reference documentation
 - [Robert Penner’s Easing Functions](https://robertpenner.com/easing/) the original, from 2001
