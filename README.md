@@ -286,16 +286,14 @@ These use `P` directly for progress instead of `ld(0)`.
 ```
 st(1, 30);
 st(2, 30);
-st(3, 1 - P);
+st(3, 1 - ld(0));
 st(4, X / W - 0.5);
 st(5, 0.5 - Y / H);
 st(6, hypot(ld(4), ld(5)));
 st(7, if(lte(ld(6), ld(3)),
  st(1, sin(ld(6) * ld(1) - ld(3) * ld(2)));
- st(4, ld(4) * ld(1));
- st(5, ld(5) * ld(1));
- st(4, X + ld(4) * W);
- st(5, Y - ld(5) * H);
+ st(4, X + ld(4) * ld(1) * W);
+ st(5, Y - ld(5) * ld(1) * H);
  ifnot(PLANE, a0(ld(4),ld(5)), ifnot(1-PLANE, a1(ld(4),ld(5)), ifnot(2-PLANE, a2(ld(4),ld(5)), a3(ld(4),ld(5))))),
  A
 ));
@@ -1263,7 +1261,7 @@ These are only needed when easing standard Xfade transitions.
  | :---: | :---: | :---: | :---: | :---: | :---: |
  | gl_Bars | 9 | 23 | 13 | 11 | 9 | 
  | gl_BookFlip | 14 | 37 | 21 | 17 | 14 | 
- | gl_Bounce | 28 | 73 | 41 | 33 | 27 | 
+ | gl_Bounce | 28 | 73 | 40 | 33 | 27 | 
  | gl_CornerVanish | 7 | 17 | 10 | 8 | 6 | 
  | gl_CrazyParametricFun | 60 | 158 | 88 | 72 | 58 | 
  | gl_CrossOut | 16 | 42 | 23 | 19 | 16 | 
@@ -1271,7 +1269,7 @@ These are only needed when easing standard Xfade transitions.
  | gl_DirectionalScaled | 40 | 104 | 58 | 47 | 38 | 
  | gl_DoubleDiamond | 11 | 28 | 16 | 13 | 10 | 
  | gl_Dreamy | 31 | 82 | 45 | 37 | 30 | 
- | gl_FanIn | 13 | 32 | 18 | 15 | 12 | 
+ | gl_FanIn | 12 | 32 | 18 | 15 | 12 | 
  | gl_FanOut | 13 | 33 | 18 | 15 | 12 | 
  | gl_FanUp | 10 | 26 | 14 | 12 | 10 | 
  | gl_Flower | 30 | 78 | 43 | 35 | 29 | 
@@ -1331,11 +1329,11 @@ If easing then these times must be added to the Xfade or GL transition times abo
  | bounce | 14 | 36 | 20 | 16 | 13 | 
  | circular | 6 | 16 | 9 | 7 | 6 | 
  | cuberoot | 7 | 17 | 9 | 8 | 6 | 
- | cubic | 7 | 17 | 9 | 8 | 6 | 
+ | cubic | 6 | 17 | 9 | 8 | 6 | 
  | elastic | 13 | 34 | 19 | 16 | 13 | 
  | exponential | 6 | 16 | 9 | 7 | 6 | 
  | flipback | 10 | 25 | 14 | 12 | 9 | 
- | flipelastic | 14 | 36 | 20 | 16 | 13 | 
+ | flipelastic | 14 | 35 | 20 | 16 | 13 | 
  | linear | 3 | 6 | 3 | 3 | 2 | 
  | quadratic | 5 | 11 | 6 | 5 | 4 | 
  | quartic | 7 | 17 | 9 | 8 | 6 | 
@@ -1365,7 +1363,7 @@ This plot combines both Xfade and GL transitions.
  | circleopen | 1 | 1.7 | 0.9 | 0.8 | 0.6 | 
  | coverdown | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | coverleft | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | coverright | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
+ | coverright | 0.7 | 1.1 | 0.6 | 0.5 | 0.4 | 
  | coverup | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | diagbl | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
  | diagbr | 0.9 | 1.4 | 0.8 | 0.7 | 0.5 | 
@@ -1438,7 +1436,7 @@ This plot combines both Xfade and GL transitions.
  | gl_FanUp | 1.2 | 2.5 | 1.4 | 1.2 | 0.9 | 
  | gl_Flower | 1.7 | 4 | 2.2 | 1.8 | 1.5 | 
  | gl_GridFlip | 2 | 4.9 | 2.7 | 2.2 | 1.8 | 
- | gl_InvertedPageCurl | 1.9 | 4.4 | 2.4 | 2 | 1.6 | 
+ | gl_InvertedPageCurl | 1.9 | 4.3 | 2.4 | 1.9 | 1.6 | 
  | gl_LinearBlur | 31.1 | 92.2 | 51.2 | 41.9 | 34.1 | 
  | gl_Lissajous_Tiles | 83.5 | 232 | 128.9 | 105.5 | 85.9 | 
  | gl_Mosaic | 2.8 | 6.8 | 3.8 | 3.1 | 2.5 | 
@@ -1462,7 +1460,7 @@ This plot combines both Xfade and GL transitions.
  | gl_crosswarp | 1.9 | 4.4 | 2.5 | 2 | 1.6 | 
  | gl_cube | 1.8 | 4 | 2.2 | 1.8 | 1.5 | 
  | gl_directionalwarp | 2.6 | 6.3 | 3.5 | 2.9 | 2.3 | 
- | gl_doorway | 1.6 | 3.4 | 1.9 | 1.5 | 1.3 | 
+ | gl_doorway | 1.6 | 3.4 | 1.9 | 1.5 | 1.2 | 
  | gl_fadecolor | 1.3 | 3 | 1.7 | 1.4 | 1.1 | 
  | gl_heart | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
  | gl_hexagonalize | 2.3 | 5.6 | 3.1 | 2.5 | 2.1 | 
@@ -1474,14 +1472,14 @@ This plot combines both Xfade and GL transitions.
  | gl_powerKaleido | 5.5 | 15.9 | 8.9 | 7.2 | 5.9 | 
  | gl_randomNoisex | 1.7 | 3.8 | 2.1 | 1.7 | 1.4 | 
  | gl_randomsquares | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
- | gl_ripple | 2.4 | 5.7 | 3.2 | 2.6 | 2.1 | 
+ | gl_ripple | 2.4 | 5.6 | 3.1 | 2.6 | 2.1 | 
  | gl_rotateTransition | 2.2 | 5.1 | 2.9 | 2.3 | 1.9 | 
  | gl_rotate_scale_fade | 2.5 | 6 | 3.3 | 2.7 | 2.2 | 
  | gl_squareswire | 1.3 | 2.8 | 1.5 | 1.3 | 1 | 
  | gl_static_wipe | 2 | 4.5 | 2.5 | 2 | 1.7 | 
  | gl_swap | 1.6 | 3.4 | 1.9 | 1.5 | 1.2 | 
  | gl_windowblinds | 1.2 | 2.6 | 1.4 | 1.2 | 1 | 
- | gl_windowslice | 1.1 | 2.3 | 1.3 | 1 | 0.9 | 
+ | gl_windowslice | 1.1 | 2.3 | 1.3 | 1 | 0.8 | 
 
 </details>
 
