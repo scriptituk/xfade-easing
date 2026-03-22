@@ -21,6 +21,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #define P5f 0.5f /* ubiquitous point 5 float */
+#define M_SQRT3f 1.732050807568877f /* sqrt(3) */
 #define M_TAUf (M_PIf + M_PIf) /* 2*pi */
 #define M_1_TAUf (M_1_PIf * P5f) /* 1/(2*pi) */
 
@@ -591,7 +592,7 @@ static vec4 blend(const XTransition *e, vec4 b, vec4 f, BlendMode mode) { // bg,
 static inline int scaleUI(float val, int max) { return av_clip(val * max + P5f, 0, max); } // trunc rounded
 
 // get pointer to line of plane data at y
-static av_always_inline uint8_t *pix8(const AVFrame *f, int p, int x, int y) { return &(&f->data[p][f->linesize[p] * y])[x]; }
+static av_always_inline uint8_t *pix8(const AVFrame *f, int p, int x, int y) { return &f->data[p][f->linesize[p] * y + x]; }
 static av_always_inline uint16_t *pix16(const AVFrame *f, int p, int x, int y) { return &((uint16_t*)pix8(f, p, y, 0))[x]; }
 
 #define _getFromColor1(v) getColor(e, v.x, v.y, 0)
@@ -1384,10 +1385,10 @@ static vec4 gl_hexagonalize(const XTransition *e) // by Fernando Kuteken
         dist = ceilf(dist * steps) / steps;
     if (dist > 0) {
         typedef struct { float q, r, s; } Hexagon;
-        float rt3 = sqrtf(3), size = rt3 / 3 * dist / horizontalHexagons;
+        float size = (M_SQRT3f / 3) * dist / horizontalHexagons;
         // hexagonFromPoint
         vec2 point = { (e->p.x - P5f) / size, (e->p.y / e->ratio - P5f) / size };
-        Hexagon hex = { .q = (rt3 * point.x - point.y) / 3, .r = point.y * (2.f / 3) };
+        Hexagon hex = { .q = (point.x * M_SQRT3f - point.y) / 3, .r = point.y * (2.f / 3) };
         hex.s = -hex.q - hex.r;
         // roundHexagon
         Hexagon f = { roundf(hex.q), roundf(hex.r), roundf(hex.s) };
@@ -1398,8 +1399,8 @@ static vec4 gl_hexagonalize(const XTransition *e) // by Fernando Kuteken
             f.r = -f.q - f.s;
         // pointFromHexagon
         point = VEC2(
-            (rt3 * f.q + rt3 / 2 * f.r) * size + P5f,
-            (1.5f * f.r * size + P5f) * e->ratio
+            (f.r * P5f + f.q) * size * M_SQRT3f + P5f,
+            (f.r * size * 1.5f + P5f) * e->ratio
         );
         return mix4(getFromColor(point), getToColor(point), e->progress);
     }
@@ -1446,20 +1447,24 @@ static vec4 gl_LinearBlur(const XTransition *e) // by gre
 { // License: MIT
     INIT_BEGIN
     ARG1(float, intensity, 0.1)
-    VAR1(int, passes, 6)
+    VAR1(int, passes, 5) // keep odd
+    VAR1(int, pi, (passes - 1) / 2)
+    VAR1(int, pp, passes * passes)
     INIT_END
-    vec4 c1 = vec4f(0), c2 = vec4f(0);
-    float disp = intensity * (P5f - absf(e->progress - P5f)), ip = 1.f / passes, p2 = passes * passes;
-    for (int xi = 0; xi < passes; xi++) {
-        float x = (xi * ip - P5f) * disp + e->p.x;
-        for (int yi = 0; yi < passes; yi++) {
-            float y = (yi * ip - P5f) * disp + e->p.y;
-            c1 = add4(c1, getFromColor(x, y));
-            c2 = add4(c2, getToColor(x, y));
+    vec4 c1 = e->a, c2 = e->b;
+    float ddisp = (P5f - absf(e->progress - P5f)) * intensity / (passes + 1);
+    for (int xi = -pi; xi <= pi; xi++) {
+        float x = e->p.x + ddisp * xi;
+        for (int yi = -pi; yi <= pi; yi++) {
+            if (xi || yi) {
+                float y = e->p.y + ddisp * yi;
+                c1 = add4(c1, getFromColor(x, y));
+                c2 = add4(c2, getToColor(x, y));
+            }
         }
     }
-    c1 = div4f(c1, p2);
-    c2 = div4f(c2, p2);
+    c1 = div4f(c1, pp);
+    c2 = div4f(c2, pp);
     return mix4(c1, c2, e->progress);
 }
 
@@ -1588,20 +1593,13 @@ static vec4 gl_powerKaleido(const XTransition *e) // by Boundless
     ARG1(float, z, 1.5)
     ARG1(float, speed, 5)
     VAR1(float, dist, scale / 10)
-    VAR1(float, rt3_2, sqrtf(3) / 2)
     INIT_END
     vec2 uv = mul2(sub2f(e->p, P5f), VEC2(e->ratio * z, z));
     float a = e->progress * speed;
     uv = rot2(uv, a); // slick algo for 120 degree mirror effect only
     for (int iter = 0; iter < 30; iter++) { // 10 * 3
         int i = iter % 3; // 0,120,240 degree iterator
-        vec2 v;
-        if (i == 0) // 0
-            v = VEC2(1, 0); // cos(0),sin(0)
-        else if (i == 1) // 120
-            v = VEC2(-P5f, rt3_2); // cos(120|240),sin(120)
-        else // 240
-            v.y = -rt3_2; // sin(240)
+        vec2 v = i ? VEC2(-P5f, (1.5f - i) * M_SQRT3f) : VEC2(1, 0); // cos,sin
         vec2 p = mul2f(v, dist);
         if ((v.x >= 0) == (uv.y - p.x > (uv.x + p.y) * v.y / v.x)) { // asin(v.x)>=0
             p = add2(VEC2(p.y * 2, -p.x * 2), uv);
@@ -2137,10 +2135,10 @@ static vec4 gl_Swirl(const XTransition *e) // by Sergey Kosarevsky
         float Percent = 1 - Dist / radius;
         float A = 1 - absf(e->progress - P5f) * 2;
         float Theta = Percent * Percent * A * 8 * M_PIf;
-        UV = rot2(UV, clockwise ? -Theta : Theta);
+        UV = add2f(rot2(UV, clockwise ? -Theta : Theta), P5f);
+        return mix4(getFromColor(UV), getToColor(UV), e->progress);
     }
-    UV = add2f(UV, P5f);
-    return mix4(getFromColor(UV), getToColor(UV), e->progress);
+    return mix4(e->a, e->b, e->progress);
 }
 
 static vec4 gl_WaterDrop(const XTransition *e) // by Paweł Płóciennik

@@ -1,5 +1,5 @@
---- libavfilter/vf_xfade.c	2026-02-19 20:54:22
-+++ vf_xfade.c	2026-02-19 20:54:22
+--- libavfilter/vf_xfade.c	2026-03-22 12:13:52
++++ vf_xfade.c	2026-03-22 12:13:52
 @@ -126,6 +126,11 @@
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);
@@ -36,12 +36,48 @@
      {   "custom",    "custom transition",     0, AV_OPT_TYPE_CONST, {.i64=CUSTOM},    0, 0, FLAGS, .unit = "transition" },
      {   "fade",      "fade transition",       0, AV_OPT_TYPE_CONST, {.i64=FADE},      0, 0, FLAGS, .unit = "transition" },
      {   "wipeleft",  "wipe left transition",  0, AV_OPT_TYPE_CONST, {.i64=WIPELEFT},  0, 0, FLAGS, .unit = "transition" },
+@@ -469,7 +478,7 @@
+         for (int y = 0; y < height; y++) {                                           \
+             for (int x = 0; x < width; x++) {                                        \
+                 const int zx = z + x;                                                \
+-                const int zz = zx % width + width * (zx < 0);                        \
++                const int zz = zx % width + width * (zx < 0 && zx > -width);         \
+                 dst[x] = (zx >= 0) && (zx < width) ? xf1[zz] : xf0[zz];              \
+             }                                                                        \
+                                                                                      \
+@@ -502,7 +511,7 @@
+         for (int y = 0; y < height; y++) {                                           \
+             for (int x = 0; x < width; x++) {                                        \
+                 const int zx = z + x;                                                \
+-                const int zz = zx % width + width * (zx < 0);                        \
++                const int zz = zx % width;                                           \
+                 dst[x] = (zx >= 0) && (zx < width) ? xf1[zz] : xf0[zz];              \
+             }                                                                        \
+                                                                                      \
+@@ -532,7 +541,7 @@
+                                                                                     \
+         for (int y = slice_start; y < slice_end; y++) {                             \
+             const int zy = z + y;                                                   \
+-            const int zz = zy % height + height * (zy < 0);                         \
++            const int zz = zy % height + height * (zy < 0 && zy > -height);         \
+             const type *xf0 = (const type *)(a->data[p] + zz * a->linesize[p]);     \
+             const type *xf1 = (const type *)(b->data[p] + zz * b->linesize[p]);     \
+                                                                                     \
+@@ -564,7 +573,7 @@
+                                                                                     \
+         for (int y = slice_start; y < slice_end; y++) {                             \
+             const int zy = z + y;                                                   \
+-            const int zz = zy % height + height * (zy < 0);                         \
++            const int zz = zy % height;                                             \
+             const type *xf0 = (const type *)(a->data[p] + zz * a->linesize[p]);     \
+             const type *xf1 = (const type *)(b->data[p] + zz * b->linesize[p]);     \
+                                                                                     \
 @@ -1633,7 +1642,7 @@
          for (int y = 0; y < height; y++) {                                           \
              const float z = .5f + ((slice_start + y) / h - .5f) / progress;          \
                                                                                       \
 -            if (z < 0.f || z > 1.f) {                                                \
-+            if (z < 0.f || z > 1.f || isnan(z)) {                                    \
++            if (z < 0.f || z > 1.f || progress <= 0.f) {                             \
                  for (int x = 0; x < width; x++)                                      \
                      dst[x] = xf1[x];                                                 \
              } else {                                                                 \
@@ -50,10 +86,28 @@
                  const float z = .5f + (x / w - .5f) / progress;                      \
                                                                                       \
 -                if (z < 0.f || z > 1.f) {                                            \
-+                if (z < 0.f || z > 1.f || isnan(z)) {                                \
++                if (z < 0.f || z > 1.f || progress <= 0.f) {                         \
                      dst[x] = xf1[x];                                                 \
                  } else {                                                             \
                      const int xx = lrintf(z * (w - 1.f));                            \
+@@ -1952,7 +1961,7 @@
+         for (int y = 0; y < height; y++) {                                           \
+             for (int x = 0; x < width; x++) {                                        \
+                 const int zx = z + x;                                                \
+-                const int zz = zx % width + width * (zx < 0);                        \
++                const int zz = zx % width + width * (zx < 0 && zx > -width);         \
+                 dst[x] = (zx >= 0) && (zx < width) ? xf1[x] : xf0[zz];               \
+             }                                                                        \
+                                                                                      \
+@@ -1984,7 +1993,7 @@
+                                                                                     \
+         for (int y = slice_start; y < slice_end; y++) {                             \
+             const int zy = z + y;                                                   \
+-            const int zz = zy % height + height * (zy < 0);                         \
++            const int zz = zy % height + height * (zy < 0 && zy > -height);         \
+             const type *xf0 = (const type *)(a->data[p] + zz * a->linesize[p]);     \
+             const type *xf1 = (const type *)(b->data[p] +  y * b->linesize[p]);     \
+                                                                                     \
 @@ -2001,6 +2010,8 @@
  REVEALV_TRANSITION(down,  8, uint8_t,  1, )
  REVEALV_TRANSITION(down, 16, uint16_t, 2, )
@@ -63,16 +117,16 @@
  static inline double getpix(void *priv, double x, double y, int plane, int nb)
  {
      XFadeContext *s = priv;
-@@ -2102,6 +2113,9 @@
+@@ -2101,6 +2112,9 @@
+ 
      if (s->duration)
          s->duration_pts = av_rescale_q(s->duration, AV_TIME_BASE_Q, outlink->time_base);
- 
++
 +    int ret = config_xfade_easing(ctx);
 +    if (ret <= 0) return ret; // error or extended transition
-+
+ 
      switch (s->transition) {
      case CUSTOM:     s->transitionf = s->depth <= 8 ? custom8_transition     : custom16_transition;     break;
-     case FADE:       s->transitionf = s->depth <= 8 ? fade8_transition       : fade16_transition;       break;
 @@ -2214,7 +2228,14 @@
          return AVERROR(ENOMEM);
      av_frame_copy_props(out, a);

@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.6.4
+export VERSION=3.6.5
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -625,7 +625,7 @@ _se_easing() { # easing mode
         io='if(lt(T, 0.5), sqrt(T / 2), 1 - sqrt(R / 2))'
         ;;
     cuberoot) # opposite to cubic
-        local D1_3=$(_calc 1/3)
+        local D1_3=$(_calc '1/3')
         i="1 - pow(R, $D1_3)"
         o="pow(T, $D1_3)"
         io="if(lt(T, 0.5), pow(T / 4, $D1_3), 1 - pow(R / 4, $D1_3))"
@@ -708,9 +708,10 @@ _xf_transition() { # transition
         ;;
     coverleft|coverright)
         [[ $1 =~ left ]] && s=-
+        [[ $1 =~ left ]] && r=' + W * between(ld(2), 1 - W, -1)'
         _make "st(1, trunc(${s}W * P));" # z
         _make 'st(2, ld(1) + X);' # zx
-        _make 'st(3, rem(ld(2), W) + W * lt(ld(2), 0));' # zz
+        _make "st(3, rem(ld(2), W)$r);" # zz
         _make 'if(between(ld(2), 0, W - 1),'
         _make ' b(ld(3), Y),'
         _make ' A'
@@ -718,9 +719,10 @@ _xf_transition() { # transition
         ;;
     coverdown|coverup)
         [[ $1 =~ up ]] && s=-
+        [[ $1 =~ up ]] && r=' + H * between(ld(2), 1 - H, -1)'
         _make "st(1, trunc(${s}H * P));" # z
         _make 'st(2, ld(1) + Y);' # zy
-        _make 'st(3, rem(ld(2), H) + H * lt(ld(2), 0));' # zz
+        _make "st(3, rem(ld(2), H)$r);" # zz
         _make 'if(between(ld(2), 0, H - 1),'
         _make ' b(X, ld(3)),'
         _make ' A'
@@ -794,8 +796,8 @@ _xf_transition() { # transition
         s='X / W'
         [[ $1 =~ v ]] && s='Y / H'
         [[ $1 =~ l || $1 =~ u ]] && s="1 - $s"
-        _make "st(1, $s);" # fx, fy
         [[ $1 =~ v ]] && r='frand(X, 0)' || r='frand(0, Y)'
+        _make "st(1, $s);" # fx, fy
         _make "st(2, $r);" # r
         _make 'st(1, ld(1) * 0.8 + ld(2) * 0.2 - (1 - P) * 1.2);'
         _make 'st(1, smoothstep(0, -0.2, ld(1), 1));'
@@ -810,9 +812,10 @@ _xf_transition() { # transition
         ;;
     revealleft|revealright)
         [[ $1 =~ left ]] && s=-
+        [[ $1 =~ left ]] && r=' + W * between(ld(2), 1 - W, -1)'
         _make "st(1, trunc(${s}W * P));" # z
         _make 'st(2, ld(1) + X);' # zx
-        _make 'st(3, rem(ld(2), W) + W * lt(ld(2), 0));' # zz
+        _make "st(3, rem(ld(2), W)$r);" # zz
         _make 'if(between(ld(2), 0, W - 1),'
         _make ' B,'
         _make ' a(ld(3), Y)'
@@ -820,9 +823,10 @@ _xf_transition() { # transition
         ;;
     revealdown|revealup)
         [[ $1 =~ up ]] && s=-
+        [[ $1 =~ up ]] && r=' + H * between(ld(2), 1 - H, -1)'
         _make "st(1, trunc(${s}H * P));" # z
         _make 'st(2, ld(1) + Y);' # zy
-        _make 'st(3, rem(ld(2), H) + H * lt(ld(2), 0));' # zz
+        _make "st(3, rem(ld(2), H)$r);" # zz
         _make 'if(between(ld(2), 0, H - 1),'
         _make ' B,'
         _make ' a(X, ld(3))'
@@ -830,9 +834,10 @@ _xf_transition() { # transition
         ;;
     slideleft|slideright)
         [[ $1 =~ left ]] && s=-
+        [[ $1 =~ left ]] && r=' + W * between(ld(2), 1 - W, -1)'
         _make "st(1, trunc(${s}W * P));" # z
         _make 'st(2, ld(1) + X);' # zx
-        _make 'st(3, rem(ld(2), W) + W * lt(ld(2), 0));' # zz
+        _make "st(3, rem(ld(2), W)$r);" # zz
         _make 'if(between(ld(2), 0, W - 1),'
         _make ' b(ld(3), Y),'
         _make ' a(ld(3), Y)'
@@ -840,9 +845,10 @@ _xf_transition() { # transition
         ;;
     slidedown|slideup)
         [[ $1 =~ up ]] && s=-
+        [[ $1 =~ up ]] && r=' + H * between(ld(2), 1 - H, -1)'
         _make "st(1, trunc(${s}H * P));" # z
         _make 'st(2, ld(1) + Y);' # zy
-        _make 'st(3, rem(ld(2), H) + H * lt(ld(2), 0));' # zz
+        _make "st(3, rem(ld(2), H)$r);" # zz
         _make 'if(between(ld(2), 0, H - 1),'
         _make ' b(X, ld(3)),'
         _make ' a(X, ld(3))'
@@ -1026,7 +1032,7 @@ _gl_transition() { # transition args
 #       ${a[2]:-0.3} # colorSeparation
         ;;
     gl_cannabisleaf) # by Flexi23
-        _make 'if(eq(P, 1), A,'
+        _make 'ifnot(P-1, A,'
         _make ' st(1, 10 * pow(1 - P, 3.5));'
         _make ' st(2, (X / W - 0.5) / ld(1));' # leaf_uv.x
         _make ' st(3, (0.5 - Y / H) / ld(1) + 0.35);' # leaf_uv.y
@@ -1107,7 +1113,7 @@ _gl_transition() { # transition args
         _make ' st(7, ld(2) + ld(1));' # cs
         _make ' ifnot(between(ld(5), -ld(7), ld(7)) + between(ld(6), -ld(7), ld(7)),'
         _make '  A,'
-        _make '  st(7, abs(ifnot(eq(gte(ld(3), 0), gte(ld(4), 0)), ld(5), ld(6))));' # d
+        _make '  st(7, abs(if(gte(ld(3), 0) - gte(ld(4), 0), ld(5), ld(6))));' # d
         _make '  st(7, (ld(7) - ld(2)) / ld(1));'
         _make '  mix(B, A, ld(7))'
         _make ' )'
@@ -1168,7 +1174,7 @@ _gl_transition() { # transition args
         _make '  a(ld(5), ld(6)),'
         _make '  b(ld(5), ld(6))'
         _make ' ));'
-        _make ' if(eq(abs(ld(0)), 2),'
+        _make ' ifnot(2-abs(ld(0)),'
         _make '  st(3, ld(3) * (1 - ld(2)));'
         _make '  mix(ld(4), ld(1), ld(3)),'
         _make '  ld(1)'
@@ -1262,10 +1268,10 @@ _gl_transition() { # transition args
         _make 'if(ld(7),'
         _make ' st(2, ld(5) * W);'
         _make ' st(3, (1 - ld(6)) * H);'
-        _make ' if(eq(ld(7), 1),'
+        _make ' ifnot(1-ld(7),'
         _make '  a(ld(2), ld(3)),'
         _make '  st(3, b(ld(2), ld(3)));'
-        _make '  if(eq(ld(7), 2),'
+        _make '  ifnot(2-ld(7),'
         _make '   ld(3),'
         _make '   st(1, ld(1) * (1 - ld(6)));'
         _make '   mix(ld(4), ld(3), ld(1))'
@@ -1413,17 +1419,19 @@ _gl_transition() { # transition args
         ;;
     gl_hexagonalize) # by Fernando Kuteken
         local SQRT3=$(_calc 'sqrt(3)')
+        local SQRT3_3=$(_calc 'sqrt(3) / 3')
+        local D2_3=$(_calc '2/3')
         _make "st(1, ${a[0]:-50});" # steps
         _make "st(2, ${a[1]:-20});" # horizontalHexagons
         _make 'st(3, 2 * min(P, 1 - P));' # dist
         _make 'if(gt(ld(1), 0), st(3, ceil(ld(3) * ld(1)) / ld(1)));'
         _make 'if(gt(ld(3), 0),'
-        _make " st(2, $SQRT3 / 3 * ld(3) / ld(2));" # size
+        _make " st(2, ld(3) * $SQRT3_3 / ld(2));" # size
         # hexagonFromPoint
         _make ' st(3, (X / W - 0.5) / ld(2));' # point.x
         _make ' st(4, ((H - Y) / W - 0.5) / ld(2));' # point.y
-        _make " st(3, ($SQRT3 * ld(3) - ld(4)) / 3);" # hex.q
-        _make ' st(4, 2 / 3 * ld(4));' # hex.r
+        _make " st(3, (ld(3) * $SQRT3 - ld(4)) / 3);" # hex.q
+        _make " st(4, ld(4) * $D2_3);" # hex.r
         _make ' st(5, -ld(3) - ld(4));' # hex.s
         # roundHexagon
         _make ' st(6, floor(ld(3) + 0.5));' # q
@@ -1437,8 +1445,8 @@ _gl_transition() { # transition args
         _make '  if(gt(ld(4), ld(5)), st(7, -ld(6) - ld(8)))'
         _make ' );'
         # pointFromHexagon
-        _make " st(3, $SQRT3 * (ld(6) + ld(7) / 2) * ld(2) + 0.5);" # x
-        _make ' st(4, 3 / 2 * ld(7) * ld(2) + 0.5);' # y
+        _make " st(3, (ld(7) / 2 + ld(6)) * ld(2) * $SQRT3 + 0.5);" # x
+        _make ' st(4, ld(7) * ld(2) * 1.5 + 0.5);' # y
         _make ' st(3, ld(3) * W);'
         _make ' st(4, H - ld(4) * W);'
         _make ' st(1, a(ld(3), ld(4)));'
@@ -1551,12 +1559,12 @@ _gl_transition() { # transition args
         _make 'st(4, X / W - 0.5);' # p.x
         _make 'st(5, 0.5 - Y / H);' # p.y
         _make 'st(1, (1 - P) ^ ld(3) * ld(1));' # t
-        _make 'st(3, 0);' # i
-        _make 'while(lte(st(3, ld(3) + 1), 7),'
-        _make ' st(6, sin(ld(1)));'
-        _make ' st(7, cos(ld(1)));'
-        _make ' st(8, ld(6) * ld(4) + ld(7) * ld(5));'
-        _make ' st(5, ld(6) * ld(5) - ld(7) * ld(4));'
+        _make 'st(3, 8);' # i
+        _make 'while(st(3, ld(3) - 1),'
+        _make ' st(6, sin(ld(1)));' # =cos(PI/2-t)
+        _make ' st(7, cos(ld(1)));' # =sin(PI/2-t)
+        _make ' st(8, ld(4) * ld(6) + ld(5) * ld(7));'
+        _make ' st(5, ld(5) * ld(6) - ld(4) * ld(7));'
         _make ' st(4, abs(mod(ld(8), 2) - 1));'
         _make ' st(5, abs(mod(ld(5), 2) - 1));'
         _make ' st(1, ld(1) + ld(2))'
@@ -1565,27 +1573,29 @@ _gl_transition() { # transition args
         _make 'st(5, (1 - ld(5)) * H);'
         _make 'st(7, a(ld(4), ld(5)));'
         _make 'st(8, b(ld(4), ld(5)));'
-        _make 'st(1, mix(B, A, P));'
-        _make 'st(2, mix(ld(8), ld(7), P));'
-        _make 'st(3, 1 - 2 * abs(P - 0.5));'
+        _make 'st(1, mix(ld(8), ld(7), P));'
+        _make 'st(2, mix(B, A, P));'
+        _make 'st(3, abs(P - 0.5) * 2);'
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
     gl_LinearBlur) # by gre
+        local D1_6=$(_calc '1/6') # (5 passes)
         _make "st(1, ${a[0]:-0.1});" # intensity
         _make 'st(1, ld(1) * (0.5 - abs(P - 0.5)));' # disp
-        _make 'st(2, 0);' # c1
-        _make 'st(3, 0);' # c2
-        _make 'st(4, -1);' # xi
-        _make 'while(lt(st(4, ld(4) + 1), 6),'
-        _make ' st(6, X + (ld(4) / 6 - 0.5) * ld(1) * W);' # v.x
-        _make ' st(5, -1);' # yi
-        _make ' while(lt(st(5, ld(5) + 1), 6),'
-        _make '  st(7, Y - (ld(5) / 6 - 0.5) * ld(1) * H);' # v.y
-        _make '  st(2, ld(2) + a(ld(6), ld(7)));'
-        _make '  st(3, ld(3) + b(ld(6), ld(7)))'
+        _make 'st(3, ld(1) * W);'
+        _make 'st(4, ld(1) * H);'
+        _make 'st(1, st(2, 0));' # c1 c2
+        _make "st(7, -0.5);"
+        _make "while(lt(st(7, ld(7) + $D1_6), 0.4),"
+        _make ' st(5, round(X + ld(7) * ld(3)));' # v.x
+        _make " st(8, 0.5);"
+        _make " while(gt(st(8, ld(8) - $D1_6), -0.4),"
+        _make '  st(6, round(Y + ld(8) * ld(4)));' # v.y
+        _make '  st(1, ld(1) + a(ld(5), ld(6)));'
+        _make '  st(2, ld(2) + b(ld(5), ld(6)))'
         _make ' )'
         _make ');'
-        _make 'mix(ld(3) / 36, ld(2) / 36, P)'
+        _make 'mix(ld(2) / 25, ld(1) / 25, P)'
         ;;
     gl_Lissajous_Tiles) # by Boundless
         _make NATIVE
@@ -1654,8 +1664,8 @@ _gl_transition() { # transition args
         _make 'st(1, mix((1 + ld(2)), (-ld(2)), P));' # p
         _make 'st(3, ld(1) + ld(2));' # higher
         _make 'st(2, ld(1) - ld(2));' # lower
-        _make 'st(1, 1 - smoothstep(ld(2), ld(3), ld(5), 1));' # 1 - q
-        _make 'mix(A, B, ld(1))'
+        _make 'st(1, smoothstep(ld(2), ld(3), ld(5), 1));' # 1 - q
+        _make 'mix(B, A, ld(1))'
         ;;
     gl_pinwheel) # by Mr Speaker
         _make "st(1, ${a[0]:-2});" # speed
@@ -1684,7 +1694,7 @@ _gl_transition() { # transition args
         _make 'if(lt(ld(1), ld(2)), B, A)'
         ;;
     gl_powerKaleido) # by Boundless
-        local SQRT3_2=$(_calc 'sqrt(3) / 2')
+        local SQRT3=$(_calc 'sqrt(3)')
         _make "st(1, ${a[0]:-2});" # scale
         _make "st(2, ${a[1]:-1.5});" # z
         _make "st(3, ${a[2]:-5});" # speed
@@ -1697,24 +1707,20 @@ _gl_transition() { # transition args
         _make 'st(2, (0.5 - Y / H) * ld(2));'
         _make 'st(5, ld(6) * ld(2) - ld(7) * ld(4));' # uv.y
         _make 'st(4, ld(6) * ld(4) + ld(7) * ld(2));'
+        _make 'st(9, 2 / ld(1)^2);'
         _make 'st(8, -1);' # iter
-        _make 'while(lt(st(8, ld(8) + 1), 30),'
+        _make 'while(30-st(8, ld(8) + 1),'
         _make ' ifnot(st(7, mod(ld(8), 3)),'
-        _make '  st(6, 1),' # 0 degrees, ld(7)=0
-        _make '  ifnot(1-ld(7),'
-        _make "   st(6, -0.5); st(7, $SQRT3_2)," # 120 degrees
-        _make "   st(7, -$SQRT3_2)" # 240 degrees
-        _make '  )'
+        _make '  st(6, ld(1)),' # cos(0)=1 sin(0)=0
+        _make '  st(6, ld(1) * -0.5);' # cos(120)=cos(240)=-0.5
+        _make "  st(7, ld(1) * (1.5 - ld(7)) * $SQRT3)" # sin(120)=sqrt(3)/2 sin(240)=-sqrt(3)/2
         _make ' );'
-        _make ' if(eq('
-        _make '   not(ld(7)),' # ts
-        _make '   gt(ld(5) - ld(6) * ld(1), (ld(4) + ld(7) * ld(1)) * ld(7) / ld(6))'
-        _make '  ),'
-        _make '  st(4, ld(4) + ld(7) * ld(1) * 2);'
-        _make '  st(5, ld(5) - ld(6) * ld(1) * 2);'
-        _make '  st(2, dot(ld(4), ld(5), ld(6), ld(7)));'
-        _make '  st(4, ld(6) * ld(2) * 2 - ld(4));'
-        _make '  st(5, ld(7) * ld(2) * 2 - ld(5))'
+        _make ' ifnot(not(ld(7)) - gt(ld(5) - ld(6), (ld(4) + ld(7)) * ld(7) / ld(6)),'
+        _make '  st(4, ld(4) + ld(7) * 2);'
+        _make '  st(5, ld(5) - ld(6) * 2);'
+        _make '  st(2, (dot(ld(4), ld(5), ld(6), ld(7))) * ld(9));'
+        _make '  st(4, ld(6) * ld(2) - ld(4));'
+        _make '  st(5, ld(7) * ld(2) - ld(5))'
         _make ' )'
         _make ');'
         _make 'st(6, cos(-ld(3)));'
@@ -1735,6 +1741,7 @@ _gl_transition() { # transition args
         _make 'st(1, a(ld(4), ld(5)));'
         _make 'st(2, b(ld(4), ld(5)));'
         _make 'st(3, (cos((ld(0) - 1) * PI) + 1) / 2);'
+        [[ -n $o_logprogress ]] && _make 'st(9,floor(time(0)));'
         _make 'mix(ld(1), ld(2), ld(3))'
         ;;
     gl_randomNoisex) # by towrabbit
@@ -2130,7 +2137,7 @@ _gl_transition() { # transition args
         _make '  a(ld(5), ld(6)),'
         _make '  b(ld(5), ld(6))'
         _make ' ));'
-        _make ' if(eq(abs(ld(0)), 2),'
+        _make ' ifnot(2-abs(ld(0)),'
         _make '  st(1, ld(1) * (1 - ld(3)));'
         _make '  mix(ld(4), ld(2), ld(1)),'
         _make '  ld(2)'
@@ -2151,15 +2158,15 @@ _gl_transition() { # transition args
         _make ' ifnot(ld(2), st(1, -ld(1)));'
         _make ' st(5, sin(ld(1)));' # S
         _make ' st(6, cos(ld(1)));' # C
-        _make ' st(1, dot(ld(3), ld(4), ld(6), -ld(5)));'
+        _make ' st(1, dot(ld(3), ld(4), ld(6), -ld(5)));' # UV.x
         _make ' st(4, dot(ld(3), ld(4), ld(5), ld(6)));' # UV.y
-        _make ' st(3, ld(1))' # UV.x
-        _make ');'
-        _make 'st(3, (ld(3) + 0.5) * W);' # UV.x
-        _make 'st(4, (0.5 - ld(4)) * H);' # UV.y
-        _make 'st(5, a(ld(3), ld(4)));' # C0
-        _make 'st(6, b(ld(3), ld(4)));' # C1
-        _make 'mix(ld(6), ld(5), P)'
+        _make ' st(3, (ld(1) + 0.5) * W);' # UV.x
+        _make ' st(4, (0.5 - ld(4)) * H);' # UV.y
+        _make ' st(5, a(ld(3), ld(4)));' # C0
+        _make ' st(6, b(ld(3), ld(4)));' # C1
+        _make ' mix(ld(6), ld(5), P),'
+        _make ' mix(B, A, P)'
+        _make ')'
         ;;
     gl_WaterDrop) # by Paweł Płóciennik
         _make "st(1, ${a[0]:-30});" # amplitude
