@@ -1,8 +1,21 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.  
+All notable changes to this project will be documented in this file.\
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [3.6.5] - 2026-03-22
+
+### Changed
+
+- custom expr optimisations: `not(1-x)` faster than `eq(x,1) for ints in `if` & `while`
+- `gl_LinearBlur` 5 X/Y passes centred instead of 6 offset
+- custom expression optimisations in `gl_kaleidoscope`, `gl_powerKaleido`
+
+### Fixed
+
+- `slideleft` `slideup` `revealleft` `revealup` transitions read out-of-bounds `AVFrame` data when `progress` is 1
+  – [Issue #22273](https://code.ffmpeg.org/FFmpeg/FFmpeg/issues/22273):
 
 ## [3.6.4] - 2026-02-20
 
@@ -10,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - custom expr optimisations: use `mod(x,1)` for `fract(x)`-->`x-floor(x)`
 - updated performance analysis in README
-- more alphabetical Xfade transition order in README
+- more alphabetical order of Xfade transition in README
 
 ### Fixed
 
@@ -33,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `squeeze[hv]` divide by zero in `vf_xfade.c` causes access violation exceptions when progress is 0
+  – [Issue #22273](https://code.ffmpeg.org/FFmpeg/FFmpeg/issues/22273):
 
 ## [3.6.2] - 2026-01-23
 
@@ -158,8 +172,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `-o` option to `xfade-easing.sh` script to append ffmpeg options for generated video
-- raw encoding for `xfade-easing.sh` generated videos for fast batch processing  
-  (to decode: `ffmpeg -f rawvideo -pixel_format <f> -framerate <r> -video_size <s> -i <f.raw> …`)
+- raw encoding for `xfade-easing.sh` generated videos for fast batch processing\
+  (to decode: `ffmpeg -f rawvideo -pixel_format f -framerate r -video_size s -i in.raw …`)
 
 ### Changed
 
@@ -348,8 +362,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - this CHANGELOG
-- 8 GLSL transitions by [Mark Craig](https://www.youtube.com/MrMcSoftware) transpiled from his [38+ Video Transitions](https://www.shadertoy.com/view/NdGfzG) contribution on [shadertoy](https://www.shadertoy.com/):  
-  `gl_CornerVanish`, `gl_CrossOut`, `gl_Diamond`, `gl_DoubleDiamond`, `gl_FanIn`, `gl_FanOut`, `gl_FanUp`, `gl_Flower`  
+- 8 GLSL transitions by [Mark Craig](https://www.youtube.com/MrMcSoftware) transpiled from his [38+ Video Transitions](https://www.shadertoy.com/view/NdGfzG) contribution on [shadertoy](https://www.shadertoy.com/):\
+  `gl_CornerVanish`, `gl_CrossOut`, `gl_Diamond`, `gl_DoubleDiamond`, `gl_FanIn`, `gl_FanOut`, `gl_FanUp`, `gl_Flower`\
   all but `gl_CornerVanish` take a `smoothing` parameter
 - uploaded all GLSL transitions adapted to the GL Transition Specification to [glsl/](glsl/)
 
@@ -374,9 +388,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- 6 more GL Transitions transpiled from the [GL Transitions repository](https://github.com/gl-transitions/gl-transitions):  
+- 6 more GL Transitions transpiled from the [GL Transitions repository](https://github.com/gl-transitions/gl-transitions):\
   `gl_BowTie`, `gl_cannabisleaf`, `gl_crosshatch`, `gl_Exponential_Swish`, `gl_GridFlip`, `gl_heart`, `gl_Stripe_Wipe`, `gl_windowblinds`
-- 2 GLSL transitions by Boundless transpiled from the [Vegas Forum post on GL Transitions](https://www.vegascreativesoftware.info/us/forum/gl-transitions-gallery-sharing-place-share-the-code-here--133472/):  
+- 2 GLSL transitions by Boundless transpiled from the [Vegas Forum post on GL Transitions](https://www.vegascreativesoftware.info/us/forum/gl-transitions-gallery-sharing-place-share-the-code-here--133472/):\
   `gl_Exponential_Swish`, `gl_Stripe_Wipe`
 
 ### Changed

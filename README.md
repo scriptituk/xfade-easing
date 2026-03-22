@@ -165,7 +165,7 @@ use latest stable release at [Download Source Code](https://ffmpeg.org/download.
      - download [vf_xfade.patch](src/vf_xfade.patch) to ffmpeg source root
      - run `patch -b -u -N -p0 -i vf_xfade.patch` (saves backup as `vf_xfade.c.orig`)
      - remove `vf_xfade.patch`
-   - or patch manually, [click here](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html), only 9 small changes
+   - or patch manually, [click here](https://htmlpreview.github.io/?https://github.com/scriptituk/xfade-easing/blob/main/src/vf_xfade-diff.html), just a few small changes
 1. download [xfade-easing.h](src/xfade-easing.h) to `libavfilter/`
 1. install required library packages: \
 use a package management tool AptGet/MacPorts/Homebrew/etc.
@@ -254,7 +254,7 @@ This format is best for expressions that are too unwieldy for inline ffmpeg comm
 *Example*: `gl_Swirl` transition (expects eased progress in `ld(0)`) (cf. [Swirl.glsl](https://github.com/gl-transitions/gl-transitions/blob/master/transitions/Swirl.glsl))
 
 ```
-st(1, 1);
+st(1, 0.5);
 st(2, 1);
 st(3, X / W - 0.5);
 st(4, 0.5 - Y / H);
@@ -268,13 +268,13 @@ if(lt(ld(5), ld(1)),
  st(6, cos(ld(1)));
  st(1, ld(3) * ld(6) - ld(4) * ld(5));
  st(4, ld(3) * ld(5) + ld(4) * ld(6));
- st(3, ld(1))
-);
-st(3, (ld(3) + 0.5) * W);
-st(4, (0.5 - ld(4)) * H);
-st(5, ifnot(PLANE, a0(ld(3),ld(4)), ifnot(1-PLANE, a1(ld(3),ld(4)), ifnot(2-PLANE, a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
-st(6, ifnot(PLANE, b0(ld(3),ld(4)), ifnot(1-PLANE, b1(ld(3),ld(4)), ifnot(2-PLANE, b2(ld(3),ld(4)), b3(ld(3),ld(4))))));
-ld(6) * (1 - ld(0)) + ld(5) * ld(0)
+ st(3, (ld(1) + 0.5) * W);
+ st(4, (0.5 - ld(4)) * H);
+ st(5, ifnot(PLANE, a0(ld(3),ld(4)), ifnot(1-PLANE, a1(ld(3),ld(4)), ifnot(2-PLANE, a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
+ st(6, ifnot(PLANE, b0(ld(3),ld(4)), ifnot(1-PLANE, b1(ld(3),ld(4)), ifnot(2-PLANE, b2(ld(3),ld(4)), b3(ld(3),ld(4))))));
+ ld(6) * (1 - ld(0)) + ld(5) * ld(0),
+ B * (1 - ld(0)) + A * ld(0)
+)
 ```
 
 ### Uneased, for transitions without easing
@@ -286,7 +286,7 @@ These use `P` directly for progress instead of `ld(0)`.
 ```
 st(1, 30);
 st(2, 30);
-st(3, 1 - ld(0));
+st(3, 1 - P);
 st(4, X / W - 0.5);
 st(5, 0.5 - Y / H);
 st(6, hypot(ld(4), ld(5)));
@@ -658,6 +658,7 @@ etc.
   - `angle` may be `100` (default) or `30` degrees from horizontal east
   - `radius` is the cylinder radius
   - `reverseEffect` produces an uncurl effect (custom ffmpeg only)
+- `gl_LinearBlur` mixes 25 centred samples instead of 36 offset samples
 - `gl_RotateScaleVanish` has an additional `trkMat` parameter (track matte, custom ffmpeg only) which treats the moving image/video as a variable-transparency overlay – see Dr Who example under [Transparency](#transparency)
 - `gl_StereoViewer` (custom ffmpeg only) has an additional `flip` parameter to flip the split angles, a `background` parameter and a `trkMat` parameter
 - `gl_Swirl` has an additional `clockwise` parameter to change direction
@@ -1192,53 +1193,53 @@ These are only needed when easing standard Xfade transitions.
 
  | Transition | SD<br>2017–20 | HD<br>2017–20 | HD÷1.8<br>2020–23 | HD÷2.2<br>2023–25 | HD÷2.7<br>2025– | 
  | :---: | :---: | :---: | :---: | :---: | :---: |
- | circleclose | 16 | 41 | 23 | 19 | 15 | 
+ | circleclose | 17 | 44 | 24 | 20 | 16 | 
  | circlecrop | 12 | 30 | 17 | 14 | 11 | 
  | circleopen | 16 | 41 | 23 | 19 | 15 | 
- | coverdown | 10 | 27 | 15 | 12 | 10 | 
- | coverleft | 10 | 26 | 15 | 12 | 10 | 
- | coverright | 10 | 27 | 15 | 12 | 10 | 
- | coverup | 10 | 26 | 15 | 12 | 10 | 
+ | coverdown | 9 | 24 | 13 | 11 | 9 | 
+ | coverleft | 11 | 28 | 15 | 13 | 10 | 
+ | coverright | 9 | 24 | 13 | 11 | 9 | 
+ | coverup | 11 | 28 | 15 | 13 | 10 | 
  | diagbl | 12 | 30 | 16 | 13 | 11 | 
  | diagbr | 12 | 32 | 18 | 15 | 12 | 
  | diagtl | 11 | 28 | 15 | 13 | 10 | 
  | diagtr | 12 | 30 | 17 | 14 | 11 | 
- | dissolve | 8 | 21 | 12 | 9 | 8 | 
+ | dissolve | 8 | 20 | 11 | 9 | 8 | 
  | fade | 2 | 6 | 3 | 3 | 2 | 
- | fadeblack | 26 | 68 | 38 | 31 | 25 | 
+ | fadeblack | 24 | 64 | 35 | 29 | 24 | 
  | fadefast | 8 | 21 | 12 | 10 | 8 | 
- | fadegrays | 35 | 92 | 51 | 42 | 34 | 
+ | fadegrays | 33 | 88 | 49 | 40 | 33 | 
  | fadeslow | 8 | 21 | 12 | 10 | 8 | 
- | fadewhite | 25 | 66 | 37 | 30 | 25 | 
- | hlslice | 13 | 35 | 20 | 16 | 13 | 
+ | fadewhite | 24 | 62 | 34 | 28 | 23 | 
+ | hlslice | 14 | 36 | 20 | 16 | 13 | 
  | hlwind | 17 | 45 | 25 | 20 | 17 | 
- | horzclose | 11 | 28 | 16 | 13 | 11 | 
+ | horzclose | 11 | 28 | 16 | 13 | 10 | 
  | horzopen | 11 | 28 | 16 | 13 | 10 | 
  | hrslice | 14 | 37 | 21 | 17 | 14 | 
  | hrwind | 17 | 44 | 24 | 20 | 16 | 
  | pixelize | 27 | 72 | 40 | 33 | 27 | 
  | radial | 13 | 35 | 19 | 16 | 13 | 
- | rectcrop | 8 | 20 | 11 | 9 | 8 | 
- | revealdown | 10 | 27 | 15 | 12 | 10 | 
- | revealleft | 10 | 27 | 15 | 12 | 10 | 
- | revealright | 10 | 27 | 15 | 12 | 10 | 
- | revealup | 10 | 26 | 15 | 12 | 10 | 
- | slidedown | 12 | 30 | 17 | 14 | 11 | 
- | slideleft | 11 | 29 | 16 | 13 | 11 | 
- | slideright | 11 | 30 | 17 | 14 | 11 | 
- | slideup | 11 | 29 | 16 | 13 | 11 | 
+ | rectcrop | 8 | 21 | 12 | 10 | 8 | 
+ | revealdown | 9 | 24 | 13 | 11 | 9 | 
+ | revealleft | 11 | 28 | 16 | 13 | 10 | 
+ | revealright | 9 | 24 | 13 | 11 | 9 | 
+ | revealup | 11 | 28 | 15 | 13 | 10 | 
+ | slidedown | 10 | 26 | 15 | 12 | 10 | 
+ | slideleft | 12 | 30 | 17 | 14 | 11 | 
+ | slideright | 10 | 27 | 15 | 12 | 10 | 
+ | slideup | 12 | 31 | 17 | 14 | 11 | 
  | smoothdown | 11 | 28 | 15 | 13 | 10 | 
  | smoothleft | 10 | 26 | 14 | 12 | 9 | 
- | smoothright | 11 | 27 | 15 | 12 | 10 | 
- | smoothup | 10 | 26 | 14 | 12 | 10 | 
+ | smoothright | 11 | 28 | 15 | 13 | 10 | 
+ | smoothup | 10 | 25 | 14 | 12 | 9 | 
  | squeezeh | 7 | 17 | 9 | 8 | 6 | 
  | squeezev | 7 | 17 | 9 | 8 | 6 | 
- | vdslice | 14 | 38 | 21 | 17 | 14 | 
- | vdwind | 17 | 44 | 24 | 20 | 16 | 
+ | vdslice | 14 | 37 | 21 | 17 | 14 | 
+ | vdwind | 17 | 45 | 25 | 20 | 17 | 
  | vertclose | 11 | 28 | 16 | 13 | 10 | 
  | vertopen | 11 | 28 | 16 | 13 | 10 | 
- | vuslice | 14 | 35 | 19 | 16 | 13 | 
- | vuwind | 17 | 45 | 25 | 21 | 17 | 
+ | vuslice | 13 | 35 | 19 | 16 | 13 | 
+ | vuwind | 17 | 45 | 25 | 20 | 17 | 
  | wipebl | 4 | 9 | 5 | 4 | 3 | 
  | wipebr | 4 | 10 | 6 | 5 | 4 | 
  | wipedown | 3 | 6 | 3 | 3 | 2 | 
@@ -1247,7 +1248,7 @@ These are only needed when easing standard Xfade transitions.
  | wipetl | 3 | 8 | 5 | 4 | 3 | 
  | wipetr | 4 | 9 | 5 | 4 | 3 | 
  | wipeup | 2 | 5 | 3 | 2 | 2 | 
- | zoomin | 28 | 75 | 42 | 34 | 28 | 
+ | zoomin | 28 | 74 | 41 | 34 | 28 | 
 
 </details>
 
@@ -1260,55 +1261,55 @@ These are only needed when easing standard Xfade transitions.
  | Transition | SD<br>2017–20 | HD<br>2017–20 | HD÷1.8<br>2020–23 | HD÷2.2<br>2023–25 | HD÷2.7<br>2025– | 
  | :---: | :---: | :---: | :---: | :---: | :---: |
  | gl_Bars | 9 | 23 | 13 | 11 | 9 | 
- | gl_BookFlip | 14 | 37 | 21 | 17 | 14 | 
- | gl_Bounce | 28 | 73 | 40 | 33 | 27 | 
+ | gl_BookFlip | 14 | 36 | 20 | 16 | 13 | 
+ | gl_Bounce | 28 | 72 | 40 | 33 | 27 | 
  | gl_CornerVanish | 7 | 17 | 10 | 8 | 6 | 
- | gl_CrazyParametricFun | 60 | 158 | 88 | 72 | 58 | 
+ | gl_CrazyParametricFun | 59 | 156 | 87 | 71 | 58 | 
  | gl_CrossOut | 16 | 42 | 23 | 19 | 16 | 
- | gl_Diamond | 9 | 22 | 12 | 10 | 8 | 
- | gl_DirectionalScaled | 40 | 104 | 58 | 47 | 38 | 
+ | gl_Diamond | 8 | 22 | 12 | 10 | 8 | 
+ | gl_DirectionalScaled | 39 | 105 | 59 | 48 | 39 | 
  | gl_DoubleDiamond | 11 | 28 | 16 | 13 | 10 | 
  | gl_Dreamy | 31 | 82 | 45 | 37 | 30 | 
- | gl_FanIn | 12 | 32 | 18 | 15 | 12 | 
+ | gl_FanIn | 13 | 33 | 18 | 15 | 12 | 
  | gl_FanOut | 13 | 33 | 18 | 15 | 12 | 
  | gl_FanUp | 10 | 26 | 14 | 12 | 10 | 
- | gl_Flower | 30 | 78 | 43 | 35 | 29 | 
- | gl_InvertedPageCurl | 47 | 125 | 69 | 57 | 46 | 
- | gl_LinearBlur | 515 | 1378 | 765 | 626 | 510 | 
- | gl_Mosaic | 70 | 184 | 102 | 84 | 68 | 
- | gl_PolkaDotsCurtain | 20 | 51 | 28 | 23 | 19 | 
- | gl_Rolls | 35 | 91 | 50 | 41 | 34 | 
- | gl_RotateScaleVanish | 42 | 110 | 61 | 50 | 41 | 
- | gl_SimplePageCurl | 120 | 317 | 176 | 144 | 117 | 
- | gl_Slides | 19 | 49 | 27 | 22 | 18 | 
- | gl_StarWipe | 47 | 122 | 68 | 56 | 45 | 
- | gl_Swirl | 43 | 116 | 64 | 53 | 43 | 
+ | gl_Flower | 29 | 78 | 43 | 35 | 29 | 
+ | gl_InvertedPageCurl | 48 | 126 | 70 | 57 | 47 | 
+ | gl_LinearBlur | 344 | 923 | 513 | 420 | 342 | 
+ | gl_Mosaic | 74 | 197 | 109 | 90 | 73 | 
+ | gl_PolkaDotsCurtain | 20 | 52 | 29 | 24 | 19 | 
+ | gl_Rolls | 35 | 91 | 51 | 42 | 34 | 
+ | gl_RotateScaleVanish | 42 | 112 | 62 | 51 | 41 | 
+ | gl_SimplePageCurl | 122 | 323 | 180 | 147 | 120 | 
+ | gl_Slides | 20 | 52 | 29 | 24 | 19 | 
+ | gl_StarWipe | 46 | 122 | 68 | 55 | 45 | 
+ | gl_Swirl | 41 | 110 | 61 | 50 | 41 | 
  | gl_WaterDrop | 21 | 56 | 31 | 25 | 21 | 
- | gl_angular | 14 | 38 | 21 | 17 | 14 | 
+ | gl_angular | 15 | 38 | 21 | 17 | 14 | 
  | gl_cannabisleaf | 28 | 73 | 41 | 33 | 27 | 
- | gl_chessboard | 18 | 47 | 26 | 21 | 17 | 
- | gl_crosshatch | 49 | 130 | 72 | 59 | 48 | 
- | gl_crosswarp | 36 | 96 | 54 | 44 | 36 | 
- | gl_cube | 66 | 176 | 98 | 80 | 65 | 
- | gl_directionalwarp | 63 | 167 | 93 | 76 | 62 | 
+ | gl_chessboard | 17 | 43 | 24 | 20 | 16 | 
+ | gl_crosshatch | 51 | 135 | 75 | 61 | 50 | 
+ | gl_crosswarp | 35 | 93 | 51 | 42 | 34 | 
+ | gl_cube | 68 | 178 | 99 | 81 | 66 | 
+ | gl_directionalwarp | 62 | 164 | 91 | 75 | 61 | 
  | gl_doorway | 40 | 106 | 59 | 48 | 39 | 
- | gl_heart | 16 | 44 | 24 | 20 | 16 | 
- | gl_hexagonalize | 63 | 166 | 92 | 76 | 62 | 
- | gl_kaleidoscope | 173 | 459 | 255 | 209 | 170 | 
- | gl_perlin | 86 | 230 | 128 | 104 | 85 | 
+ | gl_heart | 18 | 47 | 26 | 21 | 17 | 
+ | gl_hexagonalize | 67 | 179 | 99 | 81 | 66 | 
+ | gl_kaleidoscope | 171 | 463 | 257 | 210 | 171 | 
+ | gl_perlin | 86 | 223 | 124 | 102 | 83 | 
  | gl_pinwheel | 12 | 30 | 17 | 14 | 11 | 
- | gl_polar_function | 18 | 47 | 26 | 21 | 17 | 
- | gl_powerKaleido | 516 | 1398 | 777 | 636 | 518 | 
+ | gl_polar_function | 17 | 46 | 25 | 21 | 17 | 
+ | gl_powerKaleido | 489 | 1306 | 725 | 593 | 484 | 
  | gl_randomNoisex | 8 | 22 | 12 | 10 | 8 | 
- | gl_randomsquares | 24 | 62 | 35 | 28 | 23 | 
- | gl_ripple | 39 | 103 | 57 | 47 | 38 | 
- | gl_rotateTransition | 32 | 85 | 47 | 39 | 31 | 
- | gl_rotate_scale_fade | 55 | 146 | 81 | 66 | 54 | 
- | gl_squareswire | 48 | 128 | 71 | 58 | 47 | 
- | gl_static_wipe | 53 | 139 | 77 | 63 | 52 | 
- | gl_swap | 70 | 187 | 104 | 85 | 69 | 
- | gl_windowblinds | 22 | 57 | 32 | 26 | 21 | 
- | gl_windowslice | 18 | 47 | 26 | 21 | 17 | 
+ | gl_randomsquares | 24 | 63 | 35 | 29 | 23 | 
+ | gl_ripple | 36 | 96 | 53 | 44 | 35 | 
+ | gl_rotateTransition | 34 | 89 | 49 | 40 | 33 | 
+ | gl_rotate_scale_fade | 59 | 156 | 86 | 71 | 58 | 
+ | gl_squareswire | 49 | 130 | 72 | 59 | 48 | 
+ | gl_static_wipe | 52 | 137 | 76 | 62 | 51 | 
+ | gl_swap | 75 | 200 | 111 | 91 | 74 | 
+ | gl_windowblinds | 21 | 56 | 31 | 25 | 21 | 
+ | gl_windowslice | 16 | 43 | 24 | 20 | 16 | 
 
 </details>
 
@@ -1329,15 +1330,15 @@ If easing then these times must be added to the Xfade or GL transition times abo
  | bounce | 14 | 36 | 20 | 16 | 13 | 
  | circular | 6 | 16 | 9 | 7 | 6 | 
  | cuberoot | 7 | 17 | 9 | 8 | 6 | 
- | cubic | 6 | 17 | 9 | 8 | 6 | 
+ | cubic | 7 | 17 | 9 | 8 | 6 | 
  | elastic | 13 | 34 | 19 | 16 | 13 | 
  | exponential | 6 | 16 | 9 | 7 | 6 | 
- | flipback | 10 | 25 | 14 | 12 | 9 | 
+ | flipback | 10 | 25 | 14 | 11 | 9 | 
  | flipelastic | 14 | 35 | 20 | 16 | 13 | 
  | linear | 3 | 6 | 3 | 3 | 2 | 
- | quadratic | 5 | 11 | 6 | 5 | 4 | 
+ | quadratic | 4 | 12 | 6 | 5 | 4 | 
  | quartic | 7 | 17 | 9 | 8 | 6 | 
- | quintic | 7 | 17 | 9 | 8 | 6 | 
+ | quintic | 6 | 17 | 9 | 8 | 6 | 
  | sinusoidal | 5 | 13 | 7 | 6 | 5 | 
  | squareroot | 5 | 12 | 7 | 5 | 4 | 
 
@@ -1362,124 +1363,124 @@ This plot combines both Xfade and GL transitions.
  | circlecrop | 0.7 | 1.2 | 0.7 | 0.5 | 0.4 | 
  | circleopen | 1 | 1.7 | 0.9 | 0.8 | 0.6 | 
  | coverdown | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
- | coverleft | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | coverright | 0.7 | 1.1 | 0.6 | 0.5 | 0.4 | 
+ | coverleft | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
+ | coverright | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
  | coverup | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | diagbl | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
  | diagbr | 0.9 | 1.4 | 0.8 | 0.7 | 0.5 | 
  | diagtl | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
- | diagtr | 0.9 | 0.5 | 0.3 | 0.2 | 0.2 | 
+ | diagtr | 0.9 | 1.5 | 0.8 | 0.7 | 0.5 | 
  | dissolve | 1 | 1.9 | 1.1 | 0.9 | 0.7 | 
  | distance | 1 | 2 | 1.1 | 0.9 | 0.7 | 
  | fade | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | fadeblack | 0.6 | 0.7 | 0.4 | 0.3 | 0.3 | 
- | fadefast | 2 | 4.8 | 2.7 | 2.2 | 1.8 | 
- | fadegrays | 1 | 1.9 | 1 | 0.8 | 0.7 | 
- | fadeslow | 2 | 4.6 | 2.6 | 2.1 | 1.7 | 
- | fadewhite | 0.6 | 0.8 | 0.4 | 0.3 | 0.3 | 
+ | fadefast | 2 | 4.6 | 2.6 | 2.1 | 1.7 | 
+ | fadegrays | 1 | 1.8 | 1 | 0.8 | 0.7 | 
+ | fadeslow | 2 | 4.7 | 2.6 | 2.1 | 1.7 | 
+ | fadewhite | 0.6 | 0.7 | 0.4 | 0.3 | 0.3 | 
  | hblur | 0.7 | 1.2 | 0.7 | 0.5 | 0.4 | 
  | hlslice | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
  | hlwind | 0.9 | 1.5 | 0.8 | 0.7 | 0.6 | 
- | horzclose | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | horzopen | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | hrslice | 0.9 | 1.4 | 0.8 | 0.7 | 0.5 | 
- | hrwind | 0.9 | 1.5 | 0.8 | 0.7 | 0.6 | 
+ | horzclose | 0.8 | 1.2 | 0.7 | 0.5 | 0.4 | 
+ | horzopen | 0.8 | 1.2 | 0.7 | 0.5 | 0.4 | 
+ | hrslice | 0.9 | 1.4 | 0.8 | 0.6 | 0.5 | 
+ | hrwind | 0.9 | 1.5 | 0.8 | 0.7 | 0.5 | 
  | pixelize | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
- | radial | 1.1 | 2.1 | 1.2 | 1 | 0.8 | 
+ | radial | 1.1 | 2 | 1.1 | 0.9 | 0.8 | 
  | rectcrop | 0.6 | 0.8 | 0.4 | 0.3 | 0.3 | 
  | revealdown | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
- | revealleft | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
- | revealright | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
+ | revealleft | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
+ | revealright | 0.8 | 1.2 | 0.7 | 0.5 | 0.4 | 
  | revealup | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | slidedown | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | slideleft | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
- | slideright | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
+ | slideright | 0.7 | 1.1 | 0.6 | 0.5 | 0.4 | 
  | slideup | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | smoothdown | 0.8 | 1.2 | 0.7 | 0.5 | 0.4 | 
  | smoothleft | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
  | smoothright | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
  | smoothup | 0.8 | 1.2 | 0.7 | 0.5 | 0.4 | 
- | squeezeh | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
- | squeezev | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
- | vdslice | 0.8 | 1.2 | 0.7 | 0.6 | 0.5 | 
+ | squeezeh | 0.5 | 0.6 | 0.3 | 0.2 | 0.2 | 
+ | squeezev | 0.7 | 1.2 | 0.6 | 0.5 | 0.4 | 
+ | vdslice | 0.7 | 1.1 | 0.6 | 0.5 | 0.4 | 
  | vdwind | 1.2 | 2.5 | 1.4 | 1.1 | 0.9 | 
  | vertclose | 0.8 | 1.3 | 0.7 | 0.6 | 0.5 | 
  | vertopen | 0.8 | 1.4 | 0.8 | 0.6 | 0.5 | 
- | vuslice | 0.8 | 1.2 | 0.7 | 0.6 | 0.5 | 
+ | vuslice | 0.8 | 1.2 | 0.6 | 0.5 | 0.4 | 
  | vuwind | 1.2 | 2.5 | 1.4 | 1.1 | 0.9 | 
  | wipebl | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
  | wipebr | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
  | wipedown | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
- | wipeleft | 0.5 | 0.6 | 0.4 | 0.3 | 0.2 | 
+ | wipeleft | 0.5 | 0.6 | 0.3 | 0.3 | 0.2 | 
  | wiperight | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
  | wipetl | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
  | wipetr | 0.5 | 0.7 | 0.4 | 0.3 | 0.2 | 
  | wipeup | 0.5 | 0.5 | 0.3 | 0.2 | 0.2 | 
  | zoomin | 0.9 | 1.6 | 0.9 | 0.7 | 0.6 | 
- | gl_Bars | 1.3 | 2.7 | 1.5 | 1.2 | 1 | 
- | gl_BookFlip | 1.3 | 2.6 | 1.5 | 1.2 | 1 | 
- | gl_Bounce | 1.6 | 3.5 | 1.9 | 1.6 | 1.3 | 
+ | gl_Bars | 1.3 | 2.8 | 1.5 | 1.2 | 1 | 
+ | gl_BookFlip | 1.3 | 2.7 | 1.5 | 1.2 | 1 | 
+ | gl_Bounce | 1.6 | 3.5 | 2 | 1.6 | 1.3 | 
  | gl_BowTie | 1.4 | 3.3 | 1.8 | 1.5 | 1.2 | 
- | gl_ButterflyWaveScrawler | 5.1 | 14.8 | 8.2 | 6.7 | 5.5 | 
- | gl_CornerVanish | 1 | 2.1 | 1.2 | 1 | 0.8 | 
+ | gl_ButterflyWaveScrawler | 5 | 14.5 | 8.1 | 6.6 | 5.4 | 
+ | gl_CornerVanish | 1.1 | 2.1 | 1.2 | 1 | 0.8 | 
  | gl_CrazyParametricFun | 2.8 | 7.1 | 4 | 3.2 | 2.6 | 
  | gl_CrossOut | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
- | gl_CrossZoom | 42.9 | 124.3 | 69.1 | 56.5 | 46 | 
+ | gl_CrossZoom | 42.8 | 122.9 | 68.3 | 55.9 | 45.5 | 
  | gl_Diamond | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
- | gl_DirectionalScaled | 2.4 | 6.1 | 3.4 | 2.8 | 2.2 | 
- | gl_DoubleDiamond | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
+ | gl_DirectionalScaled | 2.5 | 6 | 3.3 | 2.7 | 2.2 | 
+ | gl_DoubleDiamond | 1.1 | 2.3 | 1.3 | 1 | 0.8 | 
  | gl_Dreamy | 2.4 | 5.9 | 3.3 | 2.7 | 2.2 | 
- | gl_EdgeTransition | 9.4 | 30.9 | 17.1 | 14 | 11.4 | 
- | gl_Exponential_Swish | 5 | 13.9 | 7.7 | 6.3 | 5.2 | 
- | gl_FanIn | 1.2 | 2.6 | 1.4 | 1.2 | 1 | 
- | gl_FanOut | 1.2 | 2.6 | 1.5 | 1.2 | 1 | 
- | gl_FanUp | 1.2 | 2.5 | 1.4 | 1.2 | 0.9 | 
- | gl_Flower | 1.7 | 4 | 2.2 | 1.8 | 1.5 | 
- | gl_GridFlip | 2 | 4.9 | 2.7 | 2.2 | 1.8 | 
+ | gl_EdgeTransition | 9.5 | 30.5 | 17 | 13.9 | 11.3 | 
+ | gl_Exponential_Swish | 5 | 14.2 | 7.9 | 6.5 | 5.3 | 
+ | gl_FanIn | 1.3 | 2.6 | 1.5 | 1.2 | 1 | 
+ | gl_FanOut | 1.3 | 2.7 | 1.5 | 1.2 | 1 | 
+ | gl_FanUp | 1.2 | 2.6 | 1.4 | 1.2 | 1 | 
+ | gl_Flower | 1.8 | 3.9 | 2.2 | 1.8 | 1.5 | 
+ | gl_GridFlip | 2.1 | 4.9 | 2.7 | 2.2 | 1.8 | 
  | gl_InvertedPageCurl | 1.9 | 4.3 | 2.4 | 1.9 | 1.6 | 
- | gl_LinearBlur | 31.1 | 92.2 | 51.2 | 41.9 | 34.1 | 
- | gl_Lissajous_Tiles | 83.5 | 232 | 128.9 | 105.5 | 85.9 | 
- | gl_Mosaic | 2.8 | 6.8 | 3.8 | 3.1 | 2.5 | 
+ | gl_LinearBlur | 18.9 | 58.9 | 32.7 | 26.8 | 21.8 | 
+ | gl_Lissajous_Tiles | 84.5 | 230.9 | 128.3 | 104.9 | 85.5 | 
+ | gl_Mosaic | 2.8 | 6.9 | 3.8 | 3.1 | 2.6 | 
  | gl_PolkaDotsCurtain | 1.4 | 3 | 1.7 | 1.4 | 1.1 | 
- | gl_Rolls | 1.5 | 3.4 | 1.9 | 1.5 | 1.3 | 
- | gl_RotateScaleVanish | 1.9 | 4.3 | 2.4 | 2 | 1.6 | 
- | gl_SimpleBookCurl | 2.1 | 5.2 | 2.9 | 2.4 | 1.9 | 
+ | gl_Rolls | 1.5 | 3.3 | 1.8 | 1.5 | 1.2 | 
+ | gl_RotateScaleVanish | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
+ | gl_SimpleBookCurl | 2.2 | 5.3 | 2.9 | 2.4 | 2 | 
  | gl_SimplePageCurl | 1.7 | 3.8 | 2.1 | 1.7 | 1.4 | 
  | gl_Slides | 1.2 | 2.5 | 1.4 | 1.1 | 0.9 | 
- | gl_StageCurtains | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
- | gl_StarWipe | 2.3 | 5.6 | 3.1 | 2.6 | 2.1 | 
- | gl_StereoViewer | 2.3 | 5.6 | 3.1 | 2.6 | 2.1 | 
- | gl_Stripe_Wipe | 2.6 | 6.7 | 3.7 | 3.1 | 2.5 | 
- | gl_Swirl | 2.9 | 7.3 | 4.1 | 3.3 | 2.7 | 
- | gl_WaterDrop | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
- | gl_angular | 1.5 | 3.2 | 1.8 | 1.4 | 1.2 | 
+ | gl_StageCurtains | 1.9 | 4.6 | 2.5 | 2.1 | 1.7 | 
+ | gl_StarWipe | 2.3 | 5.7 | 3.1 | 2.6 | 2.1 | 
+ | gl_StereoViewer | 2.3 | 5.7 | 3.2 | 2.6 | 2.1 | 
+ | gl_Stripe_Wipe | 2.7 | 6.7 | 3.7 | 3 | 2.5 | 
+ | gl_Swirl | 3 | 7.3 | 4.1 | 3.3 | 2.7 | 
+ | gl_WaterDrop | 1.9 | 4.6 | 2.5 | 2.1 | 1.7 | 
+ | gl_angular | 1.5 | 3.2 | 1.8 | 1.5 | 1.2 | 
  | gl_blend | 1.8 | 4.2 | 2.3 | 1.9 | 1.6 | 
- | gl_cannabisleaf | 3.2 | 8.4 | 4.6 | 3.8 | 3.1 | 
- | gl_chessboard | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
- | gl_crosshatch | 2.1 | 4.7 | 2.6 | 2.1 | 1.7 | 
- | gl_crosswarp | 1.9 | 4.4 | 2.5 | 2 | 1.6 | 
+ | gl_cannabisleaf | 3.2 | 8.3 | 4.6 | 3.8 | 3.1 | 
+ | gl_chessboard | 1.1 | 2.3 | 1.3 | 1 | 0.8 | 
+ | gl_crosshatch | 2.1 | 4.8 | 2.6 | 2.2 | 1.8 | 
+ | gl_crosswarp | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
  | gl_cube | 1.8 | 4 | 2.2 | 1.8 | 1.5 | 
- | gl_directionalwarp | 2.6 | 6.3 | 3.5 | 2.9 | 2.3 | 
- | gl_doorway | 1.6 | 3.4 | 1.9 | 1.5 | 1.2 | 
- | gl_fadecolor | 1.3 | 3 | 1.7 | 1.4 | 1.1 | 
+ | gl_directionalwarp | 2.6 | 6.4 | 3.5 | 2.9 | 2.4 | 
+ | gl_doorway | 1.6 | 3.5 | 1.9 | 1.6 | 1.3 | 
+ | gl_fadecolor | 1.4 | 3.1 | 1.7 | 1.4 | 1.1 | 
  | gl_heart | 1.1 | 2.2 | 1.2 | 1 | 0.8 | 
- | gl_hexagonalize | 2.3 | 5.6 | 3.1 | 2.5 | 2.1 | 
- | gl_kaleidoscope | 5.2 | 14.5 | 8.1 | 6.6 | 5.4 | 
- | gl_morph | 1.8 | 4.1 | 2.3 | 1.9 | 1.5 | 
- | gl_perlin | 2.8 | 6.8 | 3.8 | 3.1 | 2.5 | 
- | gl_pinwheel | 1.5 | 3.3 | 1.8 | 1.5 | 1.2 | 
- | gl_polar_function | 1.9 | 4.3 | 2.4 | 2 | 1.6 | 
- | gl_powerKaleido | 5.5 | 15.9 | 8.9 | 7.2 | 5.9 | 
- | gl_randomNoisex | 1.7 | 3.8 | 2.1 | 1.7 | 1.4 | 
- | gl_randomsquares | 1.9 | 4.5 | 2.5 | 2 | 1.7 | 
- | gl_ripple | 2.4 | 5.6 | 3.1 | 2.6 | 2.1 | 
- | gl_rotateTransition | 2.2 | 5.1 | 2.9 | 2.3 | 1.9 | 
- | gl_rotate_scale_fade | 2.5 | 6 | 3.3 | 2.7 | 2.2 | 
- | gl_squareswire | 1.3 | 2.8 | 1.5 | 1.3 | 1 | 
- | gl_static_wipe | 2 | 4.5 | 2.5 | 2 | 1.7 | 
- | gl_swap | 1.6 | 3.4 | 1.9 | 1.5 | 1.2 | 
- | gl_windowblinds | 1.2 | 2.6 | 1.4 | 1.2 | 1 | 
- | gl_windowslice | 1.1 | 2.3 | 1.3 | 1 | 0.8 | 
+ | gl_hexagonalize | 2.4 | 5.6 | 3.1 | 2.5 | 2.1 | 
+ | gl_kaleidoscope | 5.3 | 14.8 | 8.2 | 6.7 | 5.5 | 
+ | gl_morph | 1.8 | 4.3 | 2.4 | 1.9 | 1.6 | 
+ | gl_perlin | 2.9 | 6.9 | 3.8 | 3.1 | 2.5 | 
+ | gl_pinwheel | 1.5 | 3.3 | 1.9 | 1.5 | 1.2 | 
+ | gl_polar_function | 1.9 | 4.4 | 2.5 | 2 | 1.6 | 
+ | gl_powerKaleido | 6 | 17.4 | 9.7 | 7.9 | 6.5 | 
+ | gl_randomNoisex | 1.7 | 3.9 | 2.1 | 1.8 | 1.4 | 
+ | gl_randomsquares | 2 | 4.5 | 2.5 | 2.1 | 1.7 | 
+ | gl_ripple | 2.4 | 5.7 | 3.2 | 2.6 | 2.1 | 
+ | gl_rotateTransition | 2.2 | 5.3 | 2.9 | 2.4 | 2 | 
+ | gl_rotate_scale_fade | 2.5 | 6.2 | 3.4 | 2.8 | 2.3 | 
+ | gl_squareswire | 1.3 | 2.8 | 1.6 | 1.3 | 1 | 
+ | gl_static_wipe | 2 | 4.6 | 2.5 | 2.1 | 1.7 | 
+ | gl_swap | 1.6 | 3.5 | 2 | 1.6 | 1.3 | 
+ | gl_windowblinds | 1.3 | 2.7 | 1.5 | 1.2 | 1 | 
+ | gl_windowslice | 1.2 | 2.4 | 1.3 | 1.1 | 0.9 | 
 
 </details>
 
@@ -1508,7 +1509,7 @@ Other, faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg Xfade easing and extensions version 3.6.4 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg Xfade easing and extensions version 3.6.5 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased Xfade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
