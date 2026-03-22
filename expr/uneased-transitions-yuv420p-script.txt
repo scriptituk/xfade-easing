@@ -1,4 +1,4 @@
-# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.4
+# FFmpeg custom expressions, made with xfade-easing.sh v. 3.6.5
 # by Raymond Luckhurst, https://scriptit.uk, https://github.com/scriptituk/xfade-easing
 
 # Uneased transition expressions (yuv420p), script for -/filter_complex filterchains
@@ -35,7 +35,7 @@ if(lt(abs(X - W / 2), ld(1) * W) * lt(abs(Y - H / 2), ld(1) * H),
 COVERLEFT
 st(1, trunc(-W * P));
 st(2, ld(1) + X);
-st(3, (ld(2) - trunc(ld(2) / W) * W) + W * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / W) * W) + W * between(ld(2), 1 - W, -1));
 if(between(ld(2), 0, W - 1),
  ifnot(PLANE, b0(ld(3),Y), ifnot(1-PLANE, b1(ld(3),Y), ifnot(2-PLANE, b2(ld(3),Y), b3(ld(3),Y)))),
  A
@@ -44,7 +44,7 @@ if(between(ld(2), 0, W - 1),
 COVERRIGHT
 st(1, trunc(W * P));
 st(2, ld(1) + X);
-st(3, (ld(2) - trunc(ld(2) / W) * W) + W * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / W) * W));
 if(between(ld(2), 0, W - 1),
  ifnot(PLANE, b0(ld(3),Y), ifnot(1-PLANE, b1(ld(3),Y), ifnot(2-PLANE, b2(ld(3),Y), b3(ld(3),Y)))),
  A
@@ -53,7 +53,7 @@ if(between(ld(2), 0, W - 1),
 COVERDOWN
 st(1, trunc(H * P));
 st(2, ld(1) + Y);
-st(3, (ld(2) - trunc(ld(2) / H) * H) + H * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / H) * H));
 if(between(ld(2), 0, H - 1),
  ifnot(PLANE, b0(X,ld(3)), ifnot(1-PLANE, b1(X,ld(3)), ifnot(2-PLANE, b2(X,ld(3)), b3(X,ld(3))))),
  A
@@ -62,7 +62,7 @@ if(between(ld(2), 0, H - 1),
 COVERUP
 st(1, trunc(-H * P));
 st(2, ld(1) + Y);
-st(3, (ld(2) - trunc(ld(2) / H) * H) + H * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / H) * H) + H * between(ld(2), 1 - H, -1));
 if(between(ld(2), 0, H - 1),
  ifnot(PLANE, b0(X,ld(3)), ifnot(1-PLANE, b1(X,ld(3)), ifnot(2-PLANE, b2(X,ld(3)), b3(X,ld(3))))),
  A
@@ -217,7 +217,7 @@ B * ld(1) + A * (1 - ld(1))
 REVEALLEFT
 st(1, trunc(-W * P));
 st(2, ld(1) + X);
-st(3, (ld(2) - trunc(ld(2) / W) * W) + W * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / W) * W) + W * between(ld(2), 1 - W, -1));
 if(between(ld(2), 0, W - 1),
  B,
  ifnot(PLANE, a0(ld(3),Y), ifnot(1-PLANE, a1(ld(3),Y), ifnot(2-PLANE, a2(ld(3),Y), a3(ld(3),Y))))
@@ -226,7 +226,7 @@ if(between(ld(2), 0, W - 1),
 REVEALRIGHT
 st(1, trunc(W * P));
 st(2, ld(1) + X);
-st(3, (ld(2) - trunc(ld(2) / W) * W) + W * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / W) * W));
 if(between(ld(2), 0, W - 1),
  B,
  ifnot(PLANE, a0(ld(3),Y), ifnot(1-PLANE, a1(ld(3),Y), ifnot(2-PLANE, a2(ld(3),Y), a3(ld(3),Y))))
@@ -235,7 +235,7 @@ if(between(ld(2), 0, W - 1),
 REVEALDOWN
 st(1, trunc(H * P));
 st(2, ld(1) + Y);
-st(3, (ld(2) - trunc(ld(2) / H) * H) + H * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / H) * H));
 if(between(ld(2), 0, H - 1),
  B,
  ifnot(PLANE, a0(X,ld(3)), ifnot(1-PLANE, a1(X,ld(3)), ifnot(2-PLANE, a2(X,ld(3)), a3(X,ld(3)))))
@@ -244,7 +244,7 @@ if(between(ld(2), 0, H - 1),
 REVEALUP
 st(1, trunc(-H * P));
 st(2, ld(1) + Y);
-st(3, (ld(2) - trunc(ld(2) / H) * H) + H * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / H) * H) + H * between(ld(2), 1 - H, -1));
 if(between(ld(2), 0, H - 1),
  B,
  ifnot(PLANE, a0(X,ld(3)), ifnot(1-PLANE, a1(X,ld(3)), ifnot(2-PLANE, a2(X,ld(3)), a3(X,ld(3)))))
@@ -253,7 +253,7 @@ if(between(ld(2), 0, H - 1),
 SLIDELEFT
 st(1, trunc(-W * P));
 st(2, ld(1) + X);
-st(3, (ld(2) - trunc(ld(2) / W) * W) + W * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / W) * W) + W * between(ld(2), 1 - W, -1));
 if(between(ld(2), 0, W - 1),
  ifnot(PLANE, b0(ld(3),Y), ifnot(1-PLANE, b1(ld(3),Y), ifnot(2-PLANE, b2(ld(3),Y), b3(ld(3),Y)))),
  ifnot(PLANE, a0(ld(3),Y), ifnot(1-PLANE, a1(ld(3),Y), ifnot(2-PLANE, a2(ld(3),Y), a3(ld(3),Y))))
@@ -262,7 +262,7 @@ if(between(ld(2), 0, W - 1),
 SLIDERIGHT
 st(1, trunc(W * P));
 st(2, ld(1) + X);
-st(3, (ld(2) - trunc(ld(2) / W) * W) + W * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / W) * W));
 if(between(ld(2), 0, W - 1),
  ifnot(PLANE, b0(ld(3),Y), ifnot(1-PLANE, b1(ld(3),Y), ifnot(2-PLANE, b2(ld(3),Y), b3(ld(3),Y)))),
  ifnot(PLANE, a0(ld(3),Y), ifnot(1-PLANE, a1(ld(3),Y), ifnot(2-PLANE, a2(ld(3),Y), a3(ld(3),Y))))
@@ -271,7 +271,7 @@ if(between(ld(2), 0, W - 1),
 SLIDEDOWN
 st(1, trunc(H * P));
 st(2, ld(1) + Y);
-st(3, (ld(2) - trunc(ld(2) / H) * H) + H * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / H) * H));
 if(between(ld(2), 0, H - 1),
  ifnot(PLANE, b0(X,ld(3)), ifnot(1-PLANE, b1(X,ld(3)), ifnot(2-PLANE, b2(X,ld(3)), b3(X,ld(3))))),
  ifnot(PLANE, a0(X,ld(3)), ifnot(1-PLANE, a1(X,ld(3)), ifnot(2-PLANE, a2(X,ld(3)), a3(X,ld(3)))))
@@ -280,7 +280,7 @@ if(between(ld(2), 0, H - 1),
 SLIDEUP
 st(1, trunc(-H * P));
 st(2, ld(1) + Y);
-st(3, (ld(2) - trunc(ld(2) / H) * H) + H * lt(ld(2), 0));
+st(3, (ld(2) - trunc(ld(2) / H) * H) + H * between(ld(2), 1 - H, -1));
 if(between(ld(2), 0, H - 1),
  ifnot(PLANE, b0(X,ld(3)), ifnot(1-PLANE, b1(X,ld(3)), ifnot(2-PLANE, b2(X,ld(3)), b3(X,ld(3))))),
  ifnot(PLANE, a0(X,ld(3)), ifnot(1-PLANE, a1(X,ld(3)), ifnot(2-PLANE, a2(X,ld(3)), a3(X,ld(3)))))
@@ -452,7 +452,7 @@ GL_BUTTERFLYWAVESCRAWLER
 NATIVE
 
 GL_CANNABISLEAF
-if(eq(P, 1), A,
+ifnot(P-1, A,
  st(1, 10 * pow(1 - P, 3.5));
  st(2, (X / W - 0.5) / ld(1));
  st(3, (0.5 - Y / H) / ld(1) + 0.35);
@@ -533,7 +533,7 @@ if(between(ld(5), -ld(2), ld(2)) + between(ld(6), -ld(2), ld(2)),
  st(7, ld(2) + ld(1));
  ifnot(between(ld(5), -ld(7), ld(7)) + between(ld(6), -ld(7), ld(7)),
   A,
-  st(7, abs(ifnot(eq(gte(ld(3), 0), gte(ld(4), 0)), ld(5), ld(6))));
+  st(7, abs(if(gte(ld(3), 0) - gte(ld(4), 0), ld(5), ld(6))));
   st(7, (ld(7) - ld(2)) / ld(1));
   B * (1 - ld(7)) + A * ld(7)
  )
@@ -589,7 +589,7 @@ if(ld(0),
   ifnot(PLANE, a0(ld(5),ld(6)), ifnot(1-PLANE, a1(ld(5),ld(6)), ifnot(2-PLANE, a2(ld(5),ld(6)), a3(ld(5),ld(6))))),
   ifnot(PLANE, b0(ld(5),ld(6)), ifnot(1-PLANE, b1(ld(5),ld(6)), ifnot(2-PLANE, b2(ld(5),ld(6)), b3(ld(5),ld(6)))))
  ));
- if(eq(abs(ld(0)), 2),
+ ifnot(2-abs(ld(0)),
   st(3, ld(3) * (1 - ld(2)));
   ld(4) * (1 - ld(3)) + ld(1) * ld(3),
   ld(1)
@@ -683,10 +683,10 @@ st(4, ifnot(PLANE, max(ld(4) * 255, 0), if(3-PLANE, 127, gte(ld(4), 0) * 255)));
 if(ld(7),
  st(2, ld(5) * W);
  st(3, (1 - ld(6)) * H);
- if(eq(ld(7), 1),
+ ifnot(1-ld(7),
   ifnot(PLANE, a0(ld(2),ld(3)), ifnot(1-PLANE, a1(ld(2),ld(3)), ifnot(2-PLANE, a2(ld(2),ld(3)), a3(ld(2),ld(3))))),
   st(3, ifnot(PLANE, b0(ld(2),ld(3)), ifnot(1-PLANE, b1(ld(2),ld(3)), ifnot(2-PLANE, b2(ld(2),ld(3)), b3(ld(2),ld(3))))));
-  if(eq(ld(7), 2),
+  ifnot(2-ld(7),
    ld(3),
    st(1, ld(1) * (1 - ld(6)));
    ld(4) * (1 - ld(1)) + ld(3) * ld(1)
@@ -815,11 +815,11 @@ st(2, 20);
 st(3, 2 * min(P, 1 - P));
 if(gt(ld(1), 0), st(3, ceil(ld(3) * ld(1)) / ld(1)));
 if(gt(ld(3), 0),
- st(2, 1.73205 / 3 * ld(3) / ld(2));
+ st(2, ld(3) * 0.57735 / ld(2));
  st(3, (X / W - 0.5) / ld(2));
  st(4, ((H - Y) / W - 0.5) / ld(2));
- st(3, (1.73205 * ld(3) - ld(4)) / 3);
- st(4, 2 / 3 * ld(4));
+ st(3, (ld(3) * 1.73205 - ld(4)) / 3);
+ st(4, ld(4) * 0.666667);
  st(5, -ld(3) - ld(4));
  st(6, floor(ld(3) + 0.5));
  st(7, floor(ld(4) + 0.5));
@@ -831,8 +831,8 @@ if(gt(ld(3), 0),
   st(6, -ld(7) - ld(8)),
   if(gt(ld(4), ld(5)), st(7, -ld(6) - ld(8)))
  );
- st(3, 1.73205 * (ld(6) + ld(7) / 2) * ld(2) + 0.5);
- st(4, 3 / 2 * ld(7) * ld(2) + 0.5);
+ st(3, (ld(7) / 2 + ld(6)) * ld(2) * 1.73205 + 0.5);
+ st(4, ld(7) * ld(2) * 1.5 + 0.5);
  st(3, ld(3) * W);
  st(4, H - ld(4) * W);
  st(1, ifnot(PLANE, a0(ld(3),ld(4)), ifnot(1-PLANE, a1(ld(3),ld(4)), ifnot(2-PLANE, a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
@@ -916,12 +916,12 @@ st(3, 1.5);
 st(4, X / W - 0.5);
 st(5, 0.5 - Y / H);
 st(1, (1 - P) ^ ld(3) * ld(1));
-st(3, 0);
-while(lte(st(3, ld(3) + 1), 7),
+st(3, 8);
+while(st(3, ld(3) - 1),
  st(6, sin(ld(1)));
  st(7, cos(ld(1)));
- st(8, ld(6) * ld(4) + ld(7) * ld(5));
- st(5, ld(6) * ld(5) - ld(7) * ld(4));
+ st(8, ld(4) * ld(6) + ld(5) * ld(7));
+ st(5, ld(5) * ld(6) - ld(4) * ld(7));
  st(4, abs(mod(ld(8), 2) - 1));
  st(5, abs(mod(ld(5), 2) - 1));
  st(1, ld(1) + ld(2))
@@ -930,27 +930,28 @@ st(4, ld(4) * W);
 st(5, (1 - ld(5)) * H);
 st(7, ifnot(PLANE, a0(ld(4),ld(5)), ifnot(1-PLANE, a1(ld(4),ld(5)), ifnot(2-PLANE, a2(ld(4),ld(5)), a3(ld(4),ld(5))))));
 st(8, ifnot(PLANE, b0(ld(4),ld(5)), ifnot(1-PLANE, b1(ld(4),ld(5)), ifnot(2-PLANE, b2(ld(4),ld(5)), b3(ld(4),ld(5))))));
-st(1, B * (1 - P) + A * P);
-st(2, ld(8) * (1 - P) + ld(7) * P);
-st(3, 1 - 2 * abs(P - 0.5));
+st(1, ld(8) * (1 - P) + ld(7) * P);
+st(2, B * (1 - P) + A * P);
+st(3, abs(P - 0.5) * 2);
 ld(1) * (1 - ld(3)) + ld(2) * ld(3)
 
 GL_LINEARBLUR
 st(1, 0.1);
 st(1, ld(1) * (0.5 - abs(P - 0.5)));
-st(2, 0);
-st(3, 0);
-st(4, -1);
-while(lt(st(4, ld(4) + 1), 6),
- st(6, X + (ld(4) / 6 - 0.5) * ld(1) * W);
- st(5, -1);
- while(lt(st(5, ld(5) + 1), 6),
-  st(7, Y - (ld(5) / 6 - 0.5) * ld(1) * H);
-  st(2, ld(2) + ifnot(PLANE, a0(ld(6),ld(7)), ifnot(1-PLANE, a1(ld(6),ld(7)), ifnot(2-PLANE, a2(ld(6),ld(7)), a3(ld(6),ld(7))))));
-  st(3, ld(3) + ifnot(PLANE, b0(ld(6),ld(7)), ifnot(1-PLANE, b1(ld(6),ld(7)), ifnot(2-PLANE, b2(ld(6),ld(7)), b3(ld(6),ld(7))))))
+st(3, ld(1) * W);
+st(4, ld(1) * H);
+st(1, st(2, 0));
+st(7, -0.5);
+while(lt(st(7, ld(7) + 0.166667), 0.4),
+ st(5, round(X + ld(7) * ld(3)));
+ st(8, 0.5);
+ while(gt(st(8, ld(8) - 0.166667), -0.4),
+  st(6, round(Y + ld(8) * ld(4)));
+  st(1, ld(1) + ifnot(PLANE, a0(ld(5),ld(6)), ifnot(1-PLANE, a1(ld(5),ld(6)), ifnot(2-PLANE, a2(ld(5),ld(6)), a3(ld(5),ld(6))))));
+  st(2, ld(2) + ifnot(PLANE, b0(ld(5),ld(6)), ifnot(1-PLANE, b1(ld(5),ld(6)), ifnot(2-PLANE, b2(ld(5),ld(6)), b3(ld(5),ld(6))))))
  )
 );
-ld(3) / 36 * (1 - P) + ld(2) / 36 * P
+ld(2) / 25 * (1 - P) + ld(1) / 25 * P
 
 GL_LISSAJOUS_TILES
 NATIVE
@@ -1008,8 +1009,8 @@ st(5, ld(5) + (ld(7) - ld(1)) * ld(4) * (1 - ld(3)) + (ld(6) - ld(8)) * ld(3) * 
 st(1, (1 + ld(2)) * (1 - P) + (-ld(2)) * P);
 st(3, ld(1) + ld(2));
 st(2, ld(1) - ld(2));
-st(1, 1 - st(1, clip((ld(5) - ld(2)) / (ld(3) - ld(2)), 0, 1)) * ld(1) * (3 - 2 * ld(1)));
-A * (1 - ld(1)) + B * ld(1)
+st(1, st(1, clip((ld(5) - ld(2)) / (ld(3) - ld(2)), 0, 1)) * ld(1) * (3 - 2 * ld(1)));
+B * (1 - ld(1)) + A * ld(1)
 
 GL_PINWHEEL
 st(1, 2);
@@ -1050,24 +1051,20 @@ st(4, (X / W - 0.5) * W / H * ld(2));
 st(2, (0.5 - Y / H) * ld(2));
 st(5, ld(6) * ld(2) - ld(7) * ld(4));
 st(4, ld(6) * ld(4) + ld(7) * ld(2));
+st(9, 2 / ld(1)^2);
 st(8, -1);
-while(lt(st(8, ld(8) + 1), 30),
+while(30-st(8, ld(8) + 1),
  ifnot(st(7, mod(ld(8), 3)),
-  st(6, 1),
-  ifnot(1-ld(7),
-   st(6, -0.5); st(7, 0.866025),
-   st(7, -0.866025)
-  )
+  st(6, ld(1)),
+  st(6, ld(1) * -0.5);
+  st(7, ld(1) * (1.5 - ld(7)) * 1.73205)
  );
- if(eq(
-   not(ld(7)),
-   gt(ld(5) - ld(6) * ld(1), (ld(4) + ld(7) * ld(1)) * ld(7) / ld(6))
-  ),
-  st(4, ld(4) + ld(7) * ld(1) * 2);
-  st(5, ld(5) - ld(6) * ld(1) * 2);
-  st(2, ld(4) * ld(6) + ld(5) * ld(7));
-  st(4, ld(6) * ld(2) * 2 - ld(4));
-  st(5, ld(7) * ld(2) * 2 - ld(5))
+ ifnot(not(ld(7)) - gt(ld(5) - ld(6), (ld(4) + ld(7)) * ld(7) / ld(6)),
+  st(4, ld(4) + ld(7) * 2);
+  st(5, ld(5) - ld(6) * 2);
+  st(2, (ld(4) * ld(6) + ld(5) * ld(7)) * ld(9));
+  st(4, ld(6) * ld(2) - ld(4));
+  st(5, ld(7) * ld(2) - ld(5))
  )
 );
 st(6, cos(-ld(3)));
@@ -1444,7 +1441,7 @@ if(ld(0),
   ifnot(PLANE, a0(ld(5),ld(6)), ifnot(1-PLANE, a1(ld(5),ld(6)), ifnot(2-PLANE, a2(ld(5),ld(6)), a3(ld(5),ld(6))))),
   ifnot(PLANE, b0(ld(5),ld(6)), ifnot(1-PLANE, b1(ld(5),ld(6)), ifnot(2-PLANE, b2(ld(5),ld(6)), b3(ld(5),ld(6)))))
  ));
- if(eq(abs(ld(0)), 2),
+ ifnot(2-abs(ld(0)),
   st(1, ld(1) * (1 - ld(3)));
   ld(4) * (1 - ld(1)) + ld(2) * ld(1),
   ld(2)
@@ -1467,13 +1464,13 @@ if(lt(ld(5), ld(1)),
  st(6, cos(ld(1)));
  st(1, ld(3) * ld(6) - ld(4) * ld(5));
  st(4, ld(3) * ld(5) + ld(4) * ld(6));
- st(3, ld(1))
-);
-st(3, (ld(3) + 0.5) * W);
-st(4, (0.5 - ld(4)) * H);
-st(5, ifnot(PLANE, a0(ld(3),ld(4)), ifnot(1-PLANE, a1(ld(3),ld(4)), ifnot(2-PLANE, a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
-st(6, ifnot(PLANE, b0(ld(3),ld(4)), ifnot(1-PLANE, b1(ld(3),ld(4)), ifnot(2-PLANE, b2(ld(3),ld(4)), b3(ld(3),ld(4))))));
-ld(6) * (1 - P) + ld(5) * P
+ st(3, (ld(1) + 0.5) * W);
+ st(4, (0.5 - ld(4)) * H);
+ st(5, ifnot(PLANE, a0(ld(3),ld(4)), ifnot(1-PLANE, a1(ld(3),ld(4)), ifnot(2-PLANE, a2(ld(3),ld(4)), a3(ld(3),ld(4))))));
+ st(6, ifnot(PLANE, b0(ld(3),ld(4)), ifnot(1-PLANE, b1(ld(3),ld(4)), ifnot(2-PLANE, b2(ld(3),ld(4)), b3(ld(3),ld(4))))));
+ ld(6) * (1 - P) + ld(5) * P,
+ B * (1 - P) + A * P
+)
 
 GL_WATERDROP
 st(1, 30);
