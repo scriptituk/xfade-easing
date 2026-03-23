@@ -1200,7 +1200,7 @@ These are only needed when easing standard Xfade transitions.
  | coverleft | 11 | 28 | 15 | 13 | 10 | 
  | coverright | 9 | 24 | 13 | 11 | 9 | 
  | coverup | 11 | 28 | 15 | 13 | 10 | 
- | diagbl | 12 | 30 | 16 | 13 | 11 | 
+ | diagbl | 11 | 30 | 16 | 13 | 11 | 
  | diagbr | 12 | 32 | 18 | 15 | 12 | 
  | diagtl | 11 | 28 | 15 | 13 | 10 | 
  | diagtr | 12 | 30 | 17 | 14 | 11 | 
@@ -1226,7 +1226,7 @@ These are only needed when easing standard Xfade transitions.
  | revealup | 11 | 28 | 15 | 13 | 10 | 
  | slidedown | 10 | 26 | 15 | 12 | 10 | 
  | slideleft | 12 | 30 | 17 | 14 | 11 | 
- | slideright | 10 | 27 | 15 | 12 | 10 | 
+ | slideright | 10 | 26 | 15 | 12 | 10 | 
  | slideup | 12 | 31 | 17 | 14 | 11 | 
  | smoothdown | 11 | 28 | 15 | 13 | 10 | 
  | smoothleft | 10 | 26 | 14 | 12 | 9 | 
@@ -1235,7 +1235,7 @@ These are only needed when easing standard Xfade transitions.
  | squeezeh | 7 | 17 | 9 | 8 | 6 | 
  | squeezev | 7 | 17 | 9 | 8 | 6 | 
  | vdslice | 14 | 37 | 21 | 17 | 14 | 
- | vdwind | 17 | 45 | 25 | 20 | 17 | 
+ | vdwind | 17 | 44 | 25 | 20 | 16 | 
  | vertclose | 11 | 28 | 16 | 13 | 10 | 
  | vertopen | 11 | 28 | 16 | 13 | 10 | 
  | vuslice | 13 | 35 | 19 | 16 | 13 | 
@@ -1267,7 +1267,7 @@ These are only needed when easing standard Xfade transitions.
  | gl_CrazyParametricFun | 59 | 156 | 87 | 71 | 58 | 
  | gl_CrossOut | 16 | 42 | 23 | 19 | 16 | 
  | gl_Diamond | 8 | 22 | 12 | 10 | 8 | 
- | gl_DirectionalScaled | 39 | 105 | 59 | 48 | 39 | 
+ | gl_DirectionalScaled | 39 | 105 | 58 | 48 | 39 | 
  | gl_DoubleDiamond | 11 | 28 | 16 | 13 | 10 | 
  | gl_Dreamy | 31 | 82 | 45 | 37 | 30 | 
  | gl_FanIn | 13 | 33 | 18 | 15 | 12 | 
@@ -1295,11 +1295,11 @@ These are only needed when easing standard Xfade transitions.
  | gl_doorway | 40 | 106 | 59 | 48 | 39 | 
  | gl_heart | 18 | 47 | 26 | 21 | 17 | 
  | gl_hexagonalize | 67 | 179 | 99 | 81 | 66 | 
- | gl_kaleidoscope | 171 | 463 | 257 | 210 | 171 | 
+ | gl_kaleidoscope | 171 | 460 | 256 | 209 | 170 | 
  | gl_perlin | 86 | 223 | 124 | 102 | 83 | 
  | gl_pinwheel | 12 | 30 | 17 | 14 | 11 | 
  | gl_polar_function | 17 | 46 | 25 | 21 | 17 | 
- | gl_powerKaleido | 489 | 1306 | 725 | 593 | 484 | 
+ | gl_powerKaleido | 488 | 1306 | 725 | 593 | 484 | 
  | gl_randomNoisex | 8 | 22 | 12 | 10 | 8 | 
  | gl_randomsquares | 24 | 63 | 35 | 29 | 23 | 
  | gl_ripple | 36 | 96 | 53 | 44 | 35 | 
@@ -1309,7 +1309,7 @@ These are only needed when easing standard Xfade transitions.
  | gl_static_wipe | 52 | 137 | 76 | 62 | 51 | 
  | gl_swap | 75 | 200 | 111 | 91 | 74 | 
  | gl_windowblinds | 21 | 56 | 31 | 25 | 21 | 
- | gl_windowslice | 16 | 43 | 24 | 20 | 16 | 
+ | gl_windowslice | 16 | 43 | 24 | 19 | 16 | 
 
 </details>
 
