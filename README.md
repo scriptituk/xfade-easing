@@ -589,10 +589,7 @@ Here are the ported GLSL transitions with default parameters and no easing.
 They are all supported by the custom ffmpeg variant but check [above](#ported-glsl-transitions)
 for the dozen or so that are not supported by the custom expression variant.
 
-See also the [GL Transitions Gallery](https://gl-transitions.com/gallery)
-which lacks many recent contributor transitions plus even more stacking up as
-[pull requests](https://github.com/gl-transitions/gl-transitions/pulls) –
-which is why I have not added my bundle.
+See also the [GL Transitions Gallery](https://gl-transitions.com/gallery).
 
 ![GL gallery](assets/gl-gallery.gif)
 
@@ -1649,6 +1646,10 @@ if(gt(ld(1), ld(4) * (1 - P)), A, B)'
 Plots are generated using the `-p` option and customised with the `-m`,`-q`,`-c` options.
 
 Plot data is logged using the `print` function of the ffmpeg expression evaluator for the first plane and first pixel as xfade progress `P` goes from 1 to 0 at 100fps.
+Specifically, if the xfade `transition` option is `custom` and an `easing` option is provided, then
+`P` is the constrained eased progress (`0`–`1`) and variables `ld(0)` and `ld(1)` contain preloaded plot data:
+`ld(0)` is the uneased progress (linear `P` value) and `ld(1)` is the unclipped eased progress (may overshoot).
+Plotting y=`ld(1)` against x=`ld(0)` with gnuplot creates the graphs.
 
 - `xfade-easing.sh -e elastic -p plot-%e.pdf` \
 creates a PDF file plot-elastic.pdf of elastic easing
