@@ -908,6 +908,52 @@ These affect transitions that take a `background` parameter and have no effect o
 
 ---
 
+## Reversing Xfade effects
+
+(custom ffmpeg only)
+
+The generic xfade `reverse` option reverses the transition and/or easing effects.
+It takes a bitmapped number:
+
+- `0` no reverse (default)
+- `1` swap the inputs and reverse the transition effect
+- `2` reverse the easing effect
+- `3` swap the inputs and reverse the transition and easing effects
+
+It is necessary to swap the inputs during the reversed transition to match the inputs before and after the transition,
+i.e. during the `offset` time and after the `offset`+`duration` time.
+Note that `elastic` and `back` easings implicitly swap the inputs and add ±1 to the progress value during overshoots, see [Overshoots](#overshoots).
+
+Reversing is tricky but not impossible to implement in the [xfade-easing.sh](#cli-script) script for custom expressions.
+The script has a `-b` option to pass reverse values through to xfade for the custom ffmpeg variant.
+
+Most standard xfade transitions have reversed equivalents, e.g. `wipeleft` and `wiperight`, but few GLSL transitions do.
+Unlike standard easings, CSS easings also have no mirror-image reversal mode.
+
+*Example*: using the same CSS Linear coefficients [as above](#linear-easing) \
+easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'`, transition: `gl_FanUp`, reverse: `0`–`3`
+
+![reverse effect](assets/reverse.gif)
+
+There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
+Reversing is also particurly useful for
+`squeezeh`, `squeezev`,
+`gl_BookFlip`, `gl_BowTie`, `gl_cube`, `gl_doorway`, `gl_heart`, `gl_pinwheel`, `gl_rotateTransition`, `gl_Slides`, `gl_Swirl`, `gl_swap`, `gl_windowslice`.
+
+This is a powerful feature that considerably increases the number of transitions available.
+
+---
+
+## Effect-only transitions
+
+Creative effects can result from using the *same* media source for both transition inputs.
+
+*Examples*: some effect-only transitions with and without easing or reversing
+
+![effect-only](assets/effect-only.gif)
+
+---
+
 ## Colour considerations
 
 ### Pixel format
@@ -1105,42 +1151,6 @@ which overlays a transparent transition.
 
 ---
 
-## Reversing Xfade effects
-
-(custom ffmpeg only)
-
-The generic xfade `reverse` option reverses the transition and/or easing effects.
-It takes a bitmapped number:
-
-- `0` no reverse (default)
-- `1` swap the inputs and reverse the transition effect
-- `2` reverse the easing effect
-- `3` swap the inputs and reverse the transition and easing effects
-
-It is necessary to swap the inputs during the reversed transition to match the inputs before and after the transition,
-i.e. during the `offset` time and after the `offset`+`duration` time.
-Note that `elastic` and `back` easings implicitly swap the inputs and add ±1 to the progress value during overshoots, see [Overshoots](#overshoots).
-
-Reversing is tricky but not impossible to implement in the [xfade-easing.sh](#cli-script) script for custom expressions.
-The script has a `-b` option to pass reverse values through to xfade for the custom ffmpeg variant.
-
-Most standard xfade transitions have reversed equivalents, e.g. `wipeleft` and `wiperight`, but few GLSL transitions do.
-Unlike standard easings, CSS easings also have no mirror-image reversal mode.
-
-*Example*: using the same CSS Linear coefficients [as above](#linear-easing) \
-easing: `'linear(0, 0.5 30%, 0.2 60% 80%, 1)'`, transition: `gl_FanUp`, reverse: `0`–`3`
-
-![reverse effect](assets/reverse.gif)
-
-There is no `gl_FanDown` transition but reversing `gl_FanUp` provides one.
-Reversing is also particurly useful for
-`squeezeh`, `squeezev`,
-`gl_BookFlip`, `gl_BowTie`, `gl_cube`, `gl_doorway`, `gl_heart`, `gl_pinwheel`, `gl_rotateTransition`, `gl_Slides`, `gl_Swirl`, `gl_swap`, `gl_windowslice`.
-
-This is a powerful feature that considerably increases the number of transitions available.
-
----
-
 ## Performance
 
 ### Custom expression performance
@@ -1157,12 +1167,12 @@ But modern CPU speeds make xfade custom transitions a viable option, if somewhat
 #### Interpretation of metrics
 
 The following plots show empirical processing times for a 3-second transition of 3-plane frames (rgb24) through a null muxer
-in SD (720x480) and HD (1280x720) sizes on an otherwise idle Intel 2018 Mac,
+in SD (720x480) and HD (1280x720) sizes on an otherwise idle 2018 Core i7 3.2GHz Mac mini, 
 taking the minimum times of several runs.
 Times include the [CLI script](#cli-script) overhead.
 
 > [!NOTE]
-> this an *old machine* now, so below each plot is a table with estimated times for later PCs
+> this is an *old machine* now, so below each plot is a table with estimated times for later PCs
 
 Based on benchmark scores ([Geekbench Mac Benchmark Chart](https://browser.geekbench.com/mac-benchmarks))
 these times need scaling as follows:
@@ -1506,7 +1516,7 @@ Other, faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg Xfade easing and extensions version 3.6.5 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg Xfade easing and extensions version 3.6.6 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased Xfade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.
@@ -1561,7 +1571,7 @@ Options:
     -i time between video transitions (default: 1s, minimum: 0) (see note for -l)
     -l video length (default: 5s)
        note: options -d, -i, -l are interdependent: l=ni+(n-1)d for n inputs
-       given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
+       given -i & -l, d is calculated; else given -l, i is calculated; else l is calculated
     -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
     -n show effect name on video as text (requires the libfreetype library)
@@ -1587,13 +1597,12 @@ Options:
     -T temporary file directory (default: /tmp)
     -K keep temporary files if temporary directory is not /tmp
 Notes:
-    1. point the shebang path to a bash4 location (defaults to MacPorts install)
-    2. this script requires Bash 4 (2009), ffmpeg, ffprobe, gawk, gsed, seq
+    1. this script requires Bash 4 (2009), ffmpeg, ffprobe, gawk, gsed, seq
        also gnuplot for plots, gifski for optimised animated gifs
-    3. use ffmpeg option -filter_complex_threads 1 (slower) because xfade expression
+    2. use ffmpeg option -filter_complex_threads 1 (slower) because xfade expression
        vars used by st() & ld() are shared across slices, therefore not thread-safe
        (the custom ffmpeg build works without -filter_complex_threads 1)
-    4. CSS easings are supported in the custom ffmpeg build but not as custom expressions
+    3. CSS easings are supported in the custom ffmpeg build but not as custom expressions
     4. certain xfade transitions are not implemented as custom expressions because
        they perform aggregation (distance, hblur)
     5. many GLSL transitions are also ported, some of which take customisation parameters

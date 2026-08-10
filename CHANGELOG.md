@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.\
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.6] - 2026-08-10
+
+### Changed
+
+- added README section on using a *single* image/video for both inputs, for effect only
+- minor C code optimisations
+
+### Fixed
+
+- support for FFmpeg version 8.1 (altered `AVExpr` broke plotting)
+- `gl_rotateTransition` error in C version
+- fix GNU gcc `suggest parentheses` warnings
+- usage text corrections
+
 ## [3.6.5] - 2026-03-22
 
 ### Changed
@@ -15,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `slideleft` `slideup` `revealleft` `revealup` transitions read out-of-bounds `AVFrame` data when `progress` is 1
-  – [Issue #22273](https://code.ffmpeg.org/FFmpeg/FFmpeg/issues/22273):
+  ([issue #22273](https://code.ffmpeg.org/FFmpeg/FFmpeg/issues/22273) & [pull request #22587](https://code.ffmpeg.org/FFmpeg/FFmpeg/issues/22587))
 
 ## [3.6.4] - 2026-02-20
 
@@ -41,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- plot data interface when `transition=custom`, `easing=<name>`:
+  - `ld(0)` = uneased progress (linear `P` value)
+  - `ld(1)` = unclipped eased progress (may overshoot)
+  - `P` = constrained eased progress (`0`–`1`)
 - more C code optimisations
 
 ### Fixed
