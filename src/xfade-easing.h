@@ -240,11 +240,11 @@ static float rp_bounce(const XFadeEasingContext *k, float t)
     float c, s = (t < P5f) ? 1 : -1;
     if (mode == EASE_IN) t = 1 - t;
     else if (mode == EASE_INOUT) t = (1 - t - t) * s;
-    if (t < (4.f / 11.f))                           c = 0;
-    else if (t < (8.f / 11.f))  t -= 6.f / 11.f,  c = 3.f / 4.f;
-    else if (t < (10.f / 11.f)) t -= 9.f / 11.f,  c = 15.f / 16.f;
-    else                        t -= 21.f / 22.f, c = 63.f / 64.f;
-    t = t * t * (121.f / 16.f) + c;
+    if (t < 4.f / 11)                       c = 0;
+    else if (t < 8.f / 11)  t -= 6.f / 11,  c = 3.f / 4;
+    else if (t < 10.f / 11) t -= 9.f / 11,  c = 15.f / 16;
+    else                    t -= 21.f / 22, c = 63.f / 64;
+    t = t * t * (121.f / 16) + c;
     if (mode == EASE_IN) return 1 - t;
     if (mode == EASE_OUT) return t;
     return (1 - t * s) / 2;
@@ -401,6 +401,8 @@ static inline vec2 mix2(vec2 a, vec2 b, float m) { return add2(mul2f(a, 1 - m), 
 static inline vec2 mod2(vec2 p, float f) { return VEC2(glmod(p.x, f), glmod(p.y, f)); }
 static inline vec2 rcp2(vec2 p) { return VEC2(1 / p.x, 1 / p.y); }
 static inline vec2 sign2(vec2 p) { return VEC2(sign(p.x), sign(p.y)); }
+static inline vec2 centre2(vec2 p) { return sub2f(p, P5f); } // translate to centre
+static inline vec2 origin2(vec2 p) { return add2f(p, P5f); } // translate to origin
 static inline float min2(vec2 p) { return minf(p.x, p.y); }
 static inline float max2(vec2 p) { return maxf(p.x, p.y); }
 static inline float asum2(vec2 p) { return absf(p.x) + absf(p.y); }
@@ -733,7 +735,7 @@ static vec4 gl_angular(const XTransition *e) // by Fernando Kuteken
     ARG1(bool, clockwise, 0)
     VAR1(float, offset, radians(startingAngle))
     INIT_END
-    float angle = atn2(sub2f(e->p, P5f)) + offset;
+    float angle = atn2(centre2(e->p)) + offset;
     float normalizedAngle = angle * M_1_TAUf + P5f;
     if (clockwise)
         normalizedAngle = -normalizedAngle;
@@ -766,7 +768,7 @@ static vec4 gl_BookFlip(const XTransition *e) // by hong
     INIT_END
     vec4 colour;
     float p = P5f - e->progress;
-    vec2 c = sub2f(e->p, P5f);
+    vec2 c = centre2(e->p);
     bool pr = step(p, c.x);
     if (c.x < 0) {
         if (!pr)
@@ -842,7 +844,7 @@ static vec4 gl_BowTie(const XTransition *e) // by huynx
         if (b1 == b2 && b2 == b3) { // in triangle
             if (e->progress < 0.1f)
                 break;
-            if (!pass != (vertical ? p.y : p.x) < P5f)
+            if (!pass != ((vertical ? p.y : p.x) < P5f))
                 return pass ? e->a : e->b;
             // blur edge
             vec2 lineDir = sub2(b, a);
@@ -873,7 +875,7 @@ static vec4 gl_ButterflyWaveScrawler(const XTransition *e) // by mandubian
     ARG1(float, colorSeparation, 0.3)
     INIT_END
     // func compute
-    vec2 o = sub2f(mul2f(e->p, sinf(e->progress * amplitude)), P5f);
+    vec2 o = centre2(mul2f(e->p, sinf(e->progress * amplitude)));
     vec2 h = { 1, 0 }; // horizontal vector
     float theta = acosf(dot2(o, h)) * waves; // butterfly polar function
     float disp = (expf(cosf(theta)) - cosf(theta * 4) * 2 + powf(sinf((theta * 2 - M_PIf) / 24), 5)) * 0.1f;
@@ -891,7 +893,7 @@ static vec4 gl_cannabisleaf(const XTransition *e) // by Flexi23
     INIT_END
     if (e->progress == 0)
         return e->a;
-    vec2 leaf_uv = div2f(sub2f(e->p, P5f), 10 * powf(e->progress, 3.5f));
+    vec2 leaf_uv = div2f(centre2(e->p), 10 * powf(e->progress, 3.5f));
     leaf_uv.y += 0.35f; // leaf offset
     float r = 0.18f; // leaf size
     float o = atn2(leaf_uv);
@@ -934,7 +936,7 @@ static vec4 gl_CrazyParametricFun(const XTransition *e) // by mandubian
     vec2 o = mul2f(cossin2(e->progress * (a / b - 1)), b);
     p.x += o.x;
     p.y -= o.y;
-    o = sub2f(e->p, P5f);
+    o = centre2(e->p);
     p = mul2f(p, e->progress * length2(o) * amplitude);
     p = div2f(VEC2(sinf(p.x), sinf(p.y)), smoothness);
     o = mul2(o, p);
@@ -961,14 +963,14 @@ static vec4 gl_CrossOut(const XTransition *e) // by Mark Craig
     ARG1(float, smoothness, 0.05)
     INIT_END
     float c = e->progress / 2;
-    vec2 p = sub2f(e->p, P5f);
+    vec2 p = centre2(e->p);
     float ds = p.x + p.y, dd = p.y - p.x;
     if (betweenf(ds, -c, c) || betweenf(dd, -c, c))
         return e->b;
     float cs = c + smoothness;
     if (!(betweenf(ds, -cs, cs) || betweenf(dd, -cs, cs)))
         return e->a;
-    float d = absf((p.x >= 0 != p.y >= 0) ? ds : dd);
+    float d = absf(((p.x >= 0) != (p.y >= 0)) ? ds : dd);
     return mix4(e->b, e->a, (d - c) / smoothness);
 }
 
@@ -976,9 +978,9 @@ static vec4 gl_crosswarp(const XTransition *e) // by Eke Péter
 { // License: MIT
     INIT_END
     float x = smoothstep(0, 1, e->progress * 2 + e->p.x - 1);
-    vec2 c = sub2f(e->p, P5f);
-    vec4 a = getFromColor(add2f(mul2f(c, 1 - x), P5f));
-    vec4 b = getToColor(add2f(mul2f(c, x), P5f));
+    vec2 c = centre2(e->p);
+    vec4 a = getFromColor(origin2(mul2f(c, 1 - x)));
+    vec4 b = getToColor(origin2(mul2f(c, x)));
     return mix4(a, b, x);
 }
 
@@ -1054,7 +1056,7 @@ static vec4 gl_Diamond(const XTransition *e) // by Mark Craig
     INIT_BEGIN
     ARG1(float, smoothness, 0.05)
     INIT_END
-    float d = asum2(sub2f(e->p, P5f));
+    float d = asum2(centre2(e->p));
     if (d < e->progress)
         return e->b;
     return (d > e->progress + smoothness)
@@ -1071,7 +1073,7 @@ static vec4 gl_DirectionalScaled(const XTransition *e) // by Thibaut Foussard
     float easedProgress = powf(sinf(e->progress * M_PI_2f), 3);
     vec2 p = add2(e->p, mul2f(sign2(direction), easedProgress));
     float s = 1 - (1 - 1 / scale) * sinf(e->progress * M_PIf);
-    vec2 f = add2f(mul2f(sub2f(fract2(p), P5f), s), P5f);
+    vec2 f = origin2(mul2f(centre2(fract2(p)), s));
     if (betweenUI2(f))
         return betweenUI2(p) ? getFromColor(f) : getToColor(f);
     return colour(e, background);
@@ -1088,9 +1090,9 @@ static vec4 gl_directionalwarp(const XTransition *e) // by pschroen
     float d = (v.x + v.y) / 2;
     float m = dot2(e->p, v) - (d - P5f + e->progress * (1 + smoothness));
     m = 1 - smoothstep(-smoothness, 0, m);
-    v = sub2f(e->p, P5f);
-    vec4 a = getFromColor(add2f(mul2f(v, 1 - m), P5f));
-    vec4 b = getToColor(add2f(mul2f(v, m), P5f));
+    v = centre2(e->p);
+    vec4 a = getFromColor(origin2(mul2f(v, 1 - m)));
+    vec4 b = getToColor(origin2(mul2f(v, m)));
     return mix4(a, b, m);
 }
 
@@ -1113,7 +1115,7 @@ static vec4 gl_doorway(const XTransition *e) // by gre
             return getFromColor(pfr);
     }
     float size = mixf(1, depth, 1 - e->progress);
-    vec2 pto = add2f(mul2f(sub2f(e->p, P5f), size), P5f);
+    vec2 pto = origin2(mul2f(centre2(e->p), size));
     if (betweenUI2(pto))
         return getToColor(pto);
     vec4 c = colour(e, background);
@@ -1129,7 +1131,7 @@ static vec4 gl_DoubleDiamond(const XTransition *e) // by Mark Craig
     ARG1(float, smoothness, 0.05)
     INIT_END
     float b1 = (1 - e->progress) / 2, b2 = 1 - b1;
-    float d = asum2(sub2f(e->p, P5f));
+    float d = asum2(centre2(e->p));
     if (betweenf(d, b1, b2)) {
         if (betweenf(d, b1 + smoothness, b2 - smoothness))
             return e->b;
@@ -1199,7 +1201,7 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
     VAR1(float, ratio2, (e->ratio - 1) / 2)
     INIT_END
     const int iters = 50; // TODO: experiment with this
-    const vec2 uv = sub2f(e->p, P5f);
+    const vec2 uv = centre2(e->p);
     vec4 comp = vec3f(0);
     for (int i = 0; i < iters; i++) {
         float p = clipUI(e->progress + (float)i * blur / (frames * iters));
@@ -1213,13 +1215,13 @@ static vec4 gl_Exponential_Swish(const XTransition *e) // by Boundless
             uv0 = div2f(uv, px0), uv1 = mul2f(uv, px1);
         else
             uv0 = uv, uv1 = uv;
-        uv0 = sub2(add2f(uv0, P5f), mul2f(offset, pa0 / px2));
+        uv0 = sub2(origin2(uv0), mul2f(offset, pa0 / px2));
         uv0.x = uv0.x * e->ratio - ratio2;
-        uv0 = add2f(rot2(sub2f(uv0, P5f), -deg * pa0), P5f);
+        uv0 = origin2(rot2(centre2(uv0), -deg * pa0));
         uv0.x = (uv0.x + ratio2) / e->ratio;
-        uv1 = add2(add2f(uv1, P5f), mul2f(offset, pa1 / px3));
+        uv1 = add2(origin2(uv1), mul2f(offset, pa1 / px3));
         uv1.x = uv1.x * e->ratio - ratio2;
-        uv1 = add2f(rot2(sub2f(uv1, P5f), deg * pa1), P5f);
+        uv1 = origin2(rot2(centre2(uv1), deg * pa1));
         uv1.x = (uv1.x + ratio2) / e->ratio;
         if (wrap.x == 2)
             uv0.x = acosf(cosf(M_PIf * uv0.x)) * M_1_PIf, uv1.x = acosf(cosf(M_PIf * uv1.x)) * M_1_PIf;
@@ -1433,7 +1435,7 @@ static vec4 gl_kaleidoscope(const XTransition *e) // by nwoeanhinnogaehr
     ARG1(float, power, 1.5)
     INIT_END
     float t = powf(e->progress, power) * speed;
-    vec2 p = sub2f(e->p, P5f);
+    vec2 p = centre2(e->p);
     for (int i = 0; i < 7; i++) {
         p = abs2(sub2f(mod2(rot2(p, M_PI_2f - t), 2), 1));
         t += angle;
@@ -1535,7 +1537,7 @@ static vec4 gl_Mosaic(const XTransition *e) // by Xaychru
     bool onEnd = crp.x == endx && crp.y == endy;
     if(!onEnd) {
         float ang = truncf(r * 4) * M_PI_2f;
-        mrp = add2f(rot2(sub2f(mrp, P5f), ang), P5f);
+        mrp = origin2(rot2(centre2(mrp), ang));
     }
     return (onEnd || r > P5f) ? getToColor(mrp) : getFromColor(mrp);
 }
@@ -1560,7 +1562,7 @@ static vec4 gl_pinwheel(const XTransition *e) // by Mr Speaker
     INIT_BEGIN
     ARG1(float, speed, 1)
     INIT_END
-    float circPos = atn2(sub2f(e->p, P5f)) + e->progress * speed;
+    float circPos = atn2(centre2(e->p)) + e->progress * speed;
     float modPos = glmod(circPos, M_PI_4f);
     return (e->progress <= modPos) ? e->a : e->b;
 }
@@ -1570,9 +1572,9 @@ static vec4 gl_polar_function(const XTransition *e) // by Fernando Kuteken
     INIT_BEGIN
     ARG1(int, segments, 5)
     INIT_END
-    float angle = atn2(sub2f(e->p, P5f)) - M_PI_2f;
+    float angle = atn2(centre2(e->p)) - M_PI_2f;
     float radius = cosf(segments * angle) / 4 + 1;
-    float difference = length2(sub2f(e->p, P5f));
+    float difference = length2(centre2(e->p));
     return (difference > radius * e->progress) ? e->a : e->b;
 }
 
@@ -1594,7 +1596,7 @@ static vec4 gl_powerKaleido(const XTransition *e) // by Boundless
     ARG1(float, speed, 5)
     VAR1(float, dist, scale / 10)
     INIT_END
-    vec2 uv = mul2(sub2f(e->p, P5f), VEC2(e->ratio * z, z));
+    vec2 uv = mul2(centre2(e->p), VEC2(e->ratio * z, z));
     float a = e->progress * speed;
     uv = rot2(uv, a); // slick algo for 120 degree mirror effect only
     for (int iter = 0; iter < 30; iter++) { // 10 * 3
@@ -1608,8 +1610,8 @@ static vec4 gl_powerKaleido(const XTransition *e) // by Boundless
     }
     uv = rot2(uv, -a);
     uv.x /= e->ratio;
-    uv = mul2f(add2f(uv, P5f), P5f);
-    uv = mul2f(abs2(sub2(uv, floor2(add2f(uv, P5f)))), 2);
+    uv = mul2f(origin2(uv), P5f);
+    uv = mul2f(abs2(sub2(uv, floor2(origin2(uv)))), 2);
     float m = (cosf(e->progress * M_TAUf) + 1) * P5f;
     vec2 uvMix = mix2(uv, e->p, m);
     m = (cosf((e->progress - 1) * M_PIf) + 1) * P5f;
@@ -1640,7 +1642,7 @@ static vec4 gl_ripple(const XTransition *e) // by gre
     ARG1(float, amplitude, 100)
     ARG1(float, speed, 50)
     INIT_END
-    vec2 dir = sub2f(e->p, P5f);
+    vec2 dir = centre2(e->p);
     float dist = length2(dir);
     float s = (sinf(e->progress * (dist * amplitude - speed)) + P5f) / 30;
     vec2 offset = add2(e->p, mul2f(dir, s));
@@ -1654,7 +1656,7 @@ static vec4 gl_Rolls(const XTransition *e) // by Mark Craig
     ARG1(bool, RotDown, 0)
     INIT_END
     float theta = M_PI_2f * e->progress;
-    if (type >= 2 == !RotDown)
+    if ((type >= 2) == !RotDown)
         theta = -theta;
     vec2 uvi = e->p;
     if (!(type == 1 || type == 2))
@@ -1705,7 +1707,7 @@ static vec4 gl_RotateScaleVanish(const XTransition *e) // by Mark Craig
 static vec4 gl_rotateTransition(const XTransition *e) // by haiyoucuv
 { // License: MIT
     INIT_END
-    vec2 p = add2f(rot2(sub2f(e->p, P5f), e->progress * M_TAUf), P5f);
+    vec2 p = fract2(origin2(rot2(centre2(e->p), e->progress * M_TAUf)));
     return mix4(getFromColor(p), getToColor(p), e->progress);
 }
 
@@ -1777,7 +1779,7 @@ if(!dbg)dbg=1,xe_debug(NULL, "gl_SimpleBookCurl_dbg phi=%g=%g dir=%g,%g p=%g,%g 
         p = VEC2(0, 0);
     }
     // get point relative to curl axis
-    i = sub2f(e->p, P5f); // distance of current point from centre
+    i = centre2(e->p); // distance of current point from centre
     float dist = dot2(sub2(i, p), dir); // distance of point from curl axis
     p = sub2(i, mul2f(dir, dist)); // point perpendicular to curl axis
     // map point to curl
@@ -1785,14 +1787,14 @@ if(!dbg)dbg=1,xe_debug(NULL, "gl_SimpleBookCurl_dbg phi=%g=%g dir=%g,%g p=%g,%g 
     bool s = false; // shadow flag
     if (dist < 0) { // point is over flat A
         c = e->a;
-        p = add2f(mul2(add2(p, mul2f(dir, M_PIf * rad - dist)), VEC2(-1, 1)), P5f);
+        p = origin2(mul2(add2(p, mul2f(dir, M_PIf * rad - dist)), VEC2(-1, 1)));
         if (betweenUI2(p)) // on flat back of A
             c = getToColor(p);
     } else if (rad > 0) { // curled A
         // map to cylinder point
         phi = asinf(dist / rad);
-        vec2 p2 = add2f(mul2(add2(p, mul2f(dir, (M_PIf - phi) * rad)), VEC2(-1, 1)), P5f);
-        vec2 p1 = add2f(add2(p, mul2f(dir, phi * rad)), P5f);
+        vec2 p2 = origin2(mul2(add2(p, mul2f(dir, (M_PIf - phi) * rad)), VEC2(-1, 1)));
+        vec2 p1 = origin2(add2(p, mul2f(dir, phi * rad)));
         if (betweenUI2(p2)) // on curling back of A
             c = getToColor(p2), s = true;
         else if (betweenUI2(p1)) // on curling front of A
@@ -1843,7 +1845,7 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
     INIT_END
     // get point relative to curl axis
     vec2 p = add2(i, mul2f(m, (reverseEffect ? 1 - e->progress : e->progress))); // current position
-    q = sub2f(e->p, P5f); // distance of current point from centre
+    q = centre2(e->p); // distance of current point from centre
     float dist = dot2(sub2(q, p), dir); // distance of point from curl axis
     p = sub2(q, mul2f(dir, dist)); // point perpendicular to curl axis
     // map point to curl
@@ -1851,11 +1853,11 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
     bool g = false, o = false, s = false; // getcolor & opacity & shadow flags
     if (dist < 0) { // point is over flat or rolling A
         if (!roll) { // curl
-            p = add2f(add2(p, mul2f(dir, M_PIf * radius - dist)), P5f);
+            p = origin2(add2(p, mul2f(dir, M_PIf * radius - dist)));
             g = true;
         } else if (-dist < radius) { // possibly on roll over
             phi = asinf(-dist / radius);
-            p = add2f(add2(p, mul2f(dir, (M_PIf + phi) * radius)), P5f);
+            p = origin2(add2(p, mul2f(dir, (M_PIf + phi) * radius)));
             g = s = true;
         }
         if (g && betweenUI2(p)) // on back of A
@@ -1865,8 +1867,8 @@ static vec4 gl_SimplePageCurl(const XTransition *e) // by Andrew Hung
     } else if (radius > 0) { // point is over curling A or flat B
         // map to cylinder point
         phi = asinf(dist / radius);
-        vec2 p2 = add2f(add2(p, mul2f(dir, (M_PIf - phi) * radius)), P5f);
-        vec2 p1 = add2f(add2(p, mul2f(dir, phi * radius)), P5f);
+        vec2 p2 = origin2(add2(p, mul2f(dir, (M_PIf - phi) * radius)));
+        vec2 p1 = origin2(add2(p, mul2f(dir, phi * radius)));
         if (betweenUI2(p2)) // on curling back of A
             p = p2, g = o = s = true;
         else if (betweenUI2(p1)) // on curling front of A
@@ -1990,7 +1992,7 @@ static vec4 gl_StarWipe(const XTransition *e) // by Ben Lucas
     VAR1(float, starAngle, M_TAUf / 5)
     INIT_END
     const float slope = 0.3f;
-    vec2 r = rot2(sub2f(e->p, P5f), -starRotation * starAngle);
+    vec2 r = rot2(centre2(e->p), -starRotation * starAngle);
     float theta = atn2(r) + M_PIf;
     r = rot2(r, starAngle * (roundf(theta / starAngle)));
     r.x *= slope;
@@ -2049,8 +2051,8 @@ static vec4 gl_Stripe_Wipe(const XTransition *e) // by Boundless
     VAR1(float, offset, absf(sinf(rad)) + absf(cosf(rad) * e->ratio))
     INIT_END
     vec2 p = e->p;
-    p.x = p.x * e->ratio - (e->ratio - 1) / 2;
-    p = add2f(rot2(div2f(sub2f(p, P5f), offset), -rad), P5f);
+    p.x = (p.x - P5f) * e->ratio + P5f;
+    p = origin2(rot2(div2f(centre2(p), offset), -rad));
     float px = cbrtf(1 - p.x);
     float lspread = (px + ((1 + layerSpread) * e->progress - 1)) * nlayers / layerSpread;
     float colorMix = (nlayers == 1) ? floorf(lspread) * 2 : floorf(lspread) / (nlayers - 1);
@@ -2129,13 +2131,13 @@ static vec4 gl_Swirl(const XTransition *e) // by Sergey Kosarevsky
     ARG1(float, radius, 1)
     ARG1(bool, clockwise, 1)
     INIT_END
-    vec2 UV = sub2f(e->p, P5f);
+    vec2 UV = centre2(e->p);
     float Dist = length2(UV);
     if (Dist < radius) {
         float Percent = 1 - Dist / radius;
         float A = 1 - absf(e->progress - P5f) * 2;
         float Theta = Percent * Percent * A * 8 * M_PIf;
-        UV = add2f(rot2(UV, clockwise ? -Theta : Theta), P5f);
+        UV = origin2(rot2(UV, clockwise ? -Theta : Theta));
         return mix4(getFromColor(UV), getToColor(UV), e->progress);
     }
     return mix4(e->a, e->b, e->progress);
@@ -2147,7 +2149,7 @@ static vec4 gl_WaterDrop(const XTransition *e) // by Paweł Płóciennik
     ARG1(float, amplitude, 30)
     ARG1(float, speed, 30)
     INIT_END
-    vec2 dir = sub2f(e->p, P5f);
+    vec2 dir = centre2(e->p);
     float dist = length2(dir);
     if (dist > e->progress)
         return mix4(e->a, e->b, e->progress);
@@ -2203,7 +2205,7 @@ static vec4 test_texture(const XTransition *e)
 
 static vec4 t_cinetunnel(const XTransition *e) // by tomviolin (WdycRw)
 {
-    vec2 v = sub2f(e->p, P5f);
+    vec2 v = centre2(e->p);
     float d = length2(v), a = -atn2(v) * 6, s = e->progress * 6; // speed
     float r = (sinf(a + M_TAUf * (2.f / 3) + 4 / d + s) * P5f + P5f) * d * 2;
     float g  = (sinf(a + M_TAUf / 3 + 4 / d + s) * P5f + P5f) * d * 2;
@@ -2215,7 +2217,7 @@ static vec4 t_cinetunnel(const XTransition *e) // by tomviolin (WdycRw)
 
 static vec4 t_diamond_pattern(const XTransition *e) // by rcread (ltX3W4)
 {
-    vec2 p = add2f(mul2f(abs2(sub2f(VEC2(e->p.x, e->p.y), P5f)), 800), 50);
+    vec2 p = add2f(mul2f(abs2(centre2(e->p)), 800), 50);
     vec2 q = add2(p, p);
     float s = e->progress * 400, t;
     float r = (t = p.x + p.y, absf(t / 2 - fmodf(s, t)));
@@ -2261,7 +2263,7 @@ static vec4 t_Monochrome_Hyperbola(const XTransition *e) // by MichaelPohoreski 
 static vec4 t_Natural_vignetting(const XTransition *e) // by ApoorvaJ (4lSXDm)
 {
     float t = cosf(e->progress * M_TAUf) / 2 + 1;
-    vec2 v = mul2f(sub2f(e->p, P5f), e->ratio * 2);
+    vec2 v = mul2f(centre2(e->p), e->ratio * 2);
     float r = dot2(v, v) * t * t + 1;
     return vec3f(1 / (r * r));
 }
@@ -2382,9 +2384,10 @@ static float ease(XFadeContext *s, float progress)
     if (s->transition == CUSTOM) {
         // make uneased progress P available as ld(0) and eased progress available as ld(1)
         // primarily for testing easing functions and generating easing plots
-        // horrible hack here due to incomplete definition of type 'struct AVExpr' at s->e
-        // TODO: find a neat thread-safe way to implement this hook for slices
-        typedef struct { // this must mimic struct AVExpr member sizeofs, see libavutil/eval.c
+        // nasty hack here due to unexposed type definitions in C code
+        // these structs must mimic member sizeofs in libavutil/eval.c
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(60, 26, 100) // < v8.1
+        typedef struct {
             int type;
             double value;
             int const_index;
@@ -2392,9 +2395,25 @@ static float ease(XFadeContext *s, float progress)
             struct AVExpr *param[3];
             double *var;
         } _AVExpr;
-        _AVExpr *e = (_AVExpr*)s->e;
-        e->var[0] = progress; // original P
-        e->var[1] = eased; // may lie outside UI
+        double *var = ((_AVExpr*)s->e)->var;
+#else
+        typedef struct {
+            unsigned char type;
+            unsigned char root;
+            short depth;
+            int const_index;
+            double value;
+            double (*func0)(double);
+            struct AVExpr *param[3];
+        } _AVExpr;
+        typedef struct {
+            _AVExpr avexpr;
+            double *var;
+        } _AVExprRoot;
+        double *var = ((_AVExprRoot*)s->e)->var;
+#endif
+        var[0] = progress; // original P
+        var[1] = eased; // may lie outside UI
     };
     return eased;
 }
@@ -2894,10 +2913,10 @@ static int config_xfade_easing(AVFilterContext *ctx)
         return ret; // 1 if xfade transition
 
     AVFilterLink *l = ctx->outputs[0];
-#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(10, 4, 100)
-    k->framerate = r2f(l->frame_rate); // v6.x, v7.0
+#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(10, 4, 100) // < v7.1
+    k->framerate = r2f(l->frame_rate);
 #else
-    k->framerate = r2f(ff_filter_link(l)->frame_rate); // v7.1
+    k->framerate = r2f(ff_filter_link(l)->frame_rate);
 #endif
     k->duration = (float)s->duration / AV_TIME_BASE; // seconds
     k->r = (float)l->w / l->h;
@@ -2987,7 +3006,7 @@ static vec4 inverted_page_curl(const XTransition *e, int angle, float radius, bo
         point = add2(rot2(p, -ang), o2);
         colour = reverseEffect ? e->a : e->b;
         if (yc < 0 && betweenUI2(point) && (hitAngle < M_PIf || amount > P5f)) { // shadow over to page
-            float shadow = (1 - length2(sub2f(point, P5f)) * M_SQRT2f) * powf(-yc / cylinderRadius, 3) / 2;
+            float shadow = (1 - length2(centre2(point)) * M_SQRT2f) * powf(-yc / cylinderRadius, 3) / 2;
             colour.p0 -= shadow; // (can go -ve)
             if (e->k->is_rgb)
                 colour.p1 -= shadow, colour.p2 -= shadow;
@@ -3070,7 +3089,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 static inline bool in_rounded_mask(vec2 c, vec2 r)
 {
-    c = div2(add2(abs2(c), sub2f(r, P5f)), r);
+    c = div2(add2(abs2(c), centre2(r)), r);
     return (c.x < 0 && c.y < 1) || (c.y < 0 && c.x < 1) || dot2(c, c) < 1;
 }
 static inline vec4 unscreen(vec4 c) // colour when screened with itself yields original colour
@@ -3079,7 +3098,7 @@ static inline vec4 unscreen(vec4 c) // colour when screened with itself yields o
 }
 static vec4 stereo_viewer(const XTransition *e, float zoom, float radius, bool flip, vec4 background, bool trkMat)
 {
-    vec2 c = sub2f(e->p, P5f), z; // point from centre
+    vec2 c = centre2(e->p), z; // point from centre
     float angle;
     vec4 img, img0, img1;
     vec2 r = { radius / e->ratio, radius }; // radius warped for square aspect
@@ -3090,7 +3109,7 @@ static vec4 stereo_viewer(const XTransition *e, float zoom, float radius, bool f
         angle = (P5f - absf(e->progress - P5f)) * 10;
         z = div2f(c, 1 + angle * (zoom - 1));
         if (in_rounded_mask(z, mul2f(r, angle))) {
-            z = add2f(z, P5f);
+            z = origin2(z);
             img = (e->progress < P5f) ? getFromColor(z) : getToColor(z);
             if (!trkMat || step(background.p3, img.p3)) // alpha tracking
                 return img;
@@ -3125,11 +3144,11 @@ static vec4 stereo_viewer(const XTransition *e, float zoom, float radius, bool f
         // get point colours
         if (e->progress < P5f) {
             if (m[0])
-                img0 = getFromColor(add2f(t[0], P5f));
+                img0 = getFromColor(origin2(t[0]));
             if (m[1])
-                img1 = getFromColor(add2f(t[1], P5f));
+                img1 = getFromColor(origin2(t[1]));
         } else {
-            img = getToColor(add2f(z, P5f));
+            img = getToColor(origin2(z));
         }
         // masking logic
         if (trkMat) { // alpha tracking
@@ -3211,8 +3230,7 @@ static float solve_cubic_bezier(float x1, float y1, float x2, float y2, float x,
     for (t = dt, i = 1; i < NB_SPLINE_SAMPLES - 1; t += dt, i++) {
         s = fmaf(fmaf(ax, t, bx), t, cx) * t; // sampleCurveX (Horner’s scheme)
         if (x <= s) {
-            t1 = t;
-            t -= (s - x) / (s - t0) * dt;
+            t1 = t, t -= (s - x) / (s - t0) * dt;
             goto cont;
         }
         t0 = s;

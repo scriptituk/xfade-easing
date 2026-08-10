@@ -15,7 +15,7 @@ set -o posix
 
 export CMD=$(basename $0)
 export REPO=${CMD%.*}
-export VERSION=3.6.5
+export VERSION=3.6.6
 export TMPDIR=/tmp
 
 TMP=$TMPDIR/$REPO-$$
@@ -2811,7 +2811,7 @@ Options:
     -i time between video transitions (default: ${VIDEOTIME}s, minimum: 0) (see note for -l)
     -l video length (default: ${VIDEOLENGTH}s)
        note: options -d, -i, -l are interdependent: l=ni+(n-1)d for n inputs
-       given -t & -l, d is calculated; else given -l, t is calculated; else l is calculated
+       given -i & -l, d is calculated; else given -l, i is calculated; else l is calculated
     -j allow input videos to play within transitions (default: no)
        normally videos only play during the -i time but this sets them playing throughout
     -n show effect name on video as text (requires the libfreetype library)
@@ -2837,13 +2837,12 @@ Options:
     -T temporary file directory (default: $TMPDIR)
     -K keep temporary files if temporary directory is not $TMPDIR
 Notes:
-    1. point the shebang path to a bash4 location (defaults to MacPorts install)
-    2. this script requires Bash 4 (2009), ffmpeg, ffprobe, gawk, gsed, seq
+    1. this script requires Bash 4 (2009), ffmpeg, ffprobe, gawk, gsed, seq
        also gnuplot for plots, gifski for optimised animated gifs
-    3. use ffmpeg option -filter_complex_threads 1 (slower) because xfade expression
+    2. use ffmpeg option -filter_complex_threads 1 (slower) because xfade expression
        vars used by st() & ld() are shared across slices, therefore not thread-safe
        (the custom ffmpeg build works without -filter_complex_threads 1)
-    4. CSS easings are supported in the custom ffmpeg build but not as custom expressions
+    3. CSS easings are supported in the custom ffmpeg build but not as custom expressions
     4. certain xfade transitions are not implemented as custom expressions because
        they perform aggregation (distance, hblur)
     5. many GLSL transitions are also ported, some of which take customisation parameters
