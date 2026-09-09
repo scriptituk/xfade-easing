@@ -185,7 +185,10 @@ the fix for `ld: warning: text-based stub file are out of sync` warnings [is her
 
 #### Native compiling
 
-My repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) has a Bash script to build ffmpeg easily with (or without) xfade-easing under MSYS2 in two dispositions:
+The easiest way by far is to use my repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe).
+Download the Bash script [ffmpeg-makexe.sh](https://github.com/scriptituk/ffmpeg-makexe/blob/main/ffmpeg-makexe.sh) to your `msys64` home directory and run `./ffmpeg-makexe.sh -h` for help on usage.
+
+It builds ffmpeg with (or without) xfade-easing under MSYS2 in two dispositions:
 
 - minimal static build (x264 + zlib) using
   - MSVC toolchain under MSYS2 MSYS environment \
@@ -197,7 +200,7 @@ My repo [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) has a Bash 
   - clang toolchain under MSYS2 CLANG64 environment (ucrt, libc++)
   - gcc toolchain under MSYS2 MINGW64 environment (msvcrt, libstdc++) – not recommended
 
-  these use dynamically-linked external components, creating a 7-Zip archive of all non-Windows binaries.
+  these use dynamically-linked external components, creating an archive of all non-Windows binaries.
 
 Native Msys2 Windows build using [media-autobuild_suite](https://github.com/m-ab-s/media-autobuild_suite)
 is also possible but it broke for me.
