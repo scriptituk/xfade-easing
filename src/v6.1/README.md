@@ -1,1 +1,1 @@
-Files for ffmpeg v6.1.x
+Patch for ffmpeg v6.1
