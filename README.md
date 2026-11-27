@@ -85,7 +85,7 @@ The second line is the  transition expression $t(e(P))$ (`wipedown`) which loads
 The semicolon token combines expressions.
 
 > [!NOTE]
-> ffmpeg option `-filter_complex_threads 1` is required because ffmpeg expression state variables (the `st()` & `ld()` functions) are shared between slice processing jobs and therefore not thread-safe, consequently processing is slower
+> ffmpeg option `-filter_complex_threads 1` is required because ffmpeg expression internal variables (the `st()` & `ld()` functions) are shared between frame slice processing jobs and therefore not thread-safe, consequently processing is slower
 
 ### Getting the expressions
 
@@ -198,7 +198,6 @@ It builds ffmpeg with (or without) xfade-easing under MSYS2 in two dispositions:
 - larger dynamic build using
   - gcc toolchain under MSYS2 UCRT64 environment (ucrt, libstdc++)
   - clang toolchain under MSYS2 CLANG64 environment (ucrt, libc++)
-  - gcc toolchain under MSYS2 MINGW64 environment (msvcrt, libstdc++) – not recommended
 
   these use dynamically-linked external components, creating an archive of all non-Windows binaries.
 
@@ -1163,7 +1162,7 @@ Custom `expr` strings initially get parsed into an expression tree of `AVExpr` n
 [libavutil/eval.c](https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/eval.c)
 which is then executed for every pixel in each plane.
 Unfortunately threading must be disabled (`-filter_complex_threads 1`)
-in order to use the `st()` and `ld()` state variables shared between slices
+in order to use the `st()` and `ld()` internal variables shared between slices
 (a slice is a range of frame lines processed by a thread job).
 But modern CPU speeds make xfade custom transitions a viable option, if somewhat challenging.
 
@@ -1519,7 +1518,7 @@ Other, faster ways to use GL Transitions with FFmpeg are:
 ### Usage
 
 ```
-FFmpeg Xfade easing and extensions version 3.6.6 by Raymond Luckhurst, https://scriptit.uk
+FFmpeg Xfade easing and extensions version 3.6.7 by Raymond Luckhurst, https://scriptit.uk
 Wrapper script to render eased Xfade/GLSL transitions natively or with custom expressions.
 Generates easing and transition expressions for xfade and for easing other filters.
 Also creates easing graphs, demo videos, presentations and slideshows.

@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.\
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.7] - 2026-11-24
+
+### Changed
+
+- altered README section on Windows build using [ffmpeg-makexe](https://github.com/scriptituk/ffmpeg-makexe) (MINGW64 environment deprecated in MSYS2)
+
+### Fixed
+
+- support for FFmpeg version 9.1
+  (fixes [issue #22273](https://code.ffmpeg.org/FFmpeg/FFmpeg/issues/22273), [pull request #22587](https://code.ffmpeg.org/FFmpeg/FFmpeg/issues/22587))
+
+### Added
+
+- patch file for [ffmpeg v7.x, v8.x, v9.0](src/v7.x_8.x_9.0/)
+
 ## [3.6.6] - 2026-08-10
 
 ### Changed
@@ -22,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- custom expr optimisations: `not(1-x)` faster than `eq(x,1) for ints in `if` & `while`
+- custom expr optimisations: `ifnot(1-x,…)` faster than `if(eq(x,1),…)` for ints
 - `gl_LinearBlur` 5 X/Y passes centred instead of 6 offset
 - custom expression optimisations in `gl_kaleidoscope`, `gl_powerKaleido`
 
@@ -77,7 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - dropped `-g` option for GIF transparency as it was unreliable
-- GIF animation via gifski if installed
+- GIF animation via gifski if installed instead of `palettegen`+`paletteuse`
 
 ### Fixed
 
