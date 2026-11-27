@@ -1,5 +1,5 @@
---- libavfilter/vf_xfade.c	2026-11-22 03:53:22
-+++ vf_xfade.c	2026-11-22 03:53:22
+--- libavfilter/vf_xfade.c	2026-11-24 03:53:23
++++ vf_xfade.c	2026-11-24 03:53:24
 @@ -126,6 +126,11 @@
      void (*transitionf)(AVFilterContext *ctx, const AVFrame *a, const AVFrame *b, AVFrame *out, float progress,
                          int slice_start, int slice_end, int jobnr);

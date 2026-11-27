@@ -305,6 +305,11 @@ static inline float smoothstep(float edge0, float edge1, float x)
     return t * t * (3.f - 2.f * t);
 }
 
+static inline int wrap_once(int index, int size)
+{
+    return index < 0 ? index + size : index >= size ? index - size : index;
+}
+
 #define FADE_TRANSITION(name, type, div)                                             \
 static void fade##name##_transition(AVFilterContext *ctx,                            \
                             const AVFrame *a, const AVFrame *b, AVFrame *out,        \
@@ -478,7 +483,7 @@ static void slideleft##name##_transition(AVFilterContext *ctx,                  
         for (int y = 0; y < height; y++) {                                           \
             for (int x = 0; x < width; x++) {                                        \
                 const int zx = z + x;                                                \
-                const int zz = zx % width + width * (zx < 0 && zx > -width);         \
+                const int zz = zx % width + width * (zx % width < 0);                \
                 dst[x] = (zx >= 0) && (zx < width) ? xf1[zz] : xf0[zz];              \
             }                                                                        \
                                                                                      \
@@ -511,7 +516,7 @@ static void slideright##name##_transition(AVFilterContext *ctx,                 
         for (int y = 0; y < height; y++) {                                           \
             for (int x = 0; x < width; x++) {                                        \
                 const int zx = z + x;                                                \
-                const int zz = zx % width;                                           \
+                const int zz = zx % width + width * (zx % width < 0);                \
                 dst[x] = (zx >= 0) && (zx < width) ? xf1[zz] : xf0[zz];              \
             }                                                                        \
                                                                                      \
@@ -541,7 +546,7 @@ static void slideup##name##_transition(AVFilterContext *ctx,                    
                                                                                     \
         for (int y = slice_start; y < slice_end; y++) {                             \
             const int zy = z + y;                                                   \
-            const int zz = zy % height + height * (zy < 0 && zy > -height);         \
+            const int zz = zy % height + height * (zy % height < 0);                \
             const type *xf0 = (const type *)(a->data[p] + zz * a->linesize[p]);     \
             const type *xf1 = (const type *)(b->data[p] + zz * b->linesize[p]);     \
                                                                                     \
@@ -573,7 +578,7 @@ static void slidedown##name##_transition(AVFilterContext *ctx,                  
                                                                                     \
         for (int y = slice_start; y < slice_end; y++) {                             \
             const int zy = z + y;                                                   \
-            const int zz = zy % height;                                             \
+            const int zz = zy % height + height * (zy % height < 0);                \
             const type *xf0 = (const type *)(a->data[p] + zz * a->linesize[p]);     \
             const type *xf1 = (const type *)(b->data[p] + zz * b->linesize[p]);     \
                                                                                     \
@@ -1460,14 +1465,14 @@ static void fadegrays##name##_transition(AVFilterContext *ctx,                  
                 const type *yf0 = (const type *)(a->data[0] +                        \
                                                  y * a->linesize[0]);                \
                 const type *yf1 = (const type *)(b->data[0] +                        \
-                                                 y * a->linesize[0]);                \
+                                                 y * b->linesize[0]);                \
                 bg[0][0] = yf0[x];                                                   \
                 bg[1][0] = yf1[x];                                                   \
                 if (s->nb_planes == 4) {                                             \
                     const type *af0 = (const type *)(a->data[3] +                    \
                                                      y * a->linesize[3]);            \
                     const type *af1 = (const type *)(b->data[3] +                    \
-                                                     y * a->linesize[3]);            \
+                                                     y * b->linesize[3]);            \
                     bg[0][3] = af0[x];                                               \
                     bg[1][3] = af1[x];                                               \
                 }                                                                    \
@@ -1640,9 +1645,10 @@ static void squeezeh##name##_transition(AVFilterContext *ctx,                   
         type *dst = (type *)(out->data[p] + slice_start * out->linesize[p]);         \
                                                                                      \
         for (int y = 0; y < height; y++) {                                           \
-            const float z = .5f + ((slice_start + y) / h - .5f) / progress;          \
+            const float z = progress > 0.f ?                                         \
+                            .5f + ((slice_start + y) / h - .5f) / progress : -1.f;   \
                                                                                      \
-            if (z < 0.f || z > 1.f || progress <= 0.f) {                             \
+            if (z < 0.f || z > 1.f) {                                                \
                 for (int x = 0; x < width; x++)                                      \
                     dst[x] = xf1[x];                                                 \
             } else {                                                                 \
@@ -1680,9 +1686,10 @@ static void squeezev##name##_transition(AVFilterContext *ctx,                   
                                                                                      \
         for (int y = 0; y < height; y++) {                                           \
             for (int x = 0; x < width; x++) {                                        \
-                const float z = .5f + (x / w - .5f) / progress;                      \
+                const float z = progress > 0.f ?                                     \
+                                .5f + (x / w - .5f) / progress : -1.f;               \
                                                                                      \
-                if (z < 0.f || z > 1.f || progress <= 0.f) {                         \
+                if (z < 0.f || z > 1.f) {                                            \
                     dst[x] = xf1[x];                                                 \
                 } else {                                                             \
                     const int xx = lrintf(z * (w - 1.f));                            \
@@ -1893,7 +1900,7 @@ static void cover##dir##name##_transition(AVFilterContext *ctx,                 
         for (int y = 0; y < height; y++) {                                           \
             for (int x = 0; x < width; x++) {                                        \
                 const int zx = z + x;                                                \
-                const int zz = zx % width + width * (zx < 0);                        \
+                const int zz = wrap_once(zx, width);                                 \
                 dst[x] = (zx >= 0) && (zx < width) ? xf1[zz] : xf0[x];               \
             }                                                                        \
                                                                                      \
@@ -1925,7 +1932,7 @@ static void cover##dir##name##_transition(AVFilterContext *ctx,                 
                                                                                     \
         for (int y = slice_start; y < slice_end; y++) {                             \
             const int zy = z + y;                                                   \
-            const int zz = zy % height + height * (zy < 0);                         \
+            const int zz = wrap_once(zy, height);                                   \
             const type *xf0 = (const type *)(a->data[p] +  y * a->linesize[p]);     \
             const type *xf1 = (const type *)(b->data[p] + zz * b->linesize[p]);     \
                                                                                     \
@@ -1961,7 +1968,7 @@ static void reveal##dir##name##_transition(AVFilterContext *ctx,                
         for (int y = 0; y < height; y++) {                                           \
             for (int x = 0; x < width; x++) {                                        \
                 const int zx = z + x;                                                \
-                const int zz = zx % width + width * (zx < 0 && zx > -width);         \
+                const int zz = wrap_once(zx, width);                                 \
                 dst[x] = (zx >= 0) && (zx < width) ? xf1[x] : xf0[zz];               \
             }                                                                        \
                                                                                      \
@@ -1993,7 +2000,7 @@ static void reveal##dir##name##_transition(AVFilterContext *ctx,                
                                                                                     \
         for (int y = slice_start; y < slice_end; y++) {                             \
             const int zy = z + y;                                                   \
-            const int zz = zy % height + height * (zy < 0 && zy > -height);         \
+            const int zz = wrap_once(zy, height);                                   \
             const type *xf0 = (const type *)(a->data[p] + zz * a->linesize[p]);     \
             const type *xf1 = (const type *)(b->data[p] +  y * b->linesize[p]);     \
                                                                                     \
@@ -2110,8 +2117,9 @@ static int config_output(AVFilterLink *outlink)
 
     s->start_pts = s->inputs_offset_pts = AV_NOPTS_VALUE;
 
-    if (s->duration)
-        s->duration_pts = av_rescale_q(s->duration, AV_TIME_BASE_Q, outlink->time_base);
+    s->duration_pts = av_rescale_q(s->duration, AV_TIME_BASE_Q, outlink->time_base);
+    if (!s->duration_pts)
+        s->duration_pts = 1;
 
     int ret = config_xfade_easing(ctx);
     if (ret <= 0) return ret; // error or extended transition
